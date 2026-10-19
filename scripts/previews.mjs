@@ -33,7 +33,9 @@ const QUICK = !!process.env.QUICK;
 // trails the mouse comes back to rest where it started), so the clip's end meets its start. `scroll` scrolls (px
 // per second), `press` holds keys for stretches of it ([key, from s, to s]). `settle` runs the world that many seconds on the recorder's clock
 // before the first frame kept (default 0.5; for worlds whose intro plays out in game time). A step's `wheel` scrolls once at the middle (to zoom
-// in before recording). `screenshot` captures the page rather than its canvas (a transparent canvas over a CSS backdrop), and
+// in before recording), and its `look` moves the mouse [dx, dy] px from the middle (to turn a pointer-locked camera). `lead`
+// ({ seconds, hold: [keys] }) walks that long on the recorder's clock with those keys down before the shot settles, for a world too
+// slow to walk anywhere in real time. `screenshot` captures the page rather than its canvas (a transparent canvas over a CSS backdrop), and
 // `patch` ([find, replace] in the world's code) lets `setup` reach a world's own state. `company` opens that many more players
 // (Orb's own worlds). `scale` draws the page at that many device pixels per CSS pixel
 // and `size` is the video's [width, height] (default W × H), for a crisper picture; `viewport` is the page's [width, height] in CSS
@@ -194,7 +196,20 @@ const SHOTS = {
   // Jumper Lab: the robot crab scuttling sideways across the living-room floor (its panels are the page's, not the canvas's)
   'ext-jumper-lab': { wait: 15000, hold: ['d'] },
   'aw-aimees-papercraft': { wait: 25000, steps: [{ click: [320, 282], wait: 15000 }], scroll: 700 },
-  'ext-verdant': { wait: 25000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['w', 'd'] },
+  // Verdant: the traveler following the trail from the campfire toward the Sanctuary, the camera with them (filmed as
+  // a page: reading its canvas gives an old picture)
+  'ext-verdant': {
+    ready: () => !!window.__world, wait: 20000, steps: [{ wheel: -300, wait: 3000 }, { wheel: -300, wait: 5000 }], screenshot: true, settle: 2.5,
+    setup: () => {
+      const w = window.__world;
+      if (!w) return;
+      if (w.cinematic?.active) w.toggleCinematic();
+      w.goToArea('sanctuary');
+      // everything but the canvas (and what holds it) out of the picture
+      const hide = (el) => { for (const c of el.children) if (c.tagName === 'CANVAS') continue; else if (c.querySelector('canvas')) hide(c); else c.style.display = 'none'; };
+      hide(document.body);
+    },
+  },
   'ext-sisyphus': { wait: 25000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['ArrowRight', 'd'] },
   // Emberglade: into the glade, sprinting across the meadow toward the trees, the camera turning a little
   'ext-emberglade': { wait: 40000, steps: [{ click: [112, 260], wait: 30000 }], hold: ['w', 'Shift'], drag: [12, 0] },
@@ -202,6 +217,25 @@ const SHOTS = {
   'ext-kanso': { wait: 25000, steps: [{ click: [320, 354], wait: 8000 }, { click: [373, 329], wait: 3000 }, { click: [320, 336], wait: 15000 }], drag: [15, 0] },
   // Pelagic Ocean: the swells rolling under the clouds, as it opens
   'ext-pelagic-ocean': { wait: 40000 },
+  // Sakura Realm: under the tree (walked up to first), its blossom and the meadow in the wind
+  'aw-sakura-realm': { wait: 40000, steps: [{ click: [320, 200], wait: 5000 }], lead: { seconds: 3, hold: ['w'] }, crf: [44, 29] },
+  // Point Lookout: surf breaking along the beach below the headland (past its loader's enter button)
+  'ext-point-lookout': { wait: 30000, steps: [{ click: [320, 200], wait: 20000 }] },
+  // Komorebi: the whole garden turning a little and back, pagoda, blossom and koi pond (filmed as a page: its canvas is see-through)
+  'ext-komorebi': {
+    wait: 30000, steps: [...Array(3).fill({ wheel: -200, wait: 1500 }), { wheel: -200, wait: 25000 }], screenshot: true, settle: 5.5,
+    drag: (t) => [W / 2 + 50 * Math.sin((2 * Math.PI * t) / SECONDS), H / 2],
+    setup: () => { for (const el of document.querySelectorAll('.ui, #sulat-demo-referral-overlay')) el.style.display = 'none'; },
+  },
+  // Beyond Fable: flying low over pines along a lakeshore on a clear afternoon, turned away from the mountain it starts
+  // facing (its world, hour and weather are set by the address)
+  'ext-beyond-fable': { query: 'seed=3777735625&tod=0.68&weather=clear', wait: 40000, steps: [{ click: [320, 200], wait: 15000 }, { key: 'f', wait: 3000 }, { look: [1496, 0], wait: 5000 }], lead: { seconds: 3, hold: ['Space'] }, hold: ['w'] },
+  // Voxel Frontline: over a barrier, down the road and round another into the foundry at the start of a wave (deployed
+  // in its probe mode: it won't start on a screen this narrow)
+  'ext-voxel-frontline': {
+    ready: () => !!window.frontline, wait: 20000, hold: ['w'], press: [['Space', 0.9, 1.1], ['Space', 1.3, 1.5], ['d', 2.4, 3.4]],
+    setup: async () => { window.frontline.start({ probe: true }); await new Promise((r) => setTimeout(r, 15000)); },
+  },
   // Long Wind: past the title and the first chapter's opening, the swordsman in the golden grass leaping at the bandits (the drag's
   // button is his strike) as the camera turns and back (walking on into them brings the fight's letterbox)
   'aw-long-wind': {
@@ -587,6 +621,7 @@ async function record(browser, id, shot) {
       if (s.click) await page.mouse.click(...s.click, { button: s.button ?? 'left' });
       if (s.key) await page.keyboard.press(s.key);
       if (s.wheel) { await page.mouse.move(vw / 2, vh / 2); await page.mouse.wheel(0, s.wheel); }
+      if (s.look) { await page.mouse.move(vw / 2, vh / 2); await page.mouse.move(vw / 2 + s.look[0], vh / 2 + s.look[1], { steps: 40 }); }
       if (s.wait) await page.waitForTimeout(s.wait);
     }
     if (shot.setup) await frames(page, shot.setup);
@@ -604,6 +639,11 @@ async function record(browser, id, shot) {
     // half a second (or `settle` seconds) before the first frame kept, so the shot is settled (the camera where it starts)
     await frames(page, () => window.__shot?.(0));
     const sub = shot.sub ?? SUB, step = 1000 / FPS / sub;
+    if (shot.lead) {
+      for (const k of shot.lead.hold) await page.keyboard.down(k);
+      for (let i = 0; i < Math.round(shot.lead.seconds * FPS * sub); i++) await frames(page, (ms) => window.__orbClock?.step(ms), step);
+      for (const k of shot.lead.hold) await page.keyboard.up(k);
+    }
     for (let i = 0; i < Math.round((shot.settle ?? 0.5) * FPS * sub); i++) await frames(page, (ms) => window.__orbClock?.step(ms), step);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${id}-frames-`));
     const n = QUICK ? 48 : Math.round((SECONDS + FADE) * FPS);
