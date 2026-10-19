@@ -141,6 +141,19 @@ const SHOTS = {
       await pause(5000);
     },
   },
+  // SynthCity: launched from its terminal in free roam, gliding over the neon city at night
+  'aw-synthcity': {
+    wait: 20000,
+    setup: async () => {
+      const go = document.getElementById('enterBtn');
+      if (!go) return;
+      window.userSettings.worldSeed = 9746;
+      $('input[name=settingsMode][value=freeroam]').prop('checked', true).trigger('change');
+      go.click();
+      await new Promise((r) => setTimeout(r, 90000));
+    },
+    hold: ['w'],
+  },
   // Jumper Lab: the robot crab scuttling sideways across the living-room floor (its panels are the page's, not the canvas's)
   'ext-jumper-lab': { wait: 15000, hold: ['d'] },
   'aw-aimees-papercraft': { wait: 25000, steps: [{ click: [320, 282], wait: 15000 }], scroll: 700 },
@@ -319,6 +332,19 @@ const SHOTS = {
       o.input.keys.add('KeyW');
       const yaw = o.cam.yaw;
       window.__shot = (t) => { o.cam.yaw = yaw + 0.04 * Math.sin(t * 0.7); o.input.jump = t % 1.6 < 0.08; };
+    },
+  },
+  // Singularity: an arc around the black hole as its disk swirls and the starfield bends round it (its own hook places the camera)
+  'ext-singularity': {
+    wait: 30000,
+    setup: () => {
+      const s = window.__SINGULARITY__;
+      if (!s) return;
+      s.setQuality('high');
+      window.__shot = (t) => {
+        const a = -0.25 + 0.5 * (t / 5), r = 19 - 1.5 * (t / 5);
+        s.setCamera([r * Math.sin(a), 2.6, r * Math.cos(a)], [0, 0.2, 0], 44);
+      };
     },
   },
   // VampireZ: a night with the bots, past the grace, the survivor running from the vampires on its own
