@@ -159,8 +159,32 @@ const SHOTS = {
   'aw-aimees-papercraft': { wait: 25000, steps: [{ click: [320, 282], wait: 15000 }], scroll: 700 },
   'ext-verdant': { wait: 25000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['w', 'd'] },
   'ext-sisyphus': { wait: 25000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['ArrowRight', 'd'] },
+  // Emberglade: into the glade, sprinting across the meadow toward the trees, the camera turning a little
+  'ext-emberglade': { wait: 40000, steps: [{ click: [112, 260], wait: 30000 }], hold: ['w', 'Shift'], drag: [12, 0] },
+  // Kansō: past the title and the tour, a cherry bonsai on the bench, the camera turning slowly round it
+  'ext-kanso': { wait: 25000, steps: [{ click: [320, 354], wait: 8000 }, { click: [373, 329], wait: 3000 }, { click: [320, 336], wait: 15000 }], drag: [15, 0] },
   // Pelagic Ocean: the swells rolling under the clouds, as it opens
   'ext-pelagic-ocean': { wait: 40000 },
+  // Long Wind: past the title and the first chapter's opening, the swordsman in the golden grass leaping at the bandits (the drag's
+  // button is his strike) as the camera turns and back (walking on into them brings the fight's letterbox)
+  'aw-long-wind': {
+    ready: () => /click to begin/.test(document.body.innerText), readyTimeout: 1200000, wait: 120000, drag: swing(160, 0),
+    // clicked until the title gives way (a click while it's still loading does nothing), then the chapter's opening
+    // shot plays out (slowly here)
+    setup: async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      const title = () => /click to begin/.test(document.body.innerText);
+      if (!title()) return;
+      for (let t = 0; t < 36 && title(); t++) {
+        const el = document.elementFromPoint(320, 312) ?? document.body;
+        for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
+          el.dispatchEvent(new (type.startsWith('pointer') ? PointerEvent : MouseEvent)(type, { bubbles: true, clientX: 320, clientY: 312 }));
+        }
+        await wait(5000);
+      }
+      await wait(330000);
+    },
+  },
   'aw-turbo-kart-rally': { wait: 30000, steps: [{ key: 'Enter', wait: 4000 }, { key: 'Enter', wait: 1500 }, { key: 'Enter', wait: 1500 }, { key: 'Enter', wait: 1500 }, { key: 'Enter', wait: 15000 }], hold: ['ArrowUp'] },
   // Wish Lanterns: on the dock at night, looking slowly across the lake as the lanterns rise
   'orb-lanterns': { wait: 15000, drag: [10, 0] },
