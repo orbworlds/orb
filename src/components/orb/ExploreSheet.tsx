@@ -10,6 +10,7 @@ import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useSta
 import { track } from '@/lib/analytics';
 import { api } from '@/lib/api';
 import { curatedRank } from '@/lib/curation';
+import { GITHUB_URL } from '@/lib/site';
 import { onPhone, touchFirst } from '@/lib/keyboard';
 import type { WorldCard as WorldCardData } from '@/lib/types';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -466,7 +467,7 @@ function ExploreOverlay({
           </div>
         </header>
 
-        <main className="px-3 pt-1 pb-[max(40px,env(safe-area-inset-bottom))] sm:px-5 lg:px-6">
+        <main className={`px-3 pt-1 sm:px-5 lg:px-6 ${home ? 'pb-10' : 'pb-[max(40px,env(safe-area-inset-bottom))]'}`}>
           <ResultsGrid
             key={`${filter}|${sort}|${q}`}
             queries={activeFilter.queries.map((p) => ({ ...(q && filter === 'all' ? {} : p), sort, ...(q ? { q } : {}) }))}
@@ -489,8 +490,32 @@ function ExploreOverlay({
             }}
           />
         </main>
+        {home && <Footer onTop={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} />}
       </div>
     </div>
+  );
+}
+
+/** The home page's foot, past the last world: Orb's name, its plans, its source (once public) and a way back up. */
+function Footer({ onTop }: { onTop(): void }) {
+  const link = 'rounded-full px-2.5 py-1.5 text-ink-2 transition-colors hover:text-ink';
+  return (
+    <footer className="mx-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-[color-mix(in_oklab,var(--ink)_8%,transparent)] py-5 pb-[max(20px,env(safe-area-inset-bottom))] text-[13px] sm:mx-5 lg:mx-6">
+      <span className="font-display text-[17px] text-ink">orbworlds</span>
+      <nav aria-label="About Orb" className="-mr-2.5 flex flex-wrap items-center">
+        <button type="button" className={link} onClick={() => useUi.getState().setPlans(true)}>
+          Plans
+        </button>
+        {GITHUB_URL && (
+          <a className={`${link} inline-flex items-center gap-1.5`} href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+            <Icon name="github" size={14} /> GitHub
+          </a>
+        )}
+        <button type="button" className={`${link} inline-flex items-center gap-1`} onClick={onTop}>
+          Back to top <Icon name="arrow-up" size={13} />
+        </button>
+      </nav>
+    </footer>
   );
 }
 
