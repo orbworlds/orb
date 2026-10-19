@@ -19,7 +19,10 @@ import { serve, TREE } from '../kit/lib/server.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = process.env.ORB_SITE || 'https://orbworlds.com';
-const W = 640, H = 400, FPS = 30, SECONDS = 5, FADE = 0.6;
+const W = 640, H = 400, FPS = 30, SECONDS = 4, FADE = 0.6;
+// The page is drawn at SCALE device pixels per CSS pixel, so the video is (W × H) · SCALE: cards are
+// shown up to 1.7× their CSS size on high-density screens, and the lead tile larger still.
+const SCALE = 2;
 // the world runs at 60 frames a second (some lower their resolution when slower); every other one is kept (a heavy world's
 // shot can say `sub: 1`: 30, all kept)
 const SUB = 2;
@@ -38,7 +41,7 @@ const QUICK = !!process.env.QUICK;
 // slow to walk anywhere in real time. `screenshot` captures the page rather than its canvas (a transparent canvas over a CSS backdrop), and
 // `patch` ([find, replace] in the world's code) lets `setup` reach a world's own state. `company` opens that many more players
 // (Orb's own worlds). `scale` draws the page at that many device pixels per CSS pixel
-// and `size` is the video's [width, height] (default W × H), for a crisper picture; `viewport` is the page's [width, height] in CSS
+// (default SCALE) and `size` is the video's [width, height] (default the page's at that scale); `viewport` is the page's [width, height] in CSS
 // pixels (default W × H; some sites take a small window for a turned phone); `crf` is [VP9, H.264] quality
 // (higher is smaller). `crop` keeps only [x, y, width, height] (CSS px) of the picture, for a world that draws its own
 // buttons and credits into its canvas. `mouse(t)` gives [x, y, down] for each frame of the recording (t in seconds): a
@@ -82,7 +85,7 @@ const SHOTS = {
   'ext-flowline': { wait: 30000, steps: [{ click: [320, 162], wait: 20000 }], settle: 3, press: [['d', 0.4, 0.9], ['a', 2.2, 2.7], ['a', 3.6, 4.2]] },
   // Tiny Planet: building a little town across the planet, a house at a time (its buttons and credit cropped off)
   'ext-tiny-planet': {
-    wait: 40000, steps: [{ click: [48, 112], wait: 3000 }], scale: 2, crop: [110, 50, 416, 260],
+    wait: 40000, steps: [{ click: [48, 112], wait: 3000 }], scale: 3, crop: [110, 50, 416, 260],
     mouse: (t) => {
       // from cell to cell over the planet's face, pressing for a moment on each
       const p = [[270, 170], [300, 158], [332, 172], [350, 200], [322, 218], [290, 228], [264, 206], [298, 192], [270, 170]];
@@ -93,7 +96,7 @@ const SHOTS = {
   // Brick Town: houses going up on an empty block, a click a storey (the town it starts with knocked down first, a
   // right click a block; its buttons and credit cropped off)
   'ext-brick-town': {
-    wait: 30000, scale: 2, crop: [152, 140, 336, 210],
+    wait: 30000, scale: 3, crop: [152, 140, 336, 210],
     steps: [0, 1, 2].flatMap(() => Array.from({ length: 13 * 15 }, (_, i) => ({ click: [200 + (i % 13) * 20, 60 + Math.floor(i / 13) * 20], button: 'right', wait: 250 }))),
     mouse: (t) => {
       const p = [[270, 282], [322, 302], [372, 280], [322, 252], [290, 262], [352, 266], [322, 282], [262, 298], [270, 282]];
@@ -108,7 +111,7 @@ const SHOTS = {
     mouse: (t) => [320 + 210 * Math.sin((2 * Math.PI * t) / 2.8), 200 + 110 * Math.sin((4 * Math.PI * t) / 2.8), t % 1.4 < 1.3],
   },
   // Ancient Earth: the globe of 240 million years ago turning, Pangaea coming round (the page's text is outside its canvas)
-  'ext-ancient-earth': { wait: 25000, scale: 2, crop: [136, 85, 368, 230] },
+  'ext-ancient-earth': { wait: 25000, scale: 3, crop: [136, 85, 368, 230] },
   // Marble Blast: past its menu into Time Trial (the tenth level), rolling off the start pad down its long straight
   'ext-marble-blast': {
     wait: 30000, hold: ['w'],
@@ -149,7 +152,7 @@ const SHOTS = {
   // King's Gambit: an AI-vs-AI duel, paused (its engines move on real-time timers, many a frame here), the camera
   // orbiting the torchlit board in the ruined temple. Its controls are the page's, not the canvas's
   'ext-kings-gambit': {
-    wait: 15000, steps: [{ click: [320, 200], wait: 8000 }], scale: 2, size: [960, 600], crf: [44, 28],
+    wait: 15000, steps: [{ click: [320, 200], wait: 8000 }], crf: [44, 28],
     setup: async () => {
       const press = (re) => {
         const b = [...document.querySelectorAll('button')].find((el) => re.test(el.textContent.trim() || el.getAttribute('aria-label')));
@@ -418,11 +421,11 @@ const SHOTS = {
   // Orbcraft: setting out from Haven at golden hour, out through the plaza toward the Wilds
   'orb-craft': {
     file: '?debug&nodaily', ready: () => window.__oc?.game.mode === 'wild' && window.__oc.player && document.getElementById('loading')?.classList.contains('out'), wait: 3000,
-    // drawn at twice the resolution (it lowers its own while loading slowly here) and kept at 960 × 600: blocks stay sharp on a big card
-    scale: 2, size: [960, 600], crf: [44, 28],
+    // the lead tile: drawn at 2.5× so its signs stay readable at that size
+    scale: 2.5, crf: [46, 30],
     setup: () => {
       const o = window.__oc;
-      o.renderer.setPixelRatio(2);
+      o.renderer.setPixelRatio(2.5);
       o.renderer.setSize(innerWidth, innerHeight);
       o.clockShift = (o.clockShift || 0) - o.wildClock().t + 560;   // as its thumbnail
       for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
@@ -589,9 +592,10 @@ async function record(browser, id, shot) {
     url = `${kit.url}?bare`;
   }
   const [vw, vh] = shot.viewport ?? [W, H];
-  const context = await browser.newContext({ viewport: { width: vw, height: vh }, deviceScaleFactor: shot.scale ?? 1 });
+  const context = await browser.newContext({ viewport: { width: vw, height: vh }, deviceScaleFactor: shot.scale ?? SCALE });
   const page = await context.newPage();
-  const [outW, outH] = shot.size ?? [W, H];
+  // (a crop is drawn finer, to come out at the usual size)
+  const [outW, outH] = shot.size ?? (shot.crop ? [W * SCALE, H * SCALE] : [Math.round(W * (shot.scale ?? SCALE)), Math.round(H * (shot.scale ?? SCALE))]);
   try {
     await page.addInitScript(clock, { blank: !!shot.blank });
     // Orb's own worlds: the kit's host, with the world's files from Orb

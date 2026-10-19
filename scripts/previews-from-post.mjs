@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // A world's looping preview cut from its maker's own video (the one in the post they shared it with),
 // for worlds whose makers filmed them better than scripts/previews.mjs can play them here. Same
-// format as that recorder: 5 seconds, 640×400, 30 fps, the last moment dissolving into the first;
+// format as that recorder: 4 seconds, 1280×800, 30 fps, the last moment dissolving into the first;
 // written to public/previews/<id>.webm and .mp4 and listed in src/data/previews.json.
 //
 //   node scripts/previews-from-post.mjs <id> <video url or file> [start seconds]
@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const W = 640, H = 400, FPS = 30, SECONDS = 5, FADE = 0.6;
+const W = 1280, H = 800, FPS = 30, SECONDS = 4, FADE = 0.6;
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const [id, src, startArg] = process.argv.slice(2);
 if (!id || !src) {

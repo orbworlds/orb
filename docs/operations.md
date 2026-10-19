@@ -368,7 +368,8 @@ after changing how Hollowmere, its vampires or its logo look; `node scripts/thum
 Bed Wars (Red's champion over Blue's bed on Sunset Mesa), and `node scripts/thumb-craft.mjs` for Orbcraft (Haven's
 plaza, its keepers and portals, and the Wilds past the north gate).
 `node scripts/previews.mjs [id …]` records the looping video previews that the top worlds' cards play
-(`public/previews/`). How each world is shot is set in the script; `QUICK=1` takes a few stills first, to check a shot.
+(`public/previews/`): 4 s loops at 1280×800 (the page drawn at twice its 640×400 size, so they stay sharp on
+high-density screens; the lead tile's Orbcraft at 2.5×). How each world is shot is set in the script; `QUICK=1` takes a few stills first, to check a shot.
 `node scripts/previews-from-post.mjs <id> <video> [start]` cuts one from its maker's own video instead (the
 one in their post; for X, `https://api.fxtwitter.com/<user>/status/<id>` lists its files), for worlds
 they filmed better than the recorder can play them here; `SHEET=1` shows stills with their times, to pick the start. A trailer that cuts every few seconds can still
