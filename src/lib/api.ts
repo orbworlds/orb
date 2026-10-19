@@ -112,6 +112,8 @@ export const api = {
   logout: () => call<{ ok: true }>('/api/auth/logout', { method: 'POST', body: '{}' }),
 
   friends: () => call<FriendsData>('/api/friends'),
+  /** "I'm in this world" while it's on screen (null: not any more), for Explore's playing-now. */
+  here: (worldId: string | null) => call<{ ok: true }>('/api/here', { method: 'POST', body: JSON.stringify({ worldId }) }),
   syncFriends: (worldId: string | null, rooms: FriendRoom[] = []) => call<FriendsData>('/api/friends/sync', { method: 'POST', body: JSON.stringify({ worldId, rooms }) }),
   addFriend: (username: string) => call<{ state: FriendState; person: Person; friends: FriendsData }>('/api/friends', { method: 'POST', body: JSON.stringify({ username }) }),
   acceptFriend: (id: string) => call<{ friends: FriendsData }>(`/api/friends/${enc(id)}`, { method: 'POST', body: '{}' }),

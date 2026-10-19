@@ -151,6 +151,14 @@ create table if not exists orb_presence (
 );
 -- The world's rooms that page is in, with its peer id in each: [{ room, peer }] (friends see it there).
 alter table orb_presence add column if not exists rooms jsonb;
+-- Who is in which world right now, anyone (a heartbeat while a public world is on screen; one row
+-- per account or device): Explore's "playing now". Rows older than a few minutes mean nothing.
+create table if not exists orb_here (
+  who text primary key,
+  world_id text not null,
+  at timestamptz not null default now()
+);
+create index if not exists orb_here_world on orb_here(world_id, at);
 -- What friends did for someone: asked to be friends, accepted, invited them into a world.
 create table if not exists orb_notifications (
   id bigserial primary key,

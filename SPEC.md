@@ -407,7 +407,8 @@ Explore lists `visibility='public'` worlds that have a thumbnail and a name othe
 trending without a search the first tile leads, two columns by two rows, on wide screens). A tile
 is the world's picture (or preview); its name, maker, description (or the prompt it was made with,
 quoted) and numbers (plays, likes, views of its maker's post, remixes; none that are zero) show on
-hover or keyboard focus, and on touch screens its name and maker stay on it. A click plays it. The
+hover or keyboard focus, and on touch screens its name and maker stay on it. A world with people in
+it right now always says so ("● 3 playing": `WorldCard.live`, from `orb_here`). A click plays it. The
 header (filters, sort, search, New world) slips away while scrolling down and comes back on the way
 up. Sorts: Trending (default), Most played (`plays`), Most liked (`likes`), Most viewed (the views
 of the maker's post, or its plays if more) and Newest. People's own worlds join the ranked sorts (all but
@@ -431,6 +432,9 @@ The top worlds have a **live preview**: a few seconds of the world as a looping 
 thumbnail while the card is on screen, and pause it when it isn't. The video only loads once the card
 scrolls into view, and fades in once it plays. With `prefers-reduced-motion` or Save-Data the
 thumbnail stays still.
+
+`orb_here` (`who`: 'u:<account>' or 'd:<device hash>', `world_id`, `at`): who is in which public world
+right now, one row each, from that heartbeat; stale rows are swept.
 
 GitHub sync (§2): `orb_world_repos` (one per linked world: `repo`, `branch`, `root` (where the
 world's files are in the repository), `synced_sha` and `synced_tree` (what both sides last agreed
@@ -600,6 +604,7 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `POST /api/move/passkey` | `{ kind: 'signin'\|'signup', name?, to }` | `{ url }` of the passkey home's `/move` (sets the state cookie) |
 | `GET /api/github/login` → GitHub → `GET /api/github/callback` | | redirects to `/#gh_token=…` (only if OAuth configured), which the page gives to `POST /api/me/github` |
 | `POST /api/admin/worlds/:id` | header `x-admin-token`; `{ verified?, featured? }` | `{ ok: true }` |
+| `POST /api/here` | `{ worldId }` (null: left) | `{ ok }`: "I'm in this world", sent every 45 s while a public world is on screen (and null when it no longer is); a world's cards count who did in the last 90 s (`live`) |
 | `POST /api/admin/credits` | header `x-admin-token`; `{ handle, credits, ref }` | `{ given, wallet }`: gifts the account (or the guest, by its device's handle) bonus credits (they build but can't be cashed out), once per `ref` |
 | `POST /api/events` | `{ sent, mobile?, device?, events: [{ name, t, session, path?, world?, props?, ref? }] }` (≤ 50 events; `t` and `sent` are the browser's epoch ms) | always 200 `{ accepted }` (see Analytics below) |
 

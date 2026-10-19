@@ -239,6 +239,7 @@ interface CardRow {
   slug: string | null;
   license: string | null;
   origin: unknown;
+  live?: number | string | null;
 }
 
 interface FullRow extends CardRow {
@@ -265,9 +266,12 @@ interface MetaRow {
   owner_user: string | null;
 }
 
+/** How recent a heartbeat (orb_here) still counts someone as in a world. */
+export const LIVE_SECONDS = 90;
 const CARD_COLS = `w.id, w.name, w.description, w.kind, w.external_url, w.source_url, w.author_name, w.visibility,
   w.forkable, w.forked_from, case when f.visibility = 'public' then f.name end as forked_from_name, w.template,
-  w.verified, w.featured, w.tags, w.thumb_version, w.thumb_url, w.plays, w.likes, w.forks, w.created_at, w.updated_at, w.handle, w.slug, w.license, w.origin`;
+  w.verified, w.featured, w.tags, w.thumb_version, w.thumb_url, w.plays, w.likes, w.forks, w.created_at, w.updated_at, w.handle, w.slug, w.license, w.origin,
+  (select count(*) from orb_here h where h.world_id = w.id and h.at > now() - interval '${LIVE_SECONDS} seconds')::int as live`;
 const CARD_FROM = `orb_worlds w left join orb_worlds f on f.id = w.forked_from`;
 const META_COLS = `id, name, kind, visibility, forkable, owner_device, owner_user`;
 
@@ -308,7 +312,26 @@ export function toCard(r: CardRow): WorldCard {
     path: r.handle && r.slug ? `${r.handle}/${r.slug}` : null,
     license: r.license ?? null,
     origin: toOrigin(r.origin),
+    live: Number(r.live) || 0,
   };
+}
+
+/** "I'm in this world" (a public one on screen), or null when no longer: for Explore's playing-now. */
+export async function markHere(db: Db, viewer: Viewer, worldId: string | null): Promise<void> {
+  const who = viewer.userId ? `u:${viewer.userId}` : viewer.deviceHash ? `d:${viewer.deviceHash}` : null;
+  if (!who) return;
+  if (!worldId) {
+    await db.query(`delete from orb_here where who = $1`, [who]);
+    return;
+  }
+  if (!isWorldId(worldId)) fail(400, 'bad_request', 'Bad world id.');
+  await db.query(
+    `insert into orb_here (who, world_id, at) select $1, w.id, now() from orb_worlds w where w.id = $2 and w.visibility = 'public'
+     on conflict (who) do update set world_id = excluded.world_id, at = now()`,
+    [who, worldId],
+  );
+  // now and then, the stale ones go
+  if (Math.random() < 0.02) await db.query(`delete from orb_here where at < now() - interval '1 hour'`);
 }
 
 const count = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : null);

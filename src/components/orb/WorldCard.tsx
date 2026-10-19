@@ -425,6 +425,17 @@ export function ExploreTile({
         </span>
       )}
 
+      {/* People in it right now: always shown (it's an invitation), out of Remix's way on hover. */}
+      {!!world.live && (
+        <span className={`pointer-events-none absolute top-2.5 right-2.5 z-[2] flex h-7 items-center gap-1.5 rounded-full bg-[rgba(8,8,16,.55)] pr-2.5 pl-2 text-[12px] font-medium text-white backdrop-blur-md transition-opacity duration-200 ${canRemix ? 'group-hover/tile:opacity-0' : ''}`}>
+          <span aria-hidden="true" className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#4ade80] opacity-60 motion-reduce:animate-none" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#4ade80]" />
+          </span>
+          {world.live} playing
+        </span>
+      )}
+
       {/* The whole tile opens the world. */}
       <button
         type="button"

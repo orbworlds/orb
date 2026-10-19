@@ -230,6 +230,32 @@ export default function Shell({
     if (ui.panelOpen) writeJSON(ORB_OPENED_KEY, true);
   }, [ui.panelOpen]);
 
+  // ---- "I'm in this world" while a public one is on screen (Explore's playing-now) ----------------
+  const hereId = world && status === 'ready' && world.visibility === 'public' ? world.id : null;
+  const hereSent = useRef(false);
+  useEffect(() => {
+    if (!hereId) {
+      if (hereSent.current) void api.here(null).catch(() => {});
+      hereSent.current = false;
+      return;
+    }
+    const beat = () => {
+      if (document.visibilityState !== 'visible') return;
+      hereSent.current = true;
+      void api.here(hereId).catch(() => {});
+    };
+    beat();
+    const t = setInterval(beat, 45_000);
+    document.addEventListener('visibilitychange', beat);
+    const gone = () => navigator.sendBeacon?.('/api/here', new Blob([JSON.stringify({ worldId: null })], { type: 'application/json' }));
+    window.addEventListener('pagehide', gone);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', beat);
+      window.removeEventListener('pagehide', gone);
+    };
+  }, [hereId]);
+
   // ---- the browser's storage is full (big world saves): say so once instead of failing silently ----
   useEffect(() => {
     let told = false;

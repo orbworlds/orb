@@ -38,6 +38,8 @@ export interface WorldCard {
   updatedAt: string;
   /** Curated worlds: where they came from (their maker's post, the prompt they shared). */
   origin?: WorldOrigin | null;
+  /** How many are in it right now (a heartbeat in the last 90 s). */
+  live?: number;
 }
 
 /** Where a curated world came from, as its maker shared it. Every field may be unknown. */
