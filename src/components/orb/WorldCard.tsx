@@ -439,7 +439,7 @@ export function ExploreTile({
           type="button"
           onClick={() => onRemix!(world)}
           aria-label={`Remix ${world.name}`}
-          className="glass absolute top-2.5 right-2.5 z-[2] flex h-8 items-center gap-1.5 rounded-full pr-3 pl-2.5 text-[12.5px] font-medium text-ink opacity-0 transition-[opacity,transform] duration-200 ease-[var(--ease)] group-hover/tile:opacity-100 hover:scale-[1.03] focus-visible:rounded-full focus-visible:opacity-100 active:scale-[.97] [@media(hover:none)]:opacity-100"
+          className="glass absolute top-2.5 right-2.5 z-[2] flex h-8 items-center gap-1.5 rounded-full pr-3 pl-2.5 text-[12.5px] font-medium text-ink opacity-0 transition-[opacity,transform] duration-200 ease-[var(--ease)] group-hover/tile:opacity-100 hover:scale-[1.03] focus-visible:rounded-full focus-visible:opacity-100 active:scale-[.97] phone:hidden"
         >
           <Icon name="remix" size={14} />
           Remix

@@ -262,6 +262,7 @@ function ExploreOverlay({
   });
   const [sort, setSort] = useState<SortId>(initial.sort ?? 'trending');
   const [scrolled, setScrolled] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   // The header slips away while scrolling down through the worlds and comes back on the way up.
   const [tucked, setTucked] = useState(false);
   const lastTop = useRef(0);
@@ -436,10 +437,24 @@ function ExploreOverlay({
               <div className="hidden lg:order-3 lg:ml-auto lg:block">
                 <SortMenu value={sort} onChange={pickSort} />
               </div>
-              <div className="order-4 basis-full sm:order-2 sm:ml-auto sm:basis-auto sm:w-[min(340px,40vw)] lg:order-4 lg:ml-0 lg:w-[min(320px,24vw)]">
+              {/* Phones: search sits behind an icon until it's wanted, so the worlds get the screen. */}
+              <div className={`order-4 basis-full sm:order-2 sm:ml-auto sm:block sm:basis-auto sm:w-[min(340px,40vw)] lg:order-4 lg:ml-0 lg:w-[min(320px,24vw)] ${searchOpen || input ? '' : 'hidden'}`}>
                 <SearchField inputRef={searchRef} value={input} onChange={setInput} onSubmit={() => setQ(input.trim())} />
               </div>
               <div className="order-2 ml-auto flex items-center gap-2 sm:order-3 sm:ml-0 lg:order-5">
+                {!searchOpen && !input && (
+                  <IconButton
+                    icon="search"
+                    label="Search worlds"
+                    variant="glass"
+                    size={40}
+                    className="sm:hidden"
+                    onClick={() => {
+                      setSearchOpen(true);
+                      requestAnimationFrame(() => searchRef.current?.focus());
+                    }}
+                  />
+                )}
                 {onNewWorld && !home && (
                   <Button variant="primary" icon="sparkle" onClick={onNewWorld} className="shrink-0">
                     New world
