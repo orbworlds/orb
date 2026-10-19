@@ -99,8 +99,6 @@ export function PlanCard() {
             </div>
             <div className="truncate text-[12.5px] text-ink-2">
               {when}
-              {c.topup > 0 ? ` · ${formatCredits(c.topup)} from top-ups` : ''}
-              {c.bonus > 0 ? ` · ${formatCredits(c.bonus)} from your earnings` : ''}
               {c.pastDue ? ' · the last payment didn’t go through' : ''}
             </div>
           </div>
@@ -121,17 +119,11 @@ export function PlanCard() {
                 <div className="min-w-0 flex-1">
                   <div className="text-[13.5px] leading-snug font-medium text-ink tabular-nums">
                     {formatCredits(info.earnings.credits)} credits earned · ≈ {usd(info.earnings.credits)}
-                    {info.earnings.total > info.earnings.credits ? ` · ${formatCredits(info.earnings.total)} in all` : ''}
                   </div>
                   <div className="text-[12px] leading-snug text-ink-2">{payoutLine(info.earnings.payouts, info.earnings.credits)}</div>
                 </div>
               ) : (
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13.5px] font-medium text-ink">Make money with your worlds</div>
-                  <div className="text-[12px] leading-snug text-ink-2">
-                    Add a shop to a world you made: you get {Math.round(info.plans.shopShare * 100)}% of what players pay{info.earnings.payouts ? ', paid out to your bank' : ''}.
-                  </div>
-                </div>
+                <div className="min-w-0 flex-1 text-[13.5px] leading-snug font-medium text-ink">Make money with your worlds by adding a shop</div>
               )}
               {info.earnings.credits > 0 ? (
                 <Button variant="glass" size="sm" onClick={() => void useBilling.getState().buildWithEarnings()} disabled={!!going} className="shrink-0">

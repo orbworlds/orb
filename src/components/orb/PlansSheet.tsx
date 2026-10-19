@@ -114,9 +114,9 @@ function Plans({ info, signedIn, onClose }: { info: BillingInfo; signedIn: boole
       )}
 
       <p className="mt-4 text-[13px] leading-snug text-ink-2">
-        <span className="font-medium text-ink">Make money with your worlds.</span> Add a shop to a world you made: when players buy things with credits they paid for, you get {Math.round(p.shopShare * 100)}%.
+        <span className="font-medium text-ink">Make money with your worlds</span> by adding a shop.
       </p>
-      <p className="mt-3 text-[12.5px] leading-snug text-ink-3">Credits refresh every month; top-ups stay until used. Cancel anytime.</p>
+      <p className="mt-3 text-[12.5px] leading-snug text-ink-3">Credits refresh monthly. Top-ups never expire. Cancel anytime.</p>
     </>
   );
 }
