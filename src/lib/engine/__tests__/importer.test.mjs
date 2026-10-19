@@ -1,0 +1,50 @@
+// Importing a GitHub repository as a world (src/server/importer.ts): local-dev three.js import
+// maps and root-absolute files in the tree are rewritten so the page runs from Orb's file tree.
+import { register } from 'node:module';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+register('./resolve-hooks.mjs', import.meta.url);
+
+const { rewritePageForOrb, stripTrackers } = await import('../../../server/importer.ts');
+
+const PAGE = `<!doctype html>
+<html><head>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<script type="module" src="/src/main.js"></script>
+<img src="/media/shot.jpg">
+<link href="/missing.css" rel="stylesheet">
+</body></html>`;
+
+test('three.js from node_modules becomes jsdelivr; files in the tree become relative', () => {
+  const html = rewritePageForOrb(PAGE, new Set(['src/main.js', 'media/shot.jpg']), JSON.stringify({ dependencies: { three: '^0.186.1' } }));
+  assert.match(html, /cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/build\/three\.module\.js/);
+  assert.match(html, /cdn\.jsdelivr\.net\/npm\/three@0\.186\.1\/examples\/jsm\//);
+  assert.doesNotMatch(html, /node_modules\/three/);
+  assert.match(html, /src="src\/main\.js"/);
+  assert.match(html, /src="media\/shot\.jpg"/);
+  assert.match(html, /href="\/missing\.css"/, 'paths that are not in the tree stay absolute');
+});
+
+test('a page that already uses jsdelivr is left alone', () => {
+  const page = `<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script><script src="/src/main.js"></script>`;
+  const html = rewritePageForOrb(page, new Set(['src/main.js']));
+  assert.match(html, /three@0\.160\.0/);
+  assert.match(html, /src="src\/main\.js"/);
+});
+
+test('tracker stripping still runs on a rewritten page', () => {
+  const dirty = `${PAGE}<script src="https://www.google-analytics.com/analytics.js"></script>`;
+  const html = rewritePageForOrb(stripTrackers(dirty), new Set(['src/main.js']));
+  assert.doesNotMatch(html, /google-analytics/);
+  assert.match(html, /cdn\.jsdelivr\.net\/npm\/three@/);
+});

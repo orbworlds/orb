@@ -1,0 +1,545 @@
+#!/usr/bin/env node
+// Records the looping video previews Explore and the start screen play on world cards
+// (public/previews/<id>.webm and .mp4, listed with a hash of each in src/data/previews.json). Each world is played in Chromium
+// with its clock taken over: time stands still between frames, so a frame is drawn, captured and
+// only then does the world move on by 1/30 s. The video is as smooth as on a fast GPU however slow
+// software WebGL is here. Embedded worlds are recorded from their site, Orb's own from Orb's files in
+// the kit's host (the frame and runtime they get on Orb). The end crossfades into the start so it loops.
+//
+//   node scripts/previews.mjs [id …]          the worlds in SHOTS below (default: all of them)
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import sharp from 'sharp';
+import { createHash } from 'node:crypto';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { launch } from './pw.mjs';
+import { serve, TREE } from '../kit/lib/server.mjs';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SITE = process.env.ORB_SITE || 'https://orbworlds.com';
+const W = 640, H = 400, FPS = 30, SECONDS = 5, FADE = 0.6;
+// the world runs at 60 frames a second (some lower their resolution when slower); every other one is kept (a heavy world's
+// shot can say `sub: 1`: 30, all kept)
+const SUB = 2;
+// QUICK=1: every sixth frame of the first two seconds, to check a shot before recording it
+const QUICK = !!process.env.QUICK;
+
+// How each preview is shot: `wait` ms of real time for the world to load, then `steps` (real time,
+// before the clock is taken over), then `hold` keys held down while recording. `drag` turns the
+// camera slowly with the mouse during the recording ([dx, dy] px per second from the middle, or a path: t s → [x, y] px), with
+// `button` held; `swing(dx, dy, x, y)` is the path out by [dx, dy] and back over the clip, easing in and out (a camera that
+// trails the mouse comes back to rest where it started), so the clip's end meets its start. `scroll` scrolls (px
+// per second), `press` holds keys for stretches of it ([key, from s, to s]). `settle` runs the world that many seconds on the recorder's clock
+// before the first frame kept (default 0.5; for worlds whose intro plays out in game time). A step's `wheel` scrolls once at the middle (to zoom
+// in before recording). `screenshot` captures the page rather than its canvas (a transparent canvas over a CSS backdrop), and
+// `patch` ([find, replace] in the world's code) lets `setup` reach a world's own state. `company` opens that many more players
+// (Orb's own worlds). `scale` draws the page at that many device pixels per CSS pixel
+// and `size` is the video's [width, height] (default W × H), for a crisper picture; `crf` is [VP9, H.264] quality
+// (higher is smaller). `crop` keeps only [x, y, width, height] (CSS px) of the picture, for a world that draws its own
+// buttons and credits into its canvas. `mouse(t)` gives [x, y, down] for each frame of the recording (t in seconds): a
+// path the pointer follows, pressing to build or paint as it goes. Orb's single-file games are opened as a file with `file` as the query (their debug hooks): `ready` waits for the
+// game, `setup` (after the steps) stages it and may define `window.__shot(t)`, called before each frame with the
+// recording's time in seconds (to fly the camera).
+const swing = (dx, dy, x = W / 2, y = H / 2) => (t) => { const e = (1 - Math.cos((2 * Math.PI * t) / SECONDS)) / 2; return [x + dx * e, y + dy * e]; };
+const SHOTS = {
+  // Tiny Planet: building a little town across the planet, a house at a time (its buttons and credit cropped off)
+  'ext-tiny-planet': {
+    wait: 40000, steps: [{ click: [48, 112], wait: 3000 }], scale: 2, crop: [110, 50, 416, 260],
+    mouse: (t) => {
+      // from cell to cell over the planet's face, pressing for a moment on each
+      const p = [[270, 170], [300, 158], [332, 172], [350, 200], [322, 218], [290, 228], [264, 206], [298, 192], [270, 170]];
+      const k = Math.floor(t / 0.7), f = Math.min(1, ((t % 0.7) / 0.7) * 1.6), [a, b] = [p[k % 8], p[(k % 8) + 1]];
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, t % 0.7 > 0.5 && t % 0.7 < 0.6];
+    },
+  },
+  // Brick Town: houses going up on an empty block, a click a storey (the town it starts with knocked down first, a
+  // right click a block; its buttons and credit cropped off)
+  'ext-brick-town': {
+    wait: 30000, scale: 2, crop: [152, 140, 336, 210],
+    steps: [0, 1, 2].flatMap(() => Array.from({ length: 13 * 15 }, (_, i) => ({ click: [200 + (i % 13) * 20, 60 + Math.floor(i / 13) * 20], button: 'right', wait: 250 }))),
+    mouse: (t) => {
+      const p = [[270, 282], [322, 302], [372, 280], [322, 252], [290, 262], [352, 266], [322, 282], [262, 298], [270, 282]];
+      const k = Math.floor(t / 0.7), f = Math.min(1, ((t % 0.7) / 0.7) * 1.6), [a, b] = [p[k % 8], p[(k % 8) + 1]];
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, t % 0.7 > 0.5 && t % 0.7 < 0.6];
+    },
+  },
+  // Fluid: ink swirled through the water with the pointer held down, round and round in a figure eight (let go for a
+  // moment now and then: each stroke takes a new colour)
+  'ext-fluid': {
+    wait: 20000, crf: [48, 31], setup: () => document.querySelectorAll('.dg.ac').forEach((el) => el.remove()),   // its settings panel, over the canvas
+    mouse: (t) => [320 + 210 * Math.sin((2 * Math.PI * t) / 2.8), 200 + 110 * Math.sin((4 * Math.PI * t) / 2.8), t % 1.4 < 1.3],
+  },
+  // Ancient Earth: the globe of 240 million years ago turning, Pangaea coming round (the page's text is outside its canvas)
+  'ext-ancient-earth': { wait: 25000, scale: 2, crop: [136, 85, 368, 230] },
+  // Marble Blast: past its menu into Time Trial (the tenth level), rolling off the start pad down its long straight
+  'ext-marble-blast': {
+    wait: 30000, hold: ['w'],
+    steps: [{ click: [105, 42], wait: 4000 }, ...Array(9).fill({ click: [480, 264], wait: 3000 }), { click: [417, 264], wait: 30000 }],
+  },
+  // HexGL: its HUD turned off in the menu, past the controls card, racing off the start line and round the first bends,
+  // steered by looking ahead on its collision map (the track's open pixels) and turning toward the side with more room
+  'ext-hexgl': {
+    wait: 20000, steps: [{ click: [320, 297], wait: 1000 }, { click: [320, 155], wait: 10000 }, { click: [320, 200], wait: 60000 }],
+    hold: ['ArrowUp'],
+    setup: () => {
+      const c = window.hexGL?.components?.shipControls;
+      if (!c) return;
+      window.__shot = () => {
+        const m = c.collisionMap;
+        if (!m?.loaded) return;
+        const x = m.pixels.width / 2 + c.dummy.position.x * c.collisionPixelRatio, z = m.pixels.height / 2 + c.dummy.position.z * c.collisionPixelRatio;
+        // how far the track is open at angle a off the ship's heading (positive: to its left)
+        const open = (a) => {
+          const v = new THREE.Vector3(Math.sin(a), 0, Math.cos(a));
+          c.dummy.matrix.rotateAxis(v);
+          let d = 1;
+          while (d < 150 && (m.getPixel(Math.round(x + v.x * d), Math.round(z + v.z * d))?.r ?? 0) === 255) d++;
+          return d;
+        };
+        const l = open(0.15) + open(0.35), r = open(-0.15) + open(-0.35);
+        c.key.left = l > r * 1.15;
+        c.key.right = r > l * 1.15;
+      };
+    },
+  },
+  // Walden walks with WASD (not the arrows), and a held mouse button swings the sword: walking down the path to the arch
+  'ext-walden': { wait: 60000, steps: [{ click: [320, 200], wait: 35000 }], hold: ['w'] },
+  'aw-fall-line': { wait: 40000 },
+  'ext-cyber-city-orion': { wait: 60000, steps: [{ click: [320, 276], wait: 60000 }], hold: ['w'], drag: [10, 0] },
+  // Claybound is a side-on platformer that sets its level up slowly here: running right, jumping up the steps
+  'ext-claybound': { wait: 40000, steps: [{ click: [152, 168], wait: 150000 }], hold: ['d'], press: [['w', 1.3, 1.8], ['w', 2.9, 3.3], ['w', 4.3, 4.8]] },
+  // King's Gambit: an AI-vs-AI duel, paused (its engines move on real-time timers, many a frame here), the camera
+  // orbiting the torchlit board in the ruined temple. Its controls are the page's, not the canvas's
+  'ext-kings-gambit': {
+    wait: 15000, steps: [{ click: [320, 200], wait: 8000 }], scale: 2, size: [960, 600], crf: [44, 28],
+    setup: async () => {
+      const press = (re) => {
+        const b = [...document.querySelectorAll('button')].find((el) => re.test(el.textContent.trim() || el.getAttribute('aria-label')));
+        b?.click();
+        return !!b;
+      };
+      const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+      if (!press(/^ai vs ai$/i)) return;
+      await pause(1500);
+      press(/^start ai vs ai$/i);
+      await pause(10000);
+      press(/^camera: orbit$/i);
+      press(/^pause the ai vs ai duel$/i);
+      await pause(5000);
+    },
+  },
+  // Jumper Lab: the robot crab scuttling sideways across the living-room floor (its panels are the page's, not the canvas's)
+  'ext-jumper-lab': { wait: 15000, hold: ['d'] },
+  'aw-aimees-papercraft': { wait: 25000, steps: [{ click: [320, 282], wait: 15000 }], scroll: 700 },
+  'ext-verdant': { wait: 25000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['w', 'd'] },
+  'ext-sisyphus': { wait: 25000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['ArrowRight', 'd'] },
+  // Pelagic Ocean: the swells rolling under the clouds, as it opens
+  'ext-pelagic-ocean': { wait: 40000 },
+  'aw-turbo-kart-rally': { wait: 30000, steps: [{ key: 'Enter', wait: 4000 }, { key: 'Enter', wait: 1500 }, { key: 'Enter', wait: 1500 }, { key: 'Enter', wait: 1500 }, { key: 'Enter', wait: 15000 }], hold: ['ArrowUp'] },
+  // Wish Lanterns: on the dock at night, looking slowly across the lake as the lanterns rise
+  'orb-lanterns': { wait: 15000, drag: [10, 0] },
+  // Community Garden: closer in, turning around the flower bed and back
+  'orb-garden': { wait: 15000, steps: [{ wheel: -600, wait: 5000 }], drag: swing(70, 0) },
+  // Hangout: strolling along the plaza past the fountain and the others there at dusk, and back
+  'orb-hangout': {
+    wait: 20000, company: 3,
+    patch: [['const camOffset = ', 'window.__hangout = { self, camera }; const camOffset = ']],
+    setup: () => {
+      const { self: me, camera } = window.__hangout ?? {};
+      if (!me) return;
+      // in front of the others (they stand where they came in, just before the fountain), the camera settled behind
+      const p = me.group.position;
+      p.set(3, 0, 9);
+      camera.position.set(3, 5.2, 22.5);
+      camera.lookAt(3, 1.4, 6);
+      window.__shot = (t) => {
+        const a = (2 * Math.PI * t) / 5;
+        p.set(3 - 12 * (1 - Math.cos(a)) / 2, 0, 9);
+        me.heading = Math.abs(Math.sin(a)) < 0.3 ? 0 : Math.sin(a) > 0 ? -Math.PI / 2 : Math.PI / 2;   // facing us when it stops
+      };
+    },
+  },
+  // Seashell Island: the camera swinging around the little explorer on the beach, the hut, palms and the sea
+  'orb-island': { wait: 20000, drag: swing(120, 20) },
+  // Block Garden: closer in, turning around the floating island and its cottage and back
+  'orb-blocks': { wait: 15000, steps: [{ wheel: -400, wait: 5000 }], drag: swing(70, 0) },
+  // Star Runner: running the candy clouds, switching lanes for stars and jumping the jellies (it steers itself here)
+  'orb-runner': {
+    wait: 10000,
+    patch: [['let overAt = 0;', 'let overAt = 0; window.__runner = { get state() { return state; }, get lane() { return lane; }, get speed() { return speed; }, obstacles, starPool, moveLane, jump, startGame };']],
+    setup: async () => {
+      const r = window.__runner;
+      if (!r) return;
+      const laneOf = (m) => Math.round(m.position.x / 1.8);
+      const near = (l, from, to) => r.obstacles.filter((o) => o.visible && laneOf(o) === l && o.position.z < from && o.position.z > to);
+      let played = 0, last = 0;
+      const tick = (ts) => {
+        played += last ? Math.min(0.05, (ts - last) / 1000) : 0; last = ts;
+        if (r.state === 'play') {
+          // the best lane next to this one: no gumdrop ahead, few jellies, stars to collect
+          const score = (l) => (near(l, 1.2, -14).some((o) => o.userData.type === 'gum') ? -100 : 0) - near(l, 1.2, -14).length
+            + 0.5 * r.starPool.filter((s) => s.visible && laneOf(s) === l && s.position.z < 0 && s.position.z > -18).length;
+          const here = score(r.lane);
+          for (const d of [-1, 1]) {
+            const l = r.lane + d;
+            if (l < -1 || l > 1 || near(l, 1.4, -3.2).length) continue;
+            if (score(l) > here + 0.6) { r.moveLane(d); break; }
+          }
+          const at = -r.speed * 0.3;
+          if (near(r.lane, at + 0.7, at - 0.7).some((o) => o.userData.type === 'jelly')) r.jump();
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      r.startGame();
+      // a few seconds into the run: up to speed, the camera behind
+      for (const until = Date.now() + 600000; played < 3 && Date.now() < until;) await new Promise((ok) => setTimeout(ok, 500));
+    },
+  },
+  // Glow Paint: a rainbow ribbon painted in a loop around the glowing picture hung in the air
+  'orb-paint': { wait: 15000, drag: (t) => { const a = Math.PI + 2.3 * Math.PI * (t / SECONDS), r = 1 - 0.12 * t / SECONDS; return [320 + 255 * r * Math.cos(a), 185 + 140 * r * Math.sin(a)]; } },
+  // Dream Room: closer in, turning the cozy room a little and back (its canvas is transparent over the page's backdrop)
+  'orb-room': { wait: 15000, steps: [{ wheel: -80, wait: 5000 }], drag: swing(-75, 0, 85, 200), screenshot: true,
+    setup: () => {
+      if (![...document.querySelectorAll('canvas')].some((c) => c.__orbGL)) return;   // the world's frame, not the kit's host
+      for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
+    },
+  },
+  // Nova Lancer: its mission intro runs in game time, so the clip starts after it, firing and weaving low over the sea
+  'aw-nova-lancer': { wait: 30000, steps: [{ key: 'Enter', wait: 10000 }], settle: 16, hold: ['Space'], press: [['ArrowLeft', 0.8, 1.8], ['ArrowRight', 2.8, 3.8]] },
+  // Foxfire Fjord: a glide from the fire pit past the cabin's lit glass wing to the deck and its steaming tub and back, under the aurora
+  'orb-foxfire': {
+    // past its first 15 s, when it checks its frame rate and may switch quality (a switch empties the canvas); it runs
+    // at 30 frames a second here, and its aurora's reflections and light refresh only every second (each refresh draws the sky six times)
+    ready: () => !!window.foxfire?.ctx?.controls && !!window.__SCENE_READY__, readyTimeout: 900000, wait: 20000, sub: 1,
+    setup: () => {
+      const c = window.foxfire?.ctx?.controls;
+      if (!c) return;
+      Object.assign(window.foxfire.ctx.quality, { reflectRefresh: 1, envRefresh: 1 });
+      // where the two viewpoints put the camera, then a slow eased glide between them (its own flights take a second)
+      const cam = c.engine.camera, look = (p) => p.clone().add(cam.getWorldDirection(cam.position.clone()).multiplyScalar(20));
+      c.goToViewpoint('deck', { instant: true });
+      const b = [cam.position.clone(), look(cam.position)];
+      c.goToViewpoint('cabin', { instant: true });
+      const a = [cam.position.clone(), look(cam.position)];
+      for (const el of document.querySelectorAll('canvas')) if (el !== c.engine.renderer?.domElement && el !== cam.userData?.canvas && !el.__orbGL) el.remove();
+      // out and back over the clip's five seconds, so its end dissolves into the same glide at its start
+      window.__shot = (t) => {
+        const e = (1 - Math.cos((2 * Math.PI * t) / 5)) / 2;
+        c.teleport(a[0].clone().lerp(b[0], e), a[1].clone().lerp(b[1], e));
+      };
+    },
+  },
+  // Wildbrush: sprinting down the path, jumping and gliding (it boots slowly here: its shaders compile before the first frame)
+  'orb-wildbrush': {
+    ready: () => window.__wb?.ctx?.time?.frame > 30, readyTimeout: 600000, wait: 10000, steps: [{ click: [320, 200], wait: 5000 }],
+    setup: () => {
+      const wb = window.__wb;
+      if (!wb) return;
+      const input = wb.ctx.input;
+      input.inject('KeyW', true);
+      input.inject('ShiftLeft', true);
+      // sprint, then jump and glide, land, sprint on and jump again; a little to the left and right
+      window.__shot = (t) => {
+        input.inject('Space', (t > 0.8 && t < 2.4) || (t > 3.4 && t < 4.4));
+        input.inject('KeyA', t > 2.6 && t < 3.2);
+        input.inject('KeyD', t > 4.5 && t < 4.9);
+      };
+    },
+  },
+  // Bed Wars: a Duos match on Sunset Mesa, the camera chasing a bot as it bridges, buys and fights
+  'orb-bedwars': {
+    file: '?debug', ready: () => window.__bw?.game.mode === 'lobby', wait: 2000,
+    setup: async () => {
+      const b = window.__bw;
+      document.getElementById('daily')?.classList.add('hidden');
+      b.mp = 2; b.playMode('duos'); b.match.cd = 0.05;
+      while (b.match.phase !== 'play') await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 15000));   // the bots have set out by now
+      const live = (e) => e && e.isBot && !e.dead && !e.out;
+      let bot = null, cx = 0, cy = 0, cz = 0, dx = 0, dz = 1, last = null;
+      window.__shot = () => {
+        // the bot furthest out from its base: bridging or raiding, in the open
+        const out = (e) => { const base = b.world().bases[e.team]; return base ? Math.hypot(e.x - base.x, e.z - base.z) : 0; };
+        if (!live(bot)) { bot = b.ents.filter(live).sort((p, q) => out(q) - out(p))[0]; last = null; }
+        if (!bot) return;
+        // which way it's heading, smoothed (its facing jumps about while it fights)
+        if (last) { const mx = bot.x - last[0], mz = bot.z - last[1], m = Math.hypot(mx, mz); if (m > 0.01) { dx += (mx / m - dx) * 0.08; dz += (mz / m - dz) * 0.08; } }
+        last = [bot.x, bot.z];
+        const n = Math.hypot(dx, dz) || 1, tx = bot.x - (dx / n) * 8, ty = bot.y + 6.5, tz = bot.z - (dz / n) * 8;   // high, over the trees
+        if (!cx && !cz) [cx, cy, cz] = [tx, ty, tz];
+        cx += (tx - cx) * 0.12; cy += (ty - cy) * 0.12; cz += (tz - cz) * 0.12;
+        b.camOverride = [cx, cy, cz, bot.x + (dx / n) * 3, bot.y + 1, bot.z + (dz / n) * 3];
+      };
+    },
+  },
+  // Orbcraft: setting out from Haven at golden hour, out through the plaza toward the Wilds
+  'orb-craft': {
+    file: '?debug&nodaily', ready: () => window.__oc?.game.mode === 'wild' && window.__oc.player && document.getElementById('loading')?.classList.contains('out'), wait: 3000,
+    // drawn at twice the resolution (it lowers its own while loading slowly here) and kept at 960 × 600: blocks stay sharp on a big card
+    scale: 2, size: [960, 600], crf: [44, 28],
+    setup: () => {
+      const o = window.__oc;
+      o.renderer.setPixelRatio(2);
+      o.renderer.setSize(innerWidth, innerHeight);
+      o.clockShift = (o.clockShift || 0) - o.wildClock().t + 560;   // as its thumbnail
+      for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
+      o.input.keys.add('KeyW');
+      const yaw = o.cam.yaw;
+      window.__shot = (t) => { o.cam.yaw = yaw + 0.04 * Math.sin(t * 0.7); o.input.jump = t % 1.6 < 0.08; };
+    },
+  },
+  // VampireZ: a night with the bots, past the grace, the survivor running from the vampires on its own
+  'orb-vampirez': {
+    file: '?debug', ready: () => window.__vz?.game.state === 'title', wait: 3000,
+    setup: async () => {
+      const vz = window.__vz;
+      vz.start(true);
+      while (vz.game.state !== 'play') await new Promise((r) => setTimeout(r, 300));
+      vz.auto = true;
+      vz.skip(vz.CONFIG.graceSeconds + 20);   // past the grace: the vampires are out
+      await new Promise((r) => setTimeout(r, 15000));
+      for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
+    },
+  },
+};
+
+/** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */
+function clock() {
+  const realNow = performance.now.bind(performance), RealDate = Date, realDateNow = Date.now;
+  const realRaf = requestAnimationFrame.bind(window), realCancel = cancelAnimationFrame.bind(window);
+  let on = false, t0 = 0, d0 = 0, t = 0, next = 1e9, queue = new Map();
+  performance.now = () => (on ? t0 + t : realNow());
+  const now = () => (on ? d0 + t : realDateNow());
+  // Date() called without `new` returns a string, so this can't be a class
+  function FakeDate(...a) {
+    if (!new.target) return new RealDate(now()).toString();
+    return a.length ? new RealDate(...a) : new RealDate(now());
+  }
+  FakeDate.prototype = RealDate.prototype;
+  FakeDate.now = now;
+  FakeDate.parse = RealDate.parse;
+  FakeDate.UTC = RealDate.UTC;
+  window.Date = FakeDate;
+  window.requestAnimationFrame = (cb) => {
+    // a frame asked for before the clock was taken over but run after it waits for the next step,
+    // or its real timestamp (ahead of the stopped clock) would make time run backwards
+    if (!on) return realRaf((ts) => (on ? queue.set(++next, cb) : cb(ts)));
+    queue.set(++next, cb);
+    return next;
+  };
+  window.cancelAnimationFrame = (id) => (queue.has(id) ? queue.delete(id) : realCancel(id));
+  // frames are drawn outside the browser's own frame loop, so WebGL must keep them until captured
+  const getContext = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, opts) {
+    if (!/webgl/.test(type)) return getContext.call(this, type, opts);
+    this.__orbGL = true;   // the recorder captures this canvas (not a HUD's 2D one over it)
+    return getContext.call(this, type, { ...opts, preserveDrawingBuffer: true });
+  };
+  window.__orbClock = {
+    start() { if (!on) { t0 = realNow(); d0 = realDateNow(); t = 0; on = true; } },
+    // one of the browser's own frames: the mouse moves since reach the page only with one
+    frame: () => new Promise((done) => { realRaf(() => done()); setTimeout(done, 5000); }),
+    pending: () => queue.size,
+    step(ms) {
+      t += ms;
+      const run = [...queue.values()]; queue = new Map();
+      for (const cb of run) try { cb(t0 + t); } catch (e) { console.error(e); }
+    },
+  };
+}
+
+/** The world's picture as JPEG bytes: its biggest canvas (a WebGL one first), read directly (screenshots of a canvas drawn
+ *  between the browser's own frames can come out black, and this leaves the game's HUD out), or a
+ *  screenshot when there's no big canvas or it can't be read. */
+async function capture(page) {
+  const found = await Promise.all(page.frames().map((f) => f.evaluate(() => {
+    let best = null;
+    for (const c of document.querySelectorAll('canvas')) {
+      const st = getComputedStyle(c);
+      if (st.visibility === 'hidden' || st.display === 'none' || +st.opacity < 0.1) continue;
+      const r = c.getBoundingClientRect(), area = r.width * r.height * (c.__orbGL ? 4 : 1);
+      if (!best || area > best.area) best = { c, area };
+    }
+    if (!best || best.area < innerWidth * innerHeight * 0.5) return null;
+    try { return { area: best.area, gl: !!best.c.__orbGL, data: best.c.toDataURL('image/jpeg', 0.92) }; } catch { return null; }
+  }).catch(() => null)));
+  const best = found.filter((f) => f && f.data.length > 5000).sort((a, b) => b.area - a.area)[0];
+  if (best) return Buffer.from(best.data.split(',')[1], 'base64');
+  // a WebGL canvas caught empty: no frame now (a screenshot would show what was on screen long ago, a loading card)
+  if (found.some((f) => f?.gl)) return null;
+  return page.screenshot({ timeout: 300000, type: 'jpeg', quality: 92 });
+}
+
+/** Runs fn in every frame of the page. A world that stops answering (a frame stuck in a loop) fails its recording
+ *  after ten minutes rather than hanging the run. */
+async function frames(page, fn, arg) {
+  let timer;
+  const stuck = new Promise((_, fail) => { timer = setTimeout(() => fail(new Error('the world stopped answering')), 600000); });
+  try {
+    await Promise.race([Promise.all(page.frames().map((f) => f.evaluate(fn, arg).catch(() => {}))), stuck]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function record(browser, id, shot) {
+  const res = await fetch(`${SITE}/api/worlds/${id}`);
+  const world = res.ok ? (await res.json()).world : null;
+  if (!world) throw new Error(`${SITE} didn't send ${id} (${res.status})`);
+  let url = world.externalUrl, kit = null, code = world.code ?? '';
+  for (const [find, replace] of shot.patch ?? []) {
+    if (!code.includes(find)) throw new Error(`the world's code has no ${JSON.stringify(find)} to patch`);
+    code = code.replace(find, replace);
+  }
+  if (shot.file != null) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'orb-preview-'));
+    fs.writeFileSync(path.join(dir, 'index.html'), code);
+    url = pathToFileURL(path.join(dir, 'index.html')).href + shot.file;
+  } else if (world.kind === 'native') {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'orb-preview-'));
+    fs.writeFileSync(path.join(dir, 'index.html'), code);
+    kit = await serve({ dir, port: 0, watch: false, quiet: true });
+    url = `${kit.url}?bare`;
+  }
+  const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: shot.scale ?? 1 });
+  const page = await context.newPage();
+  const [outW, outH] = shot.size ?? [W, H];
+  try {
+    await page.addInitScript(clock);
+    // Orb's own worlds: the kit's host, with the world's files from Orb
+    if (kit) await context.route(new RegExp(`/api/tree/${TREE}/`), async (route) => {
+      const rest = new URL(route.request().url()).pathname.split(`/api/tree/${TREE}/`)[1] || 'index.html';
+      if (rest === 'index.html' && shot.patch) return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: code });
+      const r = await fetch(`${SITE}/api/tree/${world.tree}/${rest}`);
+      route.fulfill({ status: r.status, headers: Object.fromEntries(r.headers), body: Buffer.from(await r.arrayBuffer()) });
+    });
+    await page.goto(url, { waitUntil: 'commit', timeout: 60000 });
+    // other players: more tabs of the browser, each a player in the world's room (drawn small, they only stand about)
+    for (let k = 0; k < (kit ? shot.company ?? 0 : 0); k++) {
+      const other = await context.newPage();
+      await other.setViewportSize({ width: 160, height: 100 });
+      await other.goto(`${url}&player=${k + 2}`, { waitUntil: 'commit', timeout: 60000 });
+    }
+    // the world may be in a frame (Orb's own worlds run in the kit host's): ask every frame
+    if (shot.ready) {
+      const until = Date.now() + (shot.readyTimeout ?? 180000);
+      while (!(await Promise.all(page.frames().map((f) => f.evaluate(shot.ready).catch(() => false)))).some(Boolean)) {
+        if (Date.now() > until) throw new Error('the world never got ready');
+        await page.waitForTimeout(1000);
+      }
+    }
+    await page.waitForTimeout(shot.wait ?? 10000);
+    for (const s of shot.steps ?? []) {
+      if (s.click) await page.mouse.click(...s.click, { button: s.button ?? 'left' });
+      if (s.key) await page.keyboard.press(s.key);
+      if (s.wheel) { await page.mouse.move(W / 2, H / 2); await page.mouse.wheel(0, s.wheel); }
+      if (s.wait) await page.waitForTimeout(s.wait);
+    }
+    if (shot.setup) await frames(page, shot.setup);
+    for (const k of shot.hold ?? []) await page.keyboard.down(k);
+    const at = typeof shot.drag === 'function' ? shot.drag : (t) => [W / 2 + shot.drag[0] * t, H / 2 + shot.drag[1] * t];
+    if (shot.drag) { await page.mouse.move(...at(0)); await page.mouse.down({ button: shot.button ?? 'left' }); }
+    await frames(page, () => window.__orbClock?.start());
+    // the world's loop is on the recorder's clock once its frame asked for before is queued (a slow world's next
+    // real frame can take many seconds here); until then a step would run nothing
+    for (const until = Date.now() + 120000; Date.now() < until;) {
+      const n = await Promise.all(page.frames().map((f) => f.evaluate(() => window.__orbClock?.pending() ?? 0).catch(() => 0)));
+      if (n.some(Boolean)) break;
+      await page.waitForTimeout(250);
+    }
+    // half a second (or `settle` seconds) before the first frame kept, so the shot is settled (the camera where it starts)
+    await frames(page, () => window.__shot?.(0));
+    const sub = shot.sub ?? SUB, step = 1000 / FPS / sub;
+    for (let i = 0; i < Math.round((shot.settle ?? 0.5) * FPS * sub); i++) await frames(page, (ms) => window.__orbClock?.step(ms), step);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${id}-frames-`));
+    const n = QUICK ? 48 : Math.round((SECONDS + FADE) * FPS);
+    let down = false, last = null;
+    for (let i = 0; i < n; i++) {
+      await frames(page, (t) => window.__shot?.(t), i / FPS);
+      if (shot.mouse) {
+        const [x, y, press] = shot.mouse(i / FPS);
+        await page.mouse.move(x, y);
+        if (!!press !== down) await ((down = !!press) ? page.mouse.down() : page.mouse.up());
+      }
+      for (const [key, from, to] of shot.press ?? []) {
+        if (i === Math.round(from * FPS)) await page.keyboard.down(key);
+        if (i === Math.round(to * FPS)) await page.keyboard.up(key);
+      }
+      for (let k = 0; k < sub; k++) await frames(page, (ms) => window.__orbClock?.step(ms), step);
+      if (shot.scroll) await page.mouse.wheel(0, shot.scroll / FPS);
+      if (QUICK && i % 6) continue;
+      if (shot.drag) {
+        await page.mouse.move(...at(i / FPS));
+        await frames(page, () => window.__orbClock?.frame());
+      }
+      // every frame the same size (some worlds change their canvas's resolution as they go); a canvas caught empty
+      // (or black) is drawn again without the clock moving, or the frame before it kept
+      let frame = null;
+      for (let tries = 0; tries < 4; tries++) {
+        if (tries) await frames(page, () => window.__orbClock?.step(0));
+        const pic = shot.screenshot ? await page.screenshot({ timeout: 300000, type: 'jpeg', quality: 92 }) : await capture(page);
+        if (!pic) continue;
+        let img = sharp(pic);
+        if (shot.crop) {
+          const k = (await img.metadata()).width / W, [x, y, w, h] = shot.crop.map((v) => Math.round(v * k));
+          img = sharp(await img.extract({ left: x, top: y, width: w, height: h }).toBuffer());
+        }
+        frame = await img.resize(outW, outH, { fit: 'cover' }).jpeg({ quality: 92 }).toBuffer();
+        const { channels } = await sharp(frame).stats();
+        if (!last || channels.slice(0, 3).some((c) => c.mean > 6)) break;
+        frame = null;
+      }
+      frame ??= last;
+      if (!frame) throw new Error('no picture from the world');
+      last = frame;
+      fs.writeFileSync(path.join(dir, `${String(QUICK ? i / 6 : i).padStart(4, '0')}.jpg`), frame);
+    }
+    return dir;
+  } finally {
+    await context.close();
+    kit?.close?.();
+  }
+}
+
+/** Frames → VP9 WebM and H.264 MP4 whose last FADE seconds dissolve into the first, so they loop without a jump. */
+function encode(dir, base, [vp9, h264] = [40, 27]) {
+  const fade = `[0:v]split[a][b];[a]trim=start=${FADE},setpts=PTS-STARTPTS[main];[b]trim=0:${FADE},setpts=PTS-STARTPTS[head];` +
+    `[main][head]xfade=transition=fade:duration=${FADE}:offset=${SECONDS - FADE},format=yuv420p[v]`;
+  const input = ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(dir, '%04d.jpg'), '-filter_complex', fade, '-map', '[v]', '-an'];
+  execFileSync('ffmpeg', [...input, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', String(vp9), '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2', `${base}.webm`]);
+  execFileSync('ffmpeg', [...input, '-c:v', 'libx264', '-preset', 'slow', '-crf', String(h264), '-movflags', '+faststart', `${base}.mp4`]);
+}
+
+// the kit's host needs Orb's runtime, which is built from src/lib/runtime
+if (!fs.existsSync(path.join(root, 'kit/lib/runtime.js'))) execFileSync('node', [path.join(root, 'scripts/publish-kit.mjs'), '--runtime'], { stdio: 'inherit' });
+const ids = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(SHOTS);
+const browser = await launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=IsolateSandboxedIframes', '--autoplay-policy=no-user-gesture-required'] });
+const listFile = path.join(root, 'src/data/previews.json');
+const added = {};
+for (const id of ids) {
+  try {
+    const dir = await record(browser, id, SHOTS[id] ?? {});
+    if (QUICK) {
+      const sheet = path.join(os.tmpdir(), `${id}-quick.jpg`);
+      execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', path.join(dir, '%04d.jpg'), '-vf', 'scale=320:200,tile=4x2', '-frames:v', '1', sheet]);
+      console.log(`· ${id}  ${sheet}`);
+      continue;
+    }
+    const base = path.join(root, 'public/previews', id);
+    encode(dir, base, SHOTS[id]?.crf);
+    fs.rmSync(dir, { recursive: true });
+    const hash = createHash('sha256');
+    for (const ext of ['webm', 'mp4']) hash.update(fs.readFileSync(`${base}.${ext}`));
+    added[id] = hash.digest('hex').slice(0, 8);
+    console.log(`✓ ${id}  ${['webm', 'mp4'].map((ext) => `${(fs.statSync(`${base}.${ext}`).size / 1024).toFixed(0)} KB ${ext}`).join(', ')}`);
+  } catch (e) {
+    console.log(`✗ ${id}  ${e.message}`);
+  }
+}
+// read again just before writing: another run may have added its own since
+const list = { ...JSON.parse(fs.readFileSync(listFile, 'utf8')), ...added };
+if (!QUICK) fs.writeFileSync(listFile, `${JSON.stringify(Object.fromEntries(Object.entries(list).sort()), null, 2)}\n`);
+await browser.close();

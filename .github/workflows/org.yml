@@ -1,0 +1,41 @@
+# The orbworlds org on GitHub, as src/data/originals.json says (scripts/sync-org.mjs): each world's
+# repository's description, link, topics and visibility, the org's profile and the test the worlds
+# share. It runs as the org's GitHub App (the variable ORB_APP_ID and the secret ORB_APP_KEY, set by
+# scripts/setup-org.mjs), so no person appears there; without them, nothing runs.
+name: Org
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/data/originals.json
+      - scripts/sync-org.mjs
+      - scripts/org-app.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: org
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'orbworlds/orb'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ORB_APP_ID: ${{ vars.ORB_APP_ID }}
+      ORB_APP_KEY: ${{ secrets.ORB_APP_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.ORB_APP_KEY != ''
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        if: env.ORB_APP_KEY != ''
+        with:
+          node-version: 22
+      - if: env.ORB_APP_KEY != ''
+        run: node scripts/sync-org.mjs

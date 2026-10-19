@@ -1,0 +1,59 @@
+# Every night: back up traces, analytics, Pulse and problems from the live site's lab into the
+# private repository orbworlds/orb-backups (scripts/backup.mjs), as the org's GitHub App. Its log
+# says only how much was backed up: what's backed up never appears here.
+# The lab is reached with its key (src/server/lab.ts): the secret ORB_LAB_URL is
+# https://<site>/lab/<ORB_LAB_KEY>.
+name: Backup
+
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: github.repository == 'orbworlds/orb'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: app
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check out the backups
+        env:
+          ORB_APP_ID: ${{ vars.ORB_APP_ID }}
+          ORB_APP_KEY: ${{ secrets.ORB_APP_KEY }}
+        run: |
+          node app/scripts/app-token.mjs
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$(grep ^APP_TOKEN= "$GITHUB_ENV" | cut -d= -f2)" | base64 -w0)" \
+            clone --quiet --depth 1 "https://github.com/${{ vars.ORB_BACKUP_REPO || 'orbworlds/orb-backups' }}.git" backup
+
+      - name: Export
+        env:
+          ORB_LAB_URL: ${{ secrets.ORB_LAB_URL }}
+        run: node app/scripts/backup.mjs backup "$ORB_LAB_URL"
+
+      - name: Commit and push
+        working-directory: backup
+        run: |
+          git config user.name "orbworlds[bot]"
+          git config user.email "344060554+orbworlds[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing new."
+            exit 0
+          fi
+          git commit --quiet -m "Backup $(date -u +%F)"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$APP_TOKEN" | base64 -w0)" push --quiet origin HEAD:main

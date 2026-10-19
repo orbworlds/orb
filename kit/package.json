@@ -1,0 +1,41 @@
+{
+  "name": "@orbworlds/kit",
+  "version": "0.3.0",
+  "description": "Play and test Orb worlds on your own computer the way Orb runs them: Orb's world runtime, players in browser tabs, shared state, saves and shops.",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://orbworlds.com",
+  "bin": {
+    "orb": "bin/orb.mjs"
+  },
+  "types": "orb.d.ts",
+  "files": [
+    "bin",
+    "lib",
+    "orb.d.ts",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": "./lib/server.mjs",
+    "./browser": "./lib/browser.mjs",
+    "./server": "./lib/server.mjs",
+    "./smoke": "./lib/smoke.mjs",
+    "./orb.d.ts": "./orb.d.ts",
+    "./package.json": "./package.json"
+  },
+  "keywords": [
+    "orb",
+    "orbworld",
+    "game-development",
+    "threejs",
+    "multiplayer",
+    "dev-server",
+    "webgl"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

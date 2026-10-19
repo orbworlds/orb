@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A quiet little island</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #f3d6cf; }
+  canvas { display: block; outline: none; -webkit-tap-highlight-color: transparent; }
+</style>
+<script type="importmap">{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+// === CONFIG ===
+const CONFIG = {
+  island: { radius: 10, depth: 10.5, seed: 4.2 },            // the buildable island (world units)
+  // tilt lifts the painted horizon so the peach glow sits behind the island while we look down at it
+  sky: { zenith: '#86a0f4', mid: '#c9b0f2', horizon: '#ffc2a6', low: '#fab6cc', below: '#a3a5e2', sun: '#ffe2c2', tilt: 0.27 },
+  sun: { color: '#fff0de', intensity: 2.7, elevation: 40, azimuth: 105, glowElevation: 6, glowAzimuth: 210 },  // degrees
+  hemi: { sky: '#cfd6ff', ground: '#ffc6c0', intensity: 1.3 },
+  grass: ['#9fd88c', '#d3e79a', '#79c487'],                   // base, sunny patches, deeper patches
+  strata: ['#f4d6b4', '#e9b9a0', '#d9a3a8', '#bb97b9', '#a196c4'],
+  fog: { near: 60, far: 210 },
+  clouds: 34, motes: 170, islets: 7,
+  camera: { autoRotateSpeed: 0.28, polar: 1.27 },
+};
+
+// === SCENE ===
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+Object.assign(renderer, { toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.12 });
+Object.assign(renderer.shadowMap, { enabled: true, type: THREE.PCFShadowMap });
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(CONFIG.sky.horizon, CONFIG.fog.near, CONFIG.fog.far);
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 1200);
+const orb = window.orb;
+const time = { value: 0 };                       // shared shader clock
+
+// Tiny deterministic noise + random helpers (used to shape everything)
+const hash = (x, y) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); };
+function noise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+const fbm = (x, y) => noise(x, y) * 0.6 + noise(x * 2.1 + 5, y * 2.1 + 3) * 0.3 + noise(x * 4.3 + 9, y * 4.3 + 1) * 0.1;
+let seed = 7;
+const rand = (a = 0, b = 1) => { seed = (seed * 16807) % 2147483647; return a + (b - a) * (seed / 2147483647); };
+
+// === SKY & LIGHT ===
+const sunDir = (elevation, azimuth) => new THREE.Vector3().setFromSphericalCoords(1,
+  THREE.MathUtils.degToRad(90 - elevation), THREE.MathUtils.degToRad(azimuth));
+const skyColor = (hex, k = 1) => new THREE.Color(hex).multiplyScalar(k);
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(600, 48, 24), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: {
+    zenith: { value: skyColor(CONFIG.sky.zenith, 1.0) }, mid: { value: skyColor(CONFIG.sky.mid, 1.08) },
+    horizon: { value: skyColor(CONFIG.sky.horizon, 1.2) }, low: { value: skyColor(CONFIG.sky.low, 1.06) },
+    below: { value: skyColor(CONFIG.sky.below, 0.95) },
+    sunColor: { value: skyColor(CONFIG.sky.sun) }, sunDir: { value: sunDir(CONFIG.sun.glowElevation, CONFIG.sun.glowAzimuth) }, tilt: { value: CONFIG.sky.tilt },
+  },
+  vertexShader: `varying vec3 vDir; void main(){ vDir = position;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform vec3 zenith, mid, horizon, low, below, sunColor, sunDir; uniform float tilt; varying vec3 vDir;
+    void main(){
+      vec3 d = normalize(normalize(vDir) + vec3(0.0, tilt, 0.0)); float h = d.y;
+      vec3 col = mix(horizon, mid, smoothstep(0.0, 0.2, h));
+      col = mix(col, zenith, smoothstep(0.14, 0.7, h));
+      col = mix(col, low, smoothstep(0.0, -0.12, h));
+      col = mix(col, below, smoothstep(-0.08, -0.6, h));
+      float s = max(dot(d, sunDir), 0.0);
+      col += sunColor * (pow(s, 6.0) * 0.38 + pow(s, 40.0) * 0.4 + pow(s, 400.0) * 0.5 + smoothstep(0.9990, 0.9996, s) * 0.5);
+      gl_FragColor = vec4(col, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+})));
+
+scene.add(new THREE.HemisphereLight(CONFIG.hemi.sky, CONFIG.hemi.ground, CONFIG.hemi.intensity));
+const sun = new THREE.DirectionalLight(CONFIG.sun.color, CONFIG.sun.intensity);
+sun.position.copy(sunDir(CONFIG.sun.elevation, CONFIG.sun.azimuth)).multiplyScalar(40);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow, { radius: 4, bias: -0.0004, normalBias: 0.03 });
+Object.assign(sun.shadow.camera, { left: -15, right: 15, top: 15, bottom: -15, near: 10, far: 80 });
+scene.add(sun);
+
+// === WORLD ===
+// An island = a grassy cushion on top + a tapered rocky underside with colored strata.
+function islandShape(R, s0) {
+  const rim = (a) => R * (1 + 0.06 * Math.sin(3 * a + s0) + 0.045 * Math.sin(5 * a + s0 * 2.3) + 0.025 * Math.sin(8 * a + s0 * 0.7));
+  const height = (x, z) => {
+    const a = Math.atan2(z, x), rr = rim(a), k = R / 10;
+    let r = Math.hypot(x, z);
+    if (r > rr) { x *= rr / r; z *= rr / r; r = rr; }          // outside: clamp to the rim
+    const u = r / rr, e = Math.max(0, (u - 0.84) / 0.16);
+    return k * (0.5 * (1 - u * u) + (fbm(x / k * 0.15 + s0, z / k * 0.15 - s0) - 0.5) * 1.45 * (1 - u ** 4) - 0.55 * e * e);
+  };
+  return { rim, height };
+}
+
+function makeIsland(R, s0, detail = 1) {
+  const shape = islandShape(R, s0), k = R / 10, c = new THREE.Color(), g = CONFIG.grass.map((h) => new THREE.Color(h));
+  // Grass top: polar grid (center → rim) plus a small skirt that curls over the rock
+  const rings = Math.round(26 * detail), segs = Math.round(110 * detail), pos = [], col = [], idx = [];
+  for (let i = 0; i <= rings + 1; i++) for (let j = 0; j < segs; j++) {
+    const a = (j / segs) * Math.PI * 2, rr = shape.rim(a), u = Math.min(i / rings, 1.025);
+    const x = Math.cos(a) * rr * u, z = Math.sin(a) * rr * u, n = fbm(x * 0.2 / k + 9, z * 0.2 / k);
+    pos.push(x, shape.height(x, z) - (i > rings ? 0.3 * k : 0), z);
+    c.copy(g[0]).lerp(g[1], THREE.MathUtils.smoothstep(n, 0.5, 0.75)).lerp(g[2], THREE.MathUtils.smoothstep(n, 0.42, 0.22) * 0.65);
+    c.offsetHSL(0, 0, (noise(x * 1.4, z * 1.4) - 0.5) * 0.05);
+    c.multiplyScalar(1 - 0.22 * THREE.MathUtils.smoothstep(u, 0.9, 1.02));
+    col.push(c.r, c.g, c.b);
+  }
+  for (let i = 0; i <= rings; i++) for (let j = 0; j < segs; j++) {
+    const a = i * segs + j, b = i * segs + ((j + 1) % segs), cc = a + segs, d = b + segs;
+    idx.push(a, b, cc, b, d, cc);
+  }
+  const top = new THREE.BufferGeometry().setIndex(idx).setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  top.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)).computeVertexNormals();
+
+  // Rocky underside: rings shrinking downward to a point, jittered for chunky facets
+  const levels = Math.round(13 * detail), rs = Math.round(56 * detail), rp = [], ri = [];
+  for (let l = 0; l <= levels; l++) for (let j = 0; j < rs; j++) {
+    const t = l / levels, a = ((j + (l % 2) * 0.5) / rs) * Math.PI * 2, rr = shape.rim(a);
+    const jit = l === 0 ? 0 : (noise(j * 0.45 + s0, l * 0.9) - 0.5) * 0.7 + (hash(j + s0, l) - 0.5) * 0.6, rimY = shape.height(Math.cos(a) * rr, Math.sin(a) * rr);
+    const rad = rr * (l === 0 ? 0.95 : Math.min(0.99, (1 - t) * (1 + 0.9 * t * (1 - t)) * (1 + 0.24 * jit * (1 - t) * Math.min(1, l / 3))));
+    const x = Math.cos(a) * rad, z = Math.sin(a) * rad;
+    const y = rimY * (1 - t) - 0.3 * k - t * CONFIG.island.depth * k + jit * 0.6 * k * Math.min(1, l / 3);
+    rp.push(l === levels ? 0.6 * k : x, y, l === levels ? -0.4 * k : z);
+  }
+  for (let l = 0; l < levels; l++) for (let j = 0; j < rs; j++) {
+    const a = l * rs + j, b = l * rs + ((j + 1) % rs);
+    ri.push(a, b, a + rs, b, b + rs, a + rs);
+  }
+  const rock = new THREE.BufferGeometry().setIndex(ri).setAttribute('position', new THREE.Float32BufferAttribute(rp, 3)).toNonIndexed();
+  const p = rock.attributes.position, rc = new Float32Array(p.count * 3), strata = CONFIG.strata.map((h) => new THREE.Color(h));
+  const soil = new THREE.Color('#a8817a'), deep = new THREE.Color('#8f88c0');
+  for (let f = 0; f < p.count; f += 3) {                     // one flat color per face → crisp layers
+    const y = (p.getY(f) + p.getY(f + 1) + p.getY(f + 2)) / 3, x = p.getX(f), z = p.getZ(f);
+    const band = Math.floor(-y / k * 0.75 + 0.5 * Math.sin(Math.atan2(z, x) * 3 + s0) + 0.3 * hash(f, 1));
+    c.copy(y > -1.0 * k ? soil : strata[((band % strata.length) + strata.length) % strata.length]);
+    c.lerp(deep, Math.min(1, -y / (CONFIG.island.depth * k)) * 0.45).multiplyScalar(0.92 + 0.12 * hash(f, 2));
+    for (let v = 0; v < 3; v++) rc.set([c.r, c.g, c.b], (f + v) * 3);
+  }
+  rock.setAttribute('color', new THREE.BufferAttribute(rc, 3));
+
+  const group = new THREE.Group();
+  const grassMesh = new THREE.Mesh(top, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }));
+  const rockMesh = new THREE.Mesh(rock, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true }));
+  grassMesh.receiveShadow = rockMesh.receiveShadow = grassMesh.castShadow = rockMesh.castShadow = true;
+  group.add(grassMesh, rockMesh);
+  return { group, shape };
+}
+
+const main = makeIsland(CONFIG.island.radius, CONFIG.island.seed);
+scene.add(main.group);
+
+// Dangling roots and vines under the rim (merged into two meshes, swaying in the vertex shader)
+function hangingMaterial(color, flatShading = false) {
+  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.9, flatShading });
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = time;
+    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      float hang = clamp(-1.0 - position.y, 0.0, 6.0);
+      transformed.x += sin(uTime * 1.1 + position.z * 0.7) * 0.012 * hang * hang;
+      transformed.z += cos(uTime * 0.9 + position.x * 0.7) * 0.012 * hang * hang;`);
+  };
+  return m;
+}
+function taperedTube(curve, radius) {                        // thick where it leaves the rock, thin at the tip
+  const g = new THREE.TubeGeometry(curve, 20, radius, 5), p = g.attributes.position, v = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let i = 0; i <= 20; i++) {
+    curve.getPointAt(i / 20, c);
+    for (let j = 0; j <= 5; j++) { v.fromBufferAttribute(p, i * 6 + j).sub(c).multiplyScalar(1 - 0.8 * i / 20).add(c); p.setXYZ(i * 6 + j, v.x, v.y, v.z); }
+  }
+  g.computeVertexNormals();
+  return g.toNonIndexed();
+}
+const roots = [], vines = [];
+for (let i = 0; i < 30; i++) {
+  const a = rand(0, Math.PI * 2), rr = main.shape.rim(a), len = rand(1.2, 4.6), sway = rand(-0.25, 0.25);
+  const y0 = main.shape.height(Math.cos(a) * rr, Math.sin(a) * rr) - rand(0.35, 0.9);
+  const dir = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)), side = new THREE.Vector3(-dir.z, 0, dir.x);
+  const at = (r, y, s = 0) => dir.clone().multiplyScalar(r).addScaledVector(side, s).setY(y);
+  const curve = new THREE.CatmullRomCurve3([at(rr * 0.86, y0 + 0.3), at(rr * 0.985, y0), at(rr * 1.0, y0 - len * 0.45, sway),
+    at(rr * 0.98, y0 - len, sway * 2)]);
+  if (i % 4) { roots.push(taperedTube(curve, rand(0.04, 0.08))); continue; }
+  vines.push(taperedTube(curve, 0.05));
+  for (let t = 0.3; t < 0.97; t += rand(0.08, 0.16)) {         // little leaves along each vine
+    const q = curve.getPointAt(t);
+    vines.push(new THREE.IcosahedronGeometry(0.13, 0).scale(1, 0.4, 0.6).rotateY(rand(0, 6)).rotateZ(rand(-0.8, 0.8)).translate(q.x, q.y, q.z));
+  }
+}
+const rootMesh = new THREE.Mesh(mergeGeometries(roots), hangingMaterial('#7d6066'));
+const vineMesh = new THREE.Mesh(mergeGeometries(vines), hangingMaterial('#86c27e', true));
+rootMesh.castShadow = vineMesh.castShadow = true;
+scene.add(rootMesh, vineMesh);
+
+// Smooth pebbles, grass tufts and tiny flowers (instanced: one draw call each)
+function scatter(geometry, material, count, fn) {
+  const mesh = new THREE.InstancedMesh(geometry, material, count), o = new THREE.Object3D(), c = new THREE.Color();
+  for (let i = 0; i < count; i++) { fn(o, c, i); o.updateMatrix(); mesh.setMatrixAt(i, o.matrix); mesh.setColorAt(i, c); }
+  mesh.castShadow = mesh.receiveShadow = true;
+  scene.add(mesh);
+  return mesh;
+}
+const spot = (cx, cz, spread) => { const a = rand(0, 6.283), r = Math.sqrt(rand()) * spread; return [cx + Math.cos(a) * r, cz + Math.sin(a) * r]; };
+const pebbleSpots = [[-4.2, 2.6], [-3.4, 3.4], [-3.9, 3.6], [5.6, 3.4], [6.2, 2.4], [-1.5, -6.6], [3.2, -5.2]];
+scatter(new THREE.IcosahedronGeometry(1, 2), new THREE.MeshStandardMaterial({ roughness: 0.75 }), pebbleSpots.length, (o, c, i) => {
+  const [x, z] = pebbleSpots[i], s = i % 3 === 0 ? 0.55 : rand(0.22, 0.4);
+  o.position.set(x, main.shape.height(x, z) + s * 0.15, z);
+  o.scale.set(s * rand(1, 1.5), s * 0.62, s * rand(0.9, 1.3)); o.rotation.set(rand(-0.2, 0.2), rand(0, 6), 0);
+  c.set(i % 2 ? '#cfc6d4' : '#e2d6cb').offsetHSL(0, 0, rand(-0.05, 0.03));
+});
+const blade = (rx, rz) => new THREE.ConeGeometry(0.035, 0.42, 3).translate(0, 0.21, 0).rotateX(rx).rotateZ(rz);
+scatter(mergeGeometries([blade(0, 0), blade(0.4, 0.2), blade(-0.35, -0.3), blade(0.1, 0.45)]),
+  new THREE.MeshStandardMaterial({ roughness: 0.9 }), 150, (o, c) => {
+    const [x, z] = spot(rand(-7, 7), rand(-7, 7), 1.6);
+    o.position.set(x, main.shape.height(x, z) - 0.03, z); o.rotation.y = rand(0, 6.28); o.scale.setScalar(rand(0.7, 1.4));
+    c.set(CONFIG.grass[0]).offsetHSL(rand(-0.03, 0.03), rand(-0.05, 0.05), rand(-0.08, 0.02));
+  });
+const flowerColors = ['#fff7f0', '#ffc6d9', '#ffe39a', '#d9c4ff'];
+scatter(new THREE.IcosahedronGeometry(0.09, 0), new THREE.MeshStandardMaterial({ roughness: 0.6, flatShading: true }), 46, (o, c, i) => {
+  const cl = [[-5.5, -2.5], [4.5, 5.2], [6.2, -3.6], [-2.2, 6.4]][i % 4], [x, z] = spot(cl[0], cl[1], 1.3);
+  o.position.set(x, main.shape.height(x, z) + rand(0.12, 0.26), z);
+  c.set(flowerColors[(i >> 2) % 4]);
+});
+
+// Distant islets for depth (lower detail, bobbing gently)
+const islets = [];
+for (let i = 0; i < CONFIG.islets; i++) {
+  const R = rand(1.2, 3.2), a = (i / CONFIG.islets) * Math.PI * 2 + rand(-0.4, 0.4), d = rand(42, 80);
+  const isle = makeIsland(R, rand(0, 9), 0.45).group;
+  isle.position.set(Math.cos(a) * d, rand(-14, 6), Math.sin(a) * d);
+  isle.rotation.y = rand(0, 6); isle.userData = { y: isle.position.y, phase: rand(0, 6) };
+  scene.add(isle); islets.push(isle);
+}
+
+// Puffy billboard clouds: cauliflower tops, flat lavender-shaded bottoms (painted on a canvas)
+function cloudTexture() {
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+  const g = cv.getContext('2d');
+  for (let i = 0; i < 14; i++) {
+    const x = 40 + rand(0, 176), r = 18 + 30 * Math.sin(((x - 20) / 216) * Math.PI) * rand(0.6, 1), y = 100 - r * rand(0.5, 0.9);
+    const gr = g.createRadialGradient(x, y, r * 0.2, x, y, r);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.7, 'rgba(255,255,255,.9)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  }
+  g.globalCompositeOperation = 'destination-out';             // soft flat base
+  const base = g.createLinearGradient(0, 92, 0, 112); base.addColorStop(0, 'rgba(0,0,0,0)'); base.addColorStop(1, 'rgba(0,0,0,1)');
+  g.fillStyle = base; g.fillRect(0, 92, 256, 36);
+  g.globalCompositeOperation = 'source-atop';                 // sunlit tops, lavender bellies
+  const shade = g.createLinearGradient(0, 10, 0, 105);
+  shade.addColorStop(0, '#fffaf4'); shade.addColorStop(0.55, '#f8e8ef'); shade.addColorStop(1, '#c6bde6');
+  g.fillStyle = shade; g.fillRect(0, 0, 256, 128);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const cloudMats = [0, 1, 2].map(() => new THREE.SpriteMaterial({ map: cloudTexture(), color: new THREE.Color().setScalar(1.25),
+  transparent: true, depthWrite: false, fog: false }));
+const clouds = new THREE.Group();
+scene.add(clouds);
+for (let i = 0; i < CONFIG.clouds; i++) {
+  const sea = i < CONFIG.clouds * 0.55, a = rand(0, Math.PI * 2), d = sea ? rand(26, 130) : rand(70, 170);
+  const c = new THREE.Sprite(cloudMats[i % 3]), w = (sea ? rand(22, 44) : rand(10, 22)) * (d / 100 + 0.4);
+  c.scale.set(w, w / 2, 1);
+  c.position.set(Math.cos(a) * d, sea ? rand(-26, -12) : rand(-10, 14), Math.sin(a) * d);
+  clouds.add(c);
+}
+
+// Floating dust motes / pollen catching the light (one Points draw, animated on the GPU)
+const moteGeo = new THREE.BufferGeometry(), mp = new Float32Array(CONFIG.motes * 3), ms = new Float32Array(CONFIG.motes);
+for (let i = 0; i < CONFIG.motes; i++) {
+  const a = rand(0, 6.283), r = Math.sqrt(rand()) * 15;
+  mp.set([Math.cos(a) * r, rand(-5, 9), Math.sin(a) * r], i * 3); ms[i] = rand(0, 100);
+}
+moteGeo.setAttribute('position', new THREE.BufferAttribute(mp, 3));
+moteGeo.setAttribute('seed', new THREE.BufferAttribute(ms, 1));
+scene.add(new THREE.Points(moteGeo, new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false,
+  uniforms: { uTime: time, uScale: { value: renderer.getPixelRatio() } },
+  vertexShader: `attribute float seed; uniform float uTime, uScale; varying float vA;
+    void main(){ vec3 p = position;
+      p += vec3(sin(uTime * 0.21 + seed), sin(uTime * 0.27 + seed * 1.7) * 0.8, cos(uTime * 0.19 + seed * 1.3)) * 1.2;
+      vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
+      vA = 0.35 + 0.65 * (0.5 + 0.5 * sin(uTime * 1.3 + seed * 3.0));
+      gl_PointSize = uScale * (2.5 + fract(seed) * 4.0) * 55.0 / -mv.z; }`,
+  fragmentShader: `varying float vA; void main(){ float d = length(gl_PointCoord - 0.5);
+    gl_FragColor = vec4(1.0, 0.9, 0.66, vA * smoothstep(0.5, 0.1, d)); }`,
+})));
+
+// === YOUR WORLD ===
+// Build here! Everything you add to `world` lives on the island. Helpers:
+//   groundHeight(x, z)        → height of the grass at (x, z) (island radius = CONFIG.island.radius)
+//   place(object, x, z)       → stand an object on the grass at (x, z), with shadows; returns it
+//   onFrame((dt, t) => {...}) → run code every frame (dt = seconds since last frame, t = total seconds)
+const world = new THREE.Group();
+scene.add(world);
+const frameFns = [], onFrame = (fn) => frameFns.push(fn);
+const groundHeight = (x, z) => main.shape.height(x, z);
+function place(object, x, z) {
+  object.position.set(x, groundHeight(x, z), z);
+  object.traverse((o) => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+  world.add(object);
+  return object;
+}
+
+// A tiny sapling — the island's first resident
+const sapling = new THREE.Group().add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.09, 1.3, 6).translate(0, 0.65, 0),
+  new THREE.MeshStandardMaterial({ color: '#9a7466', roughness: 0.9 })));
+const leafMat = new THREE.MeshStandardMaterial({ color: '#9ed67c', roughness: 0.8, flatShading: true });
+for (const [x, y, z, s] of [[0, 1.45, 0, 0.42], [0.3, 1.25, 0.12, 0.3], [-0.28, 1.3, -0.08, 0.32], [0.05, 1.72, -0.1, 0.26]]) {
+  const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), leafMat);
+  leaf.position.set(x, y, z); sapling.add(leaf);
+}
+place(sapling, 2.4, -1.6);
+onFrame((dt, t) => { sapling.rotation.z = Math.sin(t * 1.2) * 0.04; sapling.rotation.x = Math.sin(t * 0.9 + 1) * 0.03; });
+
+// === PLAYER / CONTROLS ===
+// Drag / swipe to orbit, wheel / pinch to zoom, arrow keys or A/D to spin, W/S to zoom.
+const controls = new OrbitControls(camera, renderer.domElement);
+Object.assign(controls, { enableDamping: true, dampingFactor: 0.06, enablePan: false, autoRotate: true,
+  autoRotateSpeed: CONFIG.camera.autoRotateSpeed, minPolarAngle: 0.25, maxPolarAngle: 1.85, rotateSpeed: 0.6 });
+controls.target.set(0, -1.2, 0);
+camera.position.setFromSphericalCoords(40, CONFIG.camera.polar, 0.9).add(controls.target);
+
+const keys = new Set();
+addEventListener('keydown', (e) => keys.add(e.code)); addEventListener('keyup', (e) => keys.delete(e.code));
+addEventListener('blur', () => keys.clear());
+const offset = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+function keyControls(dt) {
+  const spin = (keys.has('ArrowLeft') || keys.has('KeyA') ? 1 : 0) - (keys.has('ArrowRight') || keys.has('KeyD') ? 1 : 0);
+  const zoom = (keys.has('ArrowUp') || keys.has('KeyW') ? 1 : 0) - (keys.has('ArrowDown') || keys.has('KeyS') ? 1 : 0);
+  if (!spin && !zoom) return;
+  offset.copy(camera.position).sub(controls.target).applyAxisAngle(UP, spin * dt * 1.1).multiplyScalar(1 - zoom * dt * 0.9);
+  camera.position.copy(controls.target).add(offset);
+}
+
+// Framing: the island sits a little below center on wide screens (room for the title above);
+// on tall phone screens it moves into the upper half (a bottom sheet covers the lower part).
+function frame() {
+  const w = innerWidth, h = innerHeight, aspect = w / h, tall = aspect < 0.8;
+  camera.aspect = aspect;
+  camera.fov = tall ? 50 : 36;
+  const tanW = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect;
+  const dist = (CONFIG.island.radius * 1.15) / (tanW * (tall ? 0.86 : Math.min(0.5, 0.36 * aspect)));
+  camera.setViewOffset(w, h, 0, h * (tall ? 0.21 : -0.08), w, h);
+  camera.updateProjectionMatrix();
+  controls.minDistance = dist * 0.4; controls.maxDistance = dist * 1.7;
+  camera.position.sub(controls.target).setLength(dist).add(controls.target);
+  renderer.setSize(w, h);
+}
+frame();
+addEventListener('resize', frame);
+
+// === UI ===
+// None on purpose: the start screen keeps the sky clean. Ask Orb for a thumbnail once settled.
+setTimeout(() => orb?.capture?.(), 3000);
+
+// === LOOP ===
+const timer = new THREE.Timer();
+timer.connect(document);
+renderer.setAnimationLoop((ts) => {
+  timer.update(ts);
+  const dt = Math.min(Math.max(timer.getDelta(), 0), 0.1), t = timer.getElapsed();
+  time.value = t;
+  clouds.rotation.y = t * 0.004;
+  for (const isle of islets) isle.position.y = isle.userData.y + Math.sin(t * 0.4 + isle.userData.phase) * 0.6;
+  keyControls(dt);
+  for (const fn of frameFns) fn(dt, t);
+  controls.update(dt);
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

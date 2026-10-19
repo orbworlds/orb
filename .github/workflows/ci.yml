@@ -1,0 +1,33 @@
+# Every pull request and push to main: it builds (types), passes lint, and the unit and API tests
+# pass (scripts/test-api.mjs starts its own server with a local database and a mock builder, so
+# no secrets are needed — pull requests from forks get none).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm run test:engine
+      - run: npm run test:api

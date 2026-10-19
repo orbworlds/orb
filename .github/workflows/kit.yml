@@ -1,0 +1,42 @@
+# The Orb kit on npm (@orbworlds/kit, scripts/publish-kit.mjs): when the kit or Orb's runtime changes,
+# the next version goes out (only if what's in the package changed). Needs the secret NPM_TOKEN, a
+# publish token of the npm account orbworlds; without it, nothing runs.
+name: Kit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - kit/**
+      - src/lib/runtime/sdk.ts
+      - scripts/publish-kit.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kit
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'orbworlds/orb'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.NPM_TOKEN != ''
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        if: env.NPM_TOKEN != ''
+        with:
+          node-version: 22
+          cache: npm
+      - if: env.NPM_TOKEN != ''
+        run: npm ci --ignore-scripts
+      - if: env.NPM_TOKEN != ''
+        run: node scripts/publish-kit.mjs

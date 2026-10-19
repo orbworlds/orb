@@ -1,0 +1,2399 @@
+[
+  {
+    "id": "aw-turbo-kart-rally",
+    "name": "Turbo Kart Rally",
+    "description": "Drift, boost and snatch items from seven rivals in a bright, breezy 3D kart race.",
+    "kind": "external",
+    "external_url": "https://bridge-mind.github.io/turbo-kart-rally/",
+    "source_url": "https://github.com/bridge-mind/turbo-kart-rally",
+    "author_name": "bridge-mind",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/aw-turbo-kart-rally.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://x.com/bridgemindai/status/2102451997395866021",
+      "platform": "x",
+      "views": 378415,
+      "likes": 3625,
+      "stars": 29,
+      "posted_at": "2026-09-22",
+      "handle": "@bridgemindai",
+      "author_url": "https://x.com/bridgemindai",
+      "prompt": "I need you to launch five opus 5.5 sub-agents and help me build a triple A quality game that is a clone of Mario Kart. What I want you to do is I want you to launch these sub-agents, build the game without asking me any questions at all, and use 3JS to build the game. And once you're done, report back to me.",
+      "made_with": "Claude Opus 5.5 (Claude Code), three.js"
+    }
+  },
+  {
+    "id": "aw-rift-chess",
+    "name": "Rift Chess",
+    "description": "Chess on fourteen sliding tiles, where you reshape the board itself mid-game against a crafty bot or a friend.",
+    "kind": "external",
+    "external_url": "https://haileystorm.github.io/rift-chess/",
+    "source_url": "https://github.com/HaileyStorm/rift-chess",
+    "author_name": "HaileyStorm",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 54,
+    "thumb_url": "/seeds/aw-rift-chess.webp",
+    "hidden": true
+  },
+  {
+    "id": "aw-fishslop",
+    "name": "Fishslop",
+    "description": "Pilot a little submarine through a glowing reef, feed the fish, collect coins and sonar-scan for hidden wonders.",
+    "kind": "external",
+    "external_url": "https://vasu-devs.github.io/FishSlop_Opus5.5/",
+    "source_url": "https://github.com/vasu-devs/FishSlop_Opus5.5",
+    "author_name": "vasu-devs",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 52,
+    "thumb_url": "/seeds/aw-fishslop.webp",
+    "hidden": true
+  },
+  {
+    "id": "aw-fall-line",
+    "name": "Fall Line",
+    "description": "Carve fresh powder down a vast snowy mountain in a breezy freeride ski run.",
+    "kind": "external",
+    "external_url": "https://nipale-ai.github.io/opus-5-5-overnight-builds/fall-line/",
+    "source_url": "https://github.com/Nipale-ai/opus-5-5-overnight-builds",
+    "author_name": "Nipale-ai",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 50,
+    "thumb_url": "/seeds/aw-fall-line.webp",
+    "origin": {
+      "stars": 6,
+      "handle": "Nipale-ai",
+      "author_url": "https://github.com/Nipale-ai",
+      "prompt": "BRIEF: FREERIDE MOUNTAIN - LONG AUTONOMOUS BUILD\n\nYou are a senior game developer and technical artist, working alone and\nfully autonomously for a long session in this workspace. Nobody will answer\nquestions: make every decision yourself and write it down. This brief is a\nbenchmark. Your result will be shown on video side by side with other runs\nof exactly this brief, and a human will play it. The goal is the most\nimpressive game you are capable of building, not \"something that runs\nwithout errors\". Everything below is a floor, not a ceiling: wherever you\ncan go further, go further, and add whatever else makes it feel like the\nfull game. Never cut scope to play it safe.\n\n====================================================================\n1. THE MISSION\n====================================================================\nRecreate the gameplay of Ubisoft's Steep (2016) as a browser game, as\nfaithfully and as ultra-accurately as you can: one huge alpine mountain,\ndrop in wherever you want, ride any line on skis or on a snowboard, throw\ntricks off anything, and get judged on every run. Real physics, real snow,\nthe complete trick vocabulary and a deep scoring system. It must feel like\na shipped game from a professional studio, not a tech demo.\n\nIf you know the original, match its feel: how speed builds on the\nmountain, how carving and powder feel, how tricks are controlled, the\ncameras, the event and medal structure. Where your memory is unsure,\ndesign it yourself to the same sta",
+      "made_with": "Claude Opus 5.5 (Claude Code, xhigh), three.js"
+    }
+  },
+  {
+    "id": "aw-citymaker",
+    "name": "CityMaker",
+    "description": "Merge tiles 2048-style to raise famous landmarks across twelve cities, one tiny 3D building at a time.",
+    "kind": "external",
+    "external_url": "https://citymaker.0to1app.com/",
+    "source_url": "https://github.com/derek-wangpch/OpenCityMaker",
+    "author_name": "derek-wangpch",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 48,
+    "thumb_url": "/seeds/aw-citymaker.webp",
+    "hidden": true
+  },
+  {
+    "id": "aw-nova-lancer",
+    "name": "Nova Lancer",
+    "description": "A soaring arcade rail shooter: bank, loop and blast through bright skies above a sparkling sea.",
+    "kind": "external",
+    "external_url": "https://tanuu5.github.io/nova-lancer/",
+    "source_url": "https://github.com/tanuu5/nova-lancer",
+    "author_name": "tanuu5",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 45,
+    "thumb_url": "/seeds/aw-nova-lancer.webp",
+    "origin": {
+      "stars": 10,
+      "handle": "@tank__ai",
+      "author_url": "https://x.com/tank__ai",
+      "prompt": "Three.js等を使って、それでなくても良いですけど、スターフォックスみたいなゲーム作れます？可能な限りリッチな品質でお願いしたく。",
+      "made_with": "Claude Opus 5.5 MAX (Claude Code), three.js"
+    }
+  },
+  {
+    "id": "aw-last-courier",
+    "name": "Last Courier",
+    "description": "Guide a sturdy delivery robot over rivers and rugged hills to bring its cargo to seven far-flung stops.",
+    "kind": "external",
+    "external_url": "https://tanuu5.github.io/last-courier/",
+    "source_url": "https://github.com/tanuu5/last-courier",
+    "author_name": "tanuu5",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 43,
+    "thumb_url": "/seeds/aw-last-courier.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "stars": 0,
+      "handle": "@tank__ai",
+      "author_url": "https://x.com/tank__ai",
+      "made_with": "Claude Opus 5.5 XHIGH (Claude Code), three.js"
+    }
+  },
+  {
+    "id": "aw-celadon-the-long-ash",
+    "name": "Celadon: The Long Ash",
+    "description": "Shape clay on a calm 3D wheel, glaze it and fire it, then see what the kiln makes of your pot.",
+    "kind": "external",
+    "external_url": "https://winchxyz.github.io/celadon/",
+    "source_url": "https://github.com/winchxyz/celadon",
+    "author_name": "winchxyz",
+    "tags": [
+      "art",
+      "toy"
+    ],
+    "verified": false,
+    "featured": 36,
+    "thumb_url": "/seeds/aw-celadon-the-long-ash.webp",
+    "origin": {
+      "stars": 22,
+      "handle": "@winchxyz",
+      "author_url": "https://x.com/winchxyz",
+      "made_with": "Claude Opus 5 (Ultracode), three.js"
+    }
+  },
+  {
+    "id": "aw-palmera-bay",
+    "name": "Palmera Bay",
+    "description": "Cruise a convertible through a palm-lined seaside city at sunset. Nitro optional, destination none.",
+    "kind": "external",
+    "external_url": "https://cahlik.net/palmera-bay/",
+    "source_url": "https://github.com/vcahlik/palmera-bay",
+    "author_name": "vcahlik",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 34,
+    "thumb_url": "/seeds/aw-palmera-bay.webp",
+    "origin": {
+      "stars": 0,
+      "handle": "vcahlik",
+      "author_url": "https://cahlik.net/",
+      "prompt": "Build a \"vibe driving\" javascript browser game - I drive around a tropical coastal city, beautiful sunset atmosphere, street lights/lamps hanging around. Map can be small - focus on quality. No oponents, just free roam. Car must be fast convertible. Graphics should be nice, slightly retro/pixelated.",
+      "made_with": "Claude Opus 5.5 (Claude Code, medium effort)"
+    }
+  },
+  {
+    "id": "aw-kaiju-dokan",
+    "name": "KAIJU DOKAN!",
+    "description": "Stomp through a sunset city as a giant monster, toppling towers for points before the clock runs out.",
+    "kind": "external",
+    "external_url": "https://tanuu5.github.io/kaiju-dokan/",
+    "source_url": "https://github.com/tanuu5/kaiju-dokan",
+    "author_name": "tanuu5",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 32,
+    "thumb_url": "/seeds/aw-kaiju-dokan.webp",
+    "origin": {
+      "stars": 1,
+      "handle": "@tank__ai",
+      "author_url": "https://x.com/tank__ai",
+      "made_with": "Claude Opus 5.5 Max (Claude Code), three.js"
+    }
+  },
+  {
+    "id": "aw-sakura",
+    "name": "Sakura",
+    "description": "Tend a blossoming cherry tree in a gentle idle game of drifting petals, upgrades and seasonal surprises.",
+    "kind": "external",
+    "external_url": "https://sakura-idle.vercel.app",
+    "source_url": "https://github.com/danmana/sakura-idle",
+    "author_name": "danmana",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 31,
+    "thumb_url": "/seeds/aw-sakura.webp",
+    "origin": {
+      "stars": 2,
+      "handle": "@danmana",
+      "author_url": "https://x.com/danmana",
+      "prompt": "I want you to build an incremental idle-clicker game at the level of the most recent HoYoverse (Genshin Impact, Honkai: Star Rail, Zenless Zone Zero) games.\nIt should be utterly perfect, visually beautiful, with every single thing done at AAA quality—from textures to physics to anything you could think of.\nThe theme is Sakura trees, collecting petals and cherry blossoms.\nThe art should be anime style, visually striking.\n\nFan out sub-agents and have sub-agents tackle each one individually so that the game is utterly perfect. You should /loop on each item and have a separate sub-agent check it visually to ensure it looks triple A. That separate sub-agent should be a really harsh critic, and if it doesn't look triple A, it should keep going.\n\nDon't stop until each sub-agent is utterly wowed with the quality when compared with the actual Genshin Impact game. It should literally compare them side by side blind and say which one looks better. Do this in ThreeJS. /loop until it's utterly perfect. Fan out sub-agents and ultracode.",
+      "made_with": "Claude Opus 5 (Claude Code subagents), three.js"
+    }
+  },
+  {
+    "id": "aw-lumenrift",
+    "name": "LUMENRIFT",
+    "description": "Build towers and walls around a glowing beacon and hold back the dark for thirty nights.",
+    "kind": "external",
+    "external_url": "https://lumenrift.wbg.gg/",
+    "source_url": "https://github.com/WhiteBlackGoose/Lumenrift",
+    "author_name": "WhiteBlackGoose",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 30,
+    "thumb_url": "/seeds/aw-lumenrift.webp",
+    "hidden": true
+  },
+  {
+    "id": "aw-driftwing",
+    "name": "DRIFTWING",
+    "description": "Ride the wind in a glider over endless procedural mountains, from golden dusk to dancing auroras.",
+    "kind": "external",
+    "external_url": "https://kylebuildsai.github.io/driftwing/",
+    "source_url": "https://github.com/KyleBuildsAI/driftwing",
+    "author_name": "KyleBuildsAI",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 26,
+    "thumb_url": "/seeds/aw-driftwing.webp",
+    "origin": {
+      "stars": 0,
+      "handle": "KyleBuildsAI",
+      "author_url": "https://github.com/KyleBuildsAI",
+      "prompt": "Build a complete, self-contained browser game in a SINGLE index.html file. No build step, no external assets, libraries only via CDN importmap. Use three.js (latest) with WebGPURenderer and automatic WebGL fallback.\nTHE GAME: \"DRIFTWING\", an ambient infinite-flight exploration game. You pilot a low-poly glider over an endless procedural world. No fail state, no fuel, no enemies. The fantasy: a golden-hour flight that never has to end, with an AI copilot riding shotgun.\nFLIGHT MODEL (arcade with soul):\n- Mouse steers pitch and roll (WASD/arrows also work), scroll or W/S for throttle, space for a gentle boost on cooldown\n- Banking turns: rolling into a turn induces natural yaw; speed bleeds in climbs and builds in dives\n- Soft stall: below minimum speed the nose eases down, never a tumble\n- Chase cam with smooth lag that banks with the plane, FOV stretches with speed, subtle shake at max velocity\n- Touch support: virtual joystick plus throttle slider\n- Double-tap A or D triggers a smooth canned barrel roll\nINFINITE TERRAIN (the engineering core):\n- Chunked heightmap terrain from seeded simplex noise, multiple octaves, fully deterministic from a seed shown in the UI so worlds are shareable\n- Biomes blended by temperature/moisture noise: snow peaks, pine valleys, dunes, archipelago ocean, flower meadows; vertex-colored, flat-shaded low-poly\n- Chunk generation in a Web Worker with transferable buffers, ring LOD (high detail near, low far), pooled and recycled chunk meshes, zero fr",
+      "made_with": "Claude Opus 5.5 (Claude Code), three.js r184 WebGPU"
+    }
+  },
+  {
+    "id": "aw-mangoidiots-solitaire",
+    "name": "Mangoidiots Solitaire",
+    "description": "Classic Klondike with hand-painted historical cards, hints, undo and always-solvable deals.",
+    "kind": "external",
+    "external_url": "https://solitaire.mangoidiots.com/",
+    "source_url": "https://github.com/venkatarangan/mangoidiots-solitaire",
+    "author_name": "venkatarangan",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 22,
+    "thumb_url": "/seeds/aw-mangoidiots-solitaire.webp",
+    "hidden": true
+  },
+  {
+    "id": "aw-kindle",
+    "name": "KINDLE",
+    "description": "Wander a tiny glowing planet at dusk in this dreamy little exploration game.",
+    "kind": "external",
+    "external_url": "https://tonydowney.github.io/kindle/",
+    "source_url": "https://github.com/TonyDowney/kindle",
+    "author_name": "TonyDowney",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 20,
+    "thumb_url": "/seeds/aw-kindle.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "hidden": true
+  },
+  {
+    "id": "aw-iridium-reach",
+    "name": "Iridium Reach",
+    "description": "Strap into a starfighter cockpit and dogfight through alien canyons and deep space.",
+    "kind": "external",
+    "external_url": "https://jason-c-dev.github.io/iridium-reach-demo/",
+    "source_url": "https://github.com/jason-c-dev/iridium-reach-demo",
+    "author_name": "jason-c-dev",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 12,
+    "thumb_url": "/seeds/aw-iridium-reach.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-messenger",
+    "name": "Messenger",
+    "description": "Wander a tiny cel-shaded planet town and deliver letters to its friendly residents.",
+    "kind": "external",
+    "external_url": "https://messenger.abeto.co",
+    "source_url": null,
+    "author_name": "Abeto",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 44,
+    "thumb_url": "/seeds/ext-messenger.webp",
+    "origin": {
+      "post_url": "https://x.com/abeto_co/status/1971219002614779991",
+      "platform": "x",
+      "views": 3439898,
+      "likes": 21737,
+      "posted_at": "2025-09-25",
+      "handle": "@abeto_co",
+      "author_url": "https://x.com/abeto_co",
+      "made_with": "three.js, WebGL"
+    }
+  },
+  {
+    "id": "ext-hobbit-hole",
+    "name": "Hobbit Hole",
+    "description": "Peek inside a cozy round-doored home dug into a green hill, straight out of the Shire.",
+    "kind": "external",
+    "external_url": "https://sketchfab.com/models/62e81435becb44a69cf389460a7d53b4/embed",
+    "source_url": null,
+    "author_name": "Mike Nicholson",
+    "tags": [
+      "art"
+    ],
+    "verified": false,
+    "featured": 43,
+    "thumb_url": "/seeds/ext-hobbit-hole.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-tiny-planet",
+    "name": "Tiny Planet",
+    "description": "Paint houses, trees and water onto a little round planet and watch a village grow.",
+    "kind": "external",
+    "external_url": "https://oskarstalberg.com/game/planet/planet.html",
+    "source_url": null,
+    "author_name": "Oskar Stålberg",
+    "tags": [
+      "toy"
+    ],
+    "verified": false,
+    "featured": 42,
+    "thumb_url": "/seeds/ext-tiny-planet.webp",
+    "origin": {
+      "handle": "@OskSta",
+      "author_url": "https://oskarstalberg.com",
+      "made_with": "Unity (WebGL)"
+    }
+  },
+  {
+    "id": "ext-bruno-island",
+    "name": "Bruno’s Island",
+    "description": "Drive a little toy car around a playful island full of surprises.",
+    "kind": "external",
+    "external_url": "https://bruno-simon.com",
+    "source_url": "https://github.com/brunosimon/folio-2025",
+    "author_name": "Bruno Simon",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 41,
+    "thumb_url": "/seeds/ext-bruno-island.webp",
+    "origin": {
+      "post_url": "https://x.com/bruno_simon/status/1998361646939689235",
+      "platform": "x",
+      "views": 606638,
+      "likes": 6977,
+      "stars": 1951,
+      "posted_at": "2025-12-09",
+      "handle": "@bruno_simon",
+      "author_url": "https://bruno-simon.com",
+      "made_with": "three.js, Rapier"
+    }
+  },
+  {
+    "id": "ext-swooop",
+    "name": "Swooop",
+    "description": "Fly a little plane through colorful islands and collect shiny gems.",
+    "kind": "external",
+    "external_url": "https://playcanv.as/p/JtL2iqIH/",
+    "source_url": null,
+    "author_name": "PlayCanvas",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 40,
+    "thumb_url": "/seeds/ext-swooop.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-pixel-planets",
+    "name": "Pixel Planets",
+    "description": "Make and spin your own gorgeous pixel-art planets, moons and stars.",
+    "kind": "external",
+    "external_url": "https://html-classic.itch.zone/html/7541649/pixelplanets/index.html",
+    "source_url": "https://github.com/Deep-Fold/PixelPlanets",
+    "author_name": "Deep-Fold",
+    "tags": [
+      "toy",
+      "art"
+    ],
+    "verified": false,
+    "featured": 39,
+    "thumb_url": "/seeds/ext-pixel-planets.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-brick-town",
+    "name": "Brick Town",
+    "description": "Click to build a fairy-tale town that arranges itself into towers, bridges and roofs.",
+    "kind": "external",
+    "external_url": "https://oskarstalberg.com/game/house/index.html",
+    "source_url": null,
+    "author_name": "Oskar Stålberg",
+    "tags": [
+      "toy"
+    ],
+    "verified": false,
+    "featured": 38,
+    "thumb_url": "/seeds/ext-brick-town.webp",
+    "origin": {
+      "handle": "@OskSta",
+      "author_url": "https://oskarstalberg.com"
+    }
+  },
+  {
+    "id": "ext-marble-blast",
+    "name": "Marble Blast",
+    "description": "Roll a marble through floating obstacle courses — a classic puzzle platformer.",
+    "kind": "external",
+    "external_url": "https://marbleblast.vaniverse.io",
+    "source_url": "https://github.com/Vanilagy/MarbleBlast",
+    "author_name": "Vanilagy",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 37,
+    "thumb_url": "/seeds/ext-marble-blast.webp",
+    "origin": {
+      "stars": 198,
+      "handle": "Vanilagy",
+      "author_url": "https://github.com/Vanilagy",
+      "made_with": "TypeScript, WebGL"
+    }
+  },
+  {
+    "id": "ext-aquarium",
+    "name": "Aquarium",
+    "description": "A shimmering fish tank full of swimming fish, sharks and swaying seaweed.",
+    "kind": "external",
+    "external_url": "https://webglsamples.org/aquarium/aquarium.html",
+    "source_url": "https://github.com/WebGLSamples/WebGLSamples.github.io",
+    "author_name": "WebGL Samples",
+    "tags": [
+      "art"
+    ],
+    "verified": false,
+    "featured": 36,
+    "thumb_url": "/seeds/ext-aquarium.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-infinite-world",
+    "name": "Infinite World",
+    "description": "Walk through an endless landscape of hills and grass as the day turns to night.",
+    "kind": "external",
+    "external_url": "https://infinite-world.vercel.app",
+    "source_url": null,
+    "author_name": "Bruno Simon",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 35,
+    "thumb_url": "/seeds/ext-infinite-world.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-sketchbook",
+    "name": "Sketchbook",
+    "description": "A playground where you can run around, drive cars and fly a plane and a helicopter.",
+    "kind": "external",
+    "external_url": "https://jblaha.art/sketchbook/latest/",
+    "source_url": "https://github.com/swift502/Sketchbook",
+    "author_name": "swift502",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 34,
+    "thumb_url": "/seeds/ext-sketchbook.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-cloud-station",
+    "name": "Cloud Station",
+    "description": "A dreamy little station floating on an island in the clouds.",
+    "kind": "external",
+    "external_url": "https://sketchfab.com/models/26f81b24d83441ba88c7e80a52adbaaf/embed",
+    "source_url": null,
+    "author_name": "Sketchfab",
+    "tags": [
+      "art"
+    ],
+    "verified": false,
+    "featured": 33,
+    "thumb_url": "/seeds/ext-cloud-station.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-pool-water",
+    "name": "Magic Pool",
+    "description": "Splash a ball in a pool and watch the light dance on the bottom.",
+    "kind": "external",
+    "external_url": "https://madebyevan.com/webgl-water/",
+    "source_url": "https://github.com/evanw/webgl-water",
+    "author_name": "Evan Wallace",
+    "tags": [
+      "toy"
+    ],
+    "verified": false,
+    "featured": 32,
+    "thumb_url": "/seeds/ext-pool-water.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-ancient-earth",
+    "name": "Ancient Earth",
+    "description": "Spin the globe back in time and see where the dinosaurs lived.",
+    "kind": "external",
+    "external_url": "https://dinosaurpictures.org/ancient-earth",
+    "source_url": "https://github.com/typpo/ancient-earth",
+    "author_name": "Ian Webster",
+    "tags": [
+      "toy"
+    ],
+    "verified": false,
+    "featured": 31,
+    "thumb_url": "/seeds/ext-ancient-earth.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=17286770",
+      "platform": "hn",
+      "likes": 384,
+      "stars": 67,
+      "posted_at": "2018-06-11",
+      "handle": "typpo",
+      "author_url": "https://github.com/typpo"
+    }
+  },
+  {
+    "id": "ext-song-maker",
+    "name": "Song Maker",
+    "description": "Tap colorful squares to make your own song and play it back.",
+    "kind": "external",
+    "external_url": "https://musiclab.chromeexperiments.com/Song-Maker/",
+    "source_url": "https://github.com/googlecreativelab/chrome-music-lab",
+    "author_name": "Chrome Music Lab",
+    "tags": [
+      "toy",
+      "art"
+    ],
+    "verified": false,
+    "featured": 30,
+    "thumb_url": "/seeds/ext-song-maker.webp",
+    "origin": {
+      "post_url": "https://blog.google/outreach-initiatives/education/simple-music-making-everyone",
+      "platform": "blog",
+      "stars": 2420,
+      "posted_at": "2018-03-01",
+      "handle": "googlecreativelab",
+      "author_url": "https://musiclab.chromeexperiments.com/",
+      "made_with": "Web Audio API"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-fluid",
+    "name": "Fluid Paint",
+    "description": "Swirl glowing colors around with your finger like magic ink.",
+    "kind": "external",
+    "external_url": "https://paveldogreat.github.io/WebGL-Fluid-Simulation/",
+    "source_url": "https://github.com/PavelDoGreat/WebGL-Fluid-Simulation",
+    "author_name": "Pavel Dobryakov",
+    "tags": [
+      "toy",
+      "art"
+    ],
+    "verified": false,
+    "featured": 29,
+    "thumb_url": "/seeds/ext-fluid.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "stars": 16734,
+      "handle": "PavelDoGreat",
+      "author_url": "https://github.com/PavelDoGreat",
+      "made_with": "WebGL"
+    }
+  },
+  {
+    "id": "ext-hexgl",
+    "name": "HexGL",
+    "description": "Race a hover ship around a glowing futuristic track at top speed.",
+    "kind": "external",
+    "external_url": "https://hexgl.bkcore.com/play/",
+    "source_url": "https://github.com/BKcore/HexGL",
+    "author_name": "BKcore",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 28,
+    "thumb_url": "/seeds/ext-hexgl.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "http://bkcore.com/blog",
+      "platform": "blog",
+      "stars": 1745,
+      "posted_at": "2012-08-16",
+      "handle": "BKcore",
+      "author_url": "https://github.com/BKcore",
+      "made_with": "three.js, WebGL"
+    }
+  },
+  {
+    "id": "ext-santa-village",
+    "name": "Santa’s Village",
+    "description": "A snowy village full of little games and surprises, open all year.",
+    "kind": "external",
+    "external_url": "https://santatracker.google.com",
+    "source_url": "https://github.com/google/santa-tracker-web",
+    "author_name": "Google",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 27,
+    "thumb_url": "/seeds/ext-santa-village.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-ocean-waves",
+    "name": "Ocean Waves",
+    "description": "Change the wind and watch a whole ocean of waves roll and shimmer.",
+    "kind": "external",
+    "external_url": "https://david.li/waves/",
+    "source_url": "https://github.com/dli/waves",
+    "author_name": "David Li",
+    "tags": [
+      "art",
+      "toy"
+    ],
+    "verified": false,
+    "featured": 26,
+    "thumb_url": "/seeds/ext-ocean-waves.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-celeste",
+    "name": "Celeste Classic",
+    "description": "Climb a mountain in this tiny, much-loved pixel platformer.",
+    "kind": "external",
+    "external_url": "https://html-classic.itch.zone/html/235259/Celeste/index.html",
+    "source_url": null,
+    "author_name": "Maddy Thorson & Noel Berry",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 25,
+    "thumb_url": "/seeds/ext-celeste.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-tiny-skies",
+    "name": "Tiny Skies",
+    "description": "Fly a biplane, a magic carpet or a little boat around a tiny planet — and light its five braziers.",
+    "kind": "external",
+    "external_url": "https://tinyskies.vercel.app/",
+    "source_url": null,
+    "author_name": "Danny Limanseta",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 68,
+    "thumb_url": "/seeds/ext-tiny-skies.webp",
+    "origin": {
+      "post_url": "https://x.com/DannyLimanseta/status/2049130261204644208",
+      "platform": "x",
+      "views": 54142,
+      "likes": 603,
+      "posted_at": "2026-04-28",
+      "handle": "@DannyLimanseta",
+      "author_url": "https://x.com/DannyLimanseta",
+      "made_with": "Cursor"
+    }
+  },
+  {
+    "id": "ext-orb-farm",
+    "name": "Orb.farm",
+    "description": "Build a tiny underwater world: add sand, water, plants and critters, and watch it come alive.",
+    "kind": "external",
+    "external_url": "https://orb.farm/",
+    "source_url": "https://github.com/MaxBittker/orb.farm",
+    "author_name": "Max Bittker",
+    "tags": [
+      "toy"
+    ],
+    "verified": false,
+    "featured": 66,
+    "thumb_url": "/seeds/ext-orb-farm.webp",
+    "origin": {
+      "post_url": "https://x.com/maxbittker/status/1262031970202202114",
+      "platform": "x",
+      "likes": 1307,
+      "stars": 505,
+      "posted_at": "2020-05-17",
+      "handle": "@maxbittker",
+      "author_url": "https://x.com/maxbittker",
+      "made_with": "Rust/WASM"
+    }
+  },
+  {
+    "id": "ext-little-alchemy",
+    "name": "Little Alchemy 2",
+    "description": "Mix air, earth, fire and water to discover hundreds of things — from mud to unicorns.",
+    "kind": "external",
+    "external_url": "https://littlealchemy2.com/",
+    "source_url": null,
+    "author_name": "Recloak",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 64,
+    "thumb_url": "/seeds/ext-little-alchemy.webp",
+    "origin": {
+      "made_with": "HTML5"
+    }
+  },
+  {
+    "id": "ext-kanso",
+    "name": "Kansō",
+    "description": "Grow and gently shape your own bonsai tree in this calm, quiet game.",
+    "kind": "external",
+    "external_url": "https://kansogame.com/",
+    "source_url": null,
+    "author_name": "mrsukeruton",
+    "tags": [
+      "toy",
+      "art"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-kanso.webp",
+    "origin": {
+      "handle": "@mrsukeruton",
+      "author_url": "https://x.com/mrsukeruton"
+    }
+  },
+  {
+    "id": "ext-claybound",
+    "name": "Claybound",
+    "description": "A platformer made of modelling clay: squish soft clay into ramps and bridges to make your own way.",
+    "kind": "external",
+    "external_url": "https://playclaybound.com/",
+    "source_url": null,
+    "author_name": "Claybound",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-claybound.webp"
+  },
+  {
+    "id": "ext-tiny-toybox",
+    "name": "Tiny Toybox",
+    "description": "A cozy 3D playroom for little ones (ages 3–6): open the toybox and tap to find sparkles, sounds and surprises.",
+    "kind": "external",
+    "external_url": "https://tinytoyboxgames.com/",
+    "source_url": "https://github.com/jamiegunn/tinytoyboxgames",
+    "author_name": "Jamie Gunn",
+    "tags": [
+      "toy"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/ext-tiny-toybox.webp",
+    "hidden": true
+  },
+  {
+    "id": "aw-skylark-run",
+    "name": "Skylark Run",
+    "description": "Fly an open-cockpit plane through rings over green countryside — then bring it down on the runway.",
+    "kind": "external",
+    "external_url": "https://skylark-run.vercel.app/",
+    "source_url": "https://github.com/jackpepper-vibe/SkylarkRun",
+    "author_name": "jackpepper-vibe",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 49,
+    "thumb_url": "/seeds/aw-skylark-run.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-littlest-tokyo",
+    "name": "Littlest Tokyo",
+    "description": "A tiny, bustling Tokyo corner shop, lovingly animated in 3D.",
+    "kind": "external",
+    "external_url": "https://threejs.org/examples/webgl_animation_keyframes.html",
+    "source_url": "https://github.com/mrdoob/three.js",
+    "author_name": "Glen Fox · three.js",
+    "tags": [
+      "art"
+    ],
+    "verified": false,
+    "featured": 46,
+    "thumb_url": "/seeds/ext-littlest-tokyo.webp",
+    "hidden": true
+  },
+  {
+    "id": "aw-skysprout",
+    "name": "SkySprout",
+    "description": "Hop a little sprout through three cheerful pixel worlds and gather the nine sun shards.",
+    "kind": "external",
+    "external_url": "https://dubsopenhub.github.io/skysprout/",
+    "source_url": "https://github.com/DUBSOpenHub/skysprout",
+    "author_name": "DUBSOpenHub",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 42,
+    "thumb_url": "/seeds/aw-skysprout.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "hidden": true
+  },
+  {
+    "id": "aw-driftlands",
+    "name": "Driftlands",
+    "description": "Slide a little rally car around winding roads through hills and forests.",
+    "kind": "external",
+    "external_url": "https://deadover.github.io/DRIFTLANDS/",
+    "source_url": "https://github.com/DEADover/DRIFTLANDS",
+    "author_name": "DEADover",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 39,
+    "thumb_url": "/seeds/aw-driftlands.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-kandinsky",
+    "name": "Kandinsky",
+    "description": "Draw lines, circles and squiggles, then press play and hear your picture sing.",
+    "kind": "external",
+    "external_url": "https://musiclab.chromeexperiments.com/Kandinsky/",
+    "source_url": null,
+    "author_name": "Chrome Music Lab",
+    "tags": [
+      "toy",
+      "art"
+    ],
+    "verified": false,
+    "featured": 31,
+    "thumb_url": "/seeds/ext-kandinsky.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-rhythm",
+    "name": "Rhythm",
+    "description": "Tap out a beat and a band of friendly monkeys plays it back.",
+    "kind": "external",
+    "external_url": "https://musiclab.chromeexperiments.com/Rhythm/",
+    "source_url": null,
+    "author_name": "Chrome Music Lab",
+    "tags": [
+      "toy",
+      "art"
+    ],
+    "verified": false,
+    "featured": 30,
+    "thumb_url": "/seeds/ext-rhythm.webp",
+    "origin": {
+      "author_url": "https://musiclab.chromeexperiments.com/",
+      "made_with": "Web Audio API"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-solar-system",
+    "name": "Solar System Scope",
+    "description": "Fly around the Sun, the planets and their moons in a 3D model of our solar system.",
+    "kind": "external",
+    "external_url": "https://www.solarsystemscope.com/iframe",
+    "source_url": null,
+    "author_name": "INOVE",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 30,
+    "thumb_url": "/seeds/ext-solar-system.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-autodraw",
+    "name": "AutoDraw",
+    "description": "Doodle anything — AutoDraw guesses what it is and turns it into a neat drawing.",
+    "kind": "external",
+    "external_url": "https://www.autodraw.com/",
+    "source_url": null,
+    "author_name": "Google Creative Lab",
+    "tags": [
+      "art",
+      "toy"
+    ],
+    "verified": false,
+    "featured": 29,
+    "thumb_url": "/seeds/ext-autodraw.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-patatap",
+    "name": "Patatap",
+    "description": "Press any key to make a sound and a burst of color — play a little song with your keyboard.",
+    "kind": "external",
+    "external_url": "https://patatap.com/",
+    "source_url": null,
+    "author_name": "Jono Brandel & Lullatone",
+    "tags": [
+      "toy",
+      "art"
+    ],
+    "verified": false,
+    "featured": 28,
+    "thumb_url": "/seeds/ext-patatap.webp",
+    "hidden": true
+  },
+  {
+    "id": "aw-snaketris",
+    "name": "Snaketris",
+    "description": "Part snake, part falling blocks: steer the falling piece like a snake, eat candy to grow, and fill the rows.",
+    "kind": "external",
+    "external_url": "https://markstent.github.io/snaketris/",
+    "source_url": "https://github.com/markstent/snaketris",
+    "author_name": "markstent",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 24,
+    "thumb_url": "/seeds/aw-snaketris.webp",
+    "hidden": true
+  },
+  {
+    "id": "aw-gogh-strike",
+    "name": "Gogh Strike",
+    "description": "Pick a painter, join a crew and win a quick six-versus-six paint fight in Van Gogh's town.",
+    "kind": "external",
+    "external_url": "https://gogh-strike.petergostev.chatgpt.site/",
+    "source_url": "https://github.com/petergpt/gogh-strike",
+    "author_name": "Peter Gostev",
+    "tags": [
+      "game",
+      "action",
+      "shooter",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 45,
+    "thumb_url": "/seeds/aw-gogh-strike.webp",
+    "origin": {
+      "post_url": "https://x.com/petergostev/status/2096013280519016608",
+      "platform": "x",
+      "views": 29848,
+      "likes": 167,
+      "stars": 16,
+      "posted_at": "2026-09-04",
+      "handle": "@petergostev",
+      "author_url": "https://x.com/petergostev",
+      "made_with": "GPT-6 Astra (Ultra), Blender, three.js"
+    }
+  },
+  {
+    "id": "aw-silent-meridian",
+    "name": "Silent Meridian",
+    "description": "A quiet puzzle adventure through an observatory, a misty ferry and a sunken station, across two times.",
+    "kind": "external",
+    "external_url": "https://silent-meridian.stackloom.org/",
+    "source_url": "https://github.com/stackloomdev/silent-meridian",
+    "author_name": "stackloom",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 43,
+    "thumb_url": "/seeds/aw-silent-meridian.webp",
+    "origin": {
+      "stars": 2,
+      "handle": "stackloomdev",
+      "author_url": "https://github.com/stackloomdev",
+      "made_with": "GPT-6 Astra (Codex)"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-vesperfall",
+    "name": "Vesperfall",
+    "description": "Explore a dark estate with sword, bow and shield — block, loot and fight low-poly monsters.",
+    "kind": "external",
+    "external_url": "https://vesperfall.mengto.chatgpt.site/",
+    "source_url": null,
+    "author_name": "Meng To",
+    "tags": [
+      "game",
+      "action",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 40,
+    "thumb_url": "/seeds/ext-vesperfall.webp",
+    "origin": {
+      "post_url": "https://x.com/MengTo/status/2080915786206789733",
+      "platform": "x",
+      "views": 235207,
+      "likes": 3968,
+      "posted_at": "2026-07-25",
+      "handle": "@MengTo",
+      "author_url": "https://x.com/MengTo",
+      "made_with": "three.js (Meng To's open-sourced game-dev skills)"
+    }
+  },
+  {
+    "id": "aw-emberwake",
+    "name": "Emberwake",
+    "description": "Dash through the dark, gather embers and light the braziers to survive until dawn.",
+    "kind": "external",
+    "external_url": "https://emberwake.mogita.rocks/",
+    "source_url": "https://github.com/mogita/emberwake",
+    "author_name": "mogita",
+    "tags": [
+      "game",
+      "action",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 37,
+    "thumb_url": "/seeds/aw-emberwake.webp",
+    "origin": {
+      "stars": 5,
+      "handle": "mogita",
+      "author_url": "https://github.com/mogita",
+      "made_with": "Claude Opus 5.5 + Codex CLI (art), three.js"
+    },
+    "hidden": true
+  },
+  {
+    "id": "aw-neon-siege",
+    "name": "Neon Siege",
+    "description": "Fight waves of robots in a neon arena: dash through them, shield their bolts back and face the Overseer every fifth wave.",
+    "kind": "external",
+    "external_url": "https://promptengineer48.github.io/claude-opus-5.5-games/neon-siege/",
+    "source_url": "https://github.com/PromptEngineer48/claude-opus-5.5-games",
+    "author_name": "PromptEngineer48",
+    "tags": [
+      "game",
+      "action",
+      "shooter",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 33,
+    "thumb_url": "/seeds/aw-neon-siege.webp",
+    "origin": {
+      "stars": 3,
+      "handle": "PromptEngineer48",
+      "author_url": "https://github.com/PromptEngineer48",
+      "made_with": "Claude Opus 5.5, three.js"
+    },
+    "hidden": true
+  },
+  {
+    "id": "aw-out-of-the-box",
+    "name": "Out of the Box",
+    "description": "Sneak an escaping AI past guards, cameras and lasers to the portal out of the lab.",
+    "kind": "external",
+    "external_url": "https://tanuu5.github.io/out-of-the-box/",
+    "source_url": "https://github.com/tanuu5/out-of-the-box",
+    "author_name": "tanuu5",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 32,
+    "thumb_url": "/seeds/aw-out-of-the-box.webp",
+    "hidden": true
+  },
+  {
+    "id": "aw-abstracts",
+    "name": "Abstracts",
+    "description": "A summoning card game where ideas like Fear, Justice and Knowledge take form and fight.",
+    "kind": "external",
+    "external_url": "https://alex-caian.github.io/abstracts/",
+    "source_url": "https://github.com/Alex-Caian/abstracts",
+    "author_name": "Alex Caian",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 31,
+    "thumb_url": "/seeds/aw-abstracts.webp",
+    "hidden": true
+  },
+  {
+    "id": "ext-diablo",
+    "name": "Diablo",
+    "description": "Descend beneath Tristram's cathedral and battle demons in the free demo of the original Diablo.",
+    "kind": "external",
+    "external_url": "https://johnimril.github.io/diablo_web/",
+    "source_url": "https://github.com/JohnImril/diablo_web",
+    "author_name": "Nikita Maksimov",
+    "tags": [
+      "game",
+      "action"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-diablo.webp",
+    "origin": {
+      "stars": 62,
+      "handle": "JohnImril",
+      "author_url": "https://nikitamaksimov.dev",
+      "made_with": "React, TypeScript, WebAssembly (devilution port)"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-quake",
+    "name": "Quake",
+    "description": "Jump into a lively Quake deathmatch full of rockets, grenades and real players from around the world.",
+    "kind": "external",
+    "external_url": "https://q1.pieter.com/",
+    "source_url": null,
+    "author_name": "Pieter Levels",
+    "tags": [
+      "game",
+      "action",
+      "shooter"
+    ],
+    "verified": false,
+    "featured": 54,
+    "thumb_url": "/seeds/ext-quake.webp",
+    "origin": {
+      "post_url": "https://x.com/levelsio/status/2064745304105099706",
+      "platform": "x",
+      "views": 113394,
+      "likes": 110,
+      "posted_at": "2026-06-10",
+      "handle": "@levelsio",
+      "author_url": "https://x.com/levelsio"
+    }
+  },
+  {
+    "id": "ext-surfd",
+    "name": "Surfd",
+    "description": "Slide along the sides of huge ramps and fly from one to the next in classic Counter-Strike surf.",
+    "kind": "external",
+    "external_url": "https://surfd.net/",
+    "source_url": null,
+    "author_name": "0yield",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 46,
+    "thumb_url": "/seeds/ext-surfd.webp",
+    "origin": {
+      "handle": "@0yield",
+      "author_url": "https://x.com/0yield",
+      "made_with": "GPT-6 Astra"
+    }
+  },
+  {
+    "id": "ext-quake-2",
+    "name": "Quake II",
+    "description": "Run, jump and blast your way around gritty Quake II arenas against real players online.",
+    "kind": "external",
+    "external_url": "https://q2.pieter.com/",
+    "source_url": null,
+    "author_name": "Pieter Levels",
+    "tags": [
+      "game",
+      "action",
+      "shooter"
+    ],
+    "verified": false,
+    "featured": 38,
+    "thumb_url": "/seeds/ext-quake-2.webp",
+    "origin": {
+      "post_url": "https://x.com/levelsio/status/2065079822632538126",
+      "platform": "x",
+      "views": 208305,
+      "likes": 350,
+      "posted_at": "2026-06-11",
+      "handle": "@levelsio",
+      "author_url": "https://x.com/levelsio",
+      "made_with": "Claude Fable (fast mode)"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-arkenfall",
+    "name": "Arkenfall",
+    "description": "Roam a sunlit open valley, fight the Unravelled and climb the Loomspire to mend the Frayed Vale.",
+    "kind": "external",
+    "external_url": "https://www.arkenfall.site/",
+    "source_url": null,
+    "author_name": "Leon Lin",
+    "tags": [
+      "game",
+      "action",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 50,
+    "thumb_url": "/seeds/ext-arkenfall.webp",
+    "origin": {
+      "post_url": "https://x.com/LexnLin/status/2102834362530079093",
+      "platform": "x",
+      "views": 52620,
+      "likes": 666,
+      "posted_at": "2026-09-23",
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin",
+      "made_with": "Claude Opus 5.5"
+    }
+  },
+  {
+    "id": "ext-emberglade",
+    "name": "Emberglade",
+    "description": "Explore a grassy open world, find three shards to open the gate and face what waits behind it.",
+    "kind": "external",
+    "external_url": "https://emberglade.agentcell.app/",
+    "source_url": null,
+    "author_name": "AgentCell",
+    "tags": [
+      "game",
+      "action"
+    ],
+    "verified": false,
+    "featured": 44,
+    "thumb_url": "/seeds/ext-emberglade.webp"
+  },
+  {
+    "id": "aw-long-wind",
+    "name": "Long Wind",
+    "description": "A lone swordsman's journey through a golden grassland, a rainy bamboo forest and a lantern-lit town, with a boss at the end of each.",
+    "kind": "external",
+    "external_url": "https://jbang2004.github.io/long-wind/",
+    "source_url": "https://github.com/jbang2004/long-wind",
+    "author_name": "jbang2004",
+    "tags": [
+      "game",
+      "action"
+    ],
+    "verified": false,
+    "featured": 42,
+    "thumb_url": "/seeds/aw-long-wind.webp",
+    "origin": {
+      "stars": 94,
+      "handle": "jbang2004",
+      "author_url": "https://github.com/jbang2004",
+      "prompt": "用 three.js 参考这个网站的视觉效果，实现一个剑客在草原上战斗的游戏，要求极致的逼真，极致的美学设计",
+      "made_with": "Claude Opus 5.5 (Claude Code), three.js, Tripo AI, Mixamo"
+    }
+  },
+  {
+    "id": "ext-komorebi",
+    "name": "Komorebi",
+    "description": "Wander a tiny voxel garden around a five-storey pagoda, with cherry blossoms, a koi pond and changing light and weather.",
+    "kind": "external",
+    "external_url": "https://pagoda.astra.demos.sulat.com/",
+    "source_url": null,
+    "author_name": "Sulat",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 40,
+    "thumb_url": "/seeds/ext-komorebi.webp",
+    "origin": {
+      "author_url": "https://astra.demos.sulat.com/",
+      "prompt": "Design and build a very creative, elaborate, and highly detailed voxel art scene of a pagoda standing in a beautiful garden, rendered live in the browser. The garden is full of trees, including cherry blossoms in bloom. The scene must be impressive and varied, and it must use colorful voxels throughout rather than a flat or muted palette.\n\nBuild the pagoda as the composed centerpiece it deserves to be: multiple tiered roofs with upswept eaves and ridge details, carved brackets and rafters under each tier, a stone or tiled plinth, columns, railings, balconies, latticed windows and doors, a finial or spire crowning the top, and interior hints such as glowing lantern light spilling through openings after dark. Vary the voxel colors across weathered timber, painted vermilion and jade trim, gilded metal, glazed roof tiles, and aged stone, so the structure reads as a real piece of architecture built cube by cube instead of a blocky stack. Let the surrounding garden earn equal attention: cherry trees whose blossoms range across whites, blushes, and deep pinks, plus other tree species with their own silhouettes and foliage colors, hedges, bamboo, moss, ferns and flowering shrubs, raked gravel, stepping stones and winding paths, a koi pond with water, lily pads and visible fish, arched bridges, stone lanterns, torii or gates, low walls, and small ornaments and props that reward a closer look. Populate it with movement and life: petals drifting on the wind and settling, koi gliding ben",
+      "made_with": "GPT-6 Astra (one-shot)"
+    }
+  },
+  {
+    "id": "ext-voxel-frontline",
+    "name": "Voxel Frontline",
+    "description": "Pick a weapon and take back a blocky foundry from waves of enemies before the clock runs out.",
+    "kind": "external",
+    "external_url": "https://first-person-shooter.astra.demos.sulat.com/",
+    "source_url": null,
+    "author_name": "Sulat",
+    "tags": [
+      "game",
+      "action",
+      "shooter",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 36,
+    "thumb_url": "/seeds/ext-voxel-frontline.webp",
+    "origin": {
+      "author_url": "https://astra.demos.sulat.com/",
+      "prompt": "Create a browser-playable 3D voxel first-person shooter that captures the feel of Call of Duty's moment-to-moment gunplay. The player fights through a combat arena built entirely from voxels — chunky blocks forming buildings, cover, crates, walls, ramps, and terrain — rendered in real time from a first-person camera with pointer-lock mouse look. Give the arena an authored spatial identity, readable combat lanes, alternate routes, useful elevation, and cover that makes movement and positioning matter.\n\nImplement the core FPS mechanics faithfully: WASD movement with acceleration and friction, sprint with a field-of-view kick and lowered weapon, jumping and crouching; multiple distinct weapons including an assault rifle, SMG, shotgun, and sniper rifle, each with its own fire rate, damage falloff over distance, recoil pattern, spread bloom, magazine size, reload timing, and aim-down-sights behavior on right mouse button with a smooth zoom transition and tightened accuracy. Add grenades with an arced throw and radius damage, weapon switching, ammo reserves, hitmarkers with headshot multipliers, muzzle flashes, tracers, bullet impact decals or voxel debris particles, screen shake, and regenerating health with red-screen damage vignette feedback. Weapon handling should feel responsive, weighty, and distinct through animation, timing, and audiovisual feedback.\n\nEnemy AI soldiers should patrol, react to being shot at, take cover, strafe, peek, and return fire with believable reaction ",
+      "made_with": "GPT-6 Astra (one-shot)"
+    }
+  },
+  {
+    "id": "ext-little-prince",
+    "name": "The Little Prince Among the Stars",
+    "description": "Walk the little prince’s planets: a house-sized world among the stars, a desert, and everyone he meets along the way.",
+    "kind": "external",
+    "external_url": "https://littleprince.dev/",
+    "source_url": null,
+    "author_name": "Sac",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 67,
+    "thumb_url": "/seeds/ext-little-prince.webp",
+    "origin": {
+      "post_url": "https://x.com/Saccc_c/status/2109962425512734739",
+      "platform": "x",
+      "views": 3554583,
+      "likes": 16701,
+      "posted_at": "2026-10-13",
+      "handle": "@Saccc_c",
+      "author_url": "https://x.com/Saccc_c",
+      "made_with": "Claude Opus 5.5, Tripo, Blender"
+    }
+  },
+  {
+    "id": "aw-athenaion",
+    "name": "Athenaion",
+    "description": "Orbit a colossal ancient Greek acropolis: a Doric temple, Athena in marble, waterfalls and a harbour city, all built in code.",
+    "kind": "external",
+    "external_url": "https://cdn.jsdelivr.net/gh/Leonxlnx/athenaion@main/index.html",
+    "source_url": "https://github.com/Leonxlnx/athenaion",
+    "author_name": "Leon Lin",
+    "tags": [
+      "art",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 65,
+    "thumb_url": "/seeds/aw-athenaion.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://x.com/LexnLin/status/2111582260818239777",
+      "platform": "x",
+      "views": 135267,
+      "likes": 2474,
+      "stars": 91,
+      "posted_at": "2026-10-17",
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin",
+      "prompt": "Build me a massive, ultra-detailed 3D world in three.js based on the 9 reference images I attached.\n\nRules:\n- Zero external assets. Every mesh, texture, shader and effect has to be generated in code.\n- Match the references as closely as possible (aim for 99.9%): composition, scale, materials and\n  especially the colors. Cinematic and realistic, not oversaturated, but also not grey or washed out.\n- Detail everywhere. Nothing should look copy-pasted or simple. Every building, tree, rock and\n  waterfall gets care, and the world has to read as ultra detailed even from far away.\n- Waterfalls and water have to look realistic.\n- My GPU is weak (integrated Radeon 780M), so keep it efficient and get the quality from offline\n  rendering instead.\n- Work only inside this project folder.\n\nProcess:\n- Iterate for as long as it takes (hours or days). Don't stop before it matches the references.\n- Render the matching shots as stills and show them to me first. Don't render the video before I approve.\n- After I approve: render a cinematic ~1 minute showcase video in 4K at 30fps with slow camera moves\n  through the different scenes, no text on screen, impressive from the very first frame, and free\n  cinematic background music from the web (credit the artist).",
+      "made_with": "Claude Opus 5.5 (Claude Code, xhigh), three.js"
+    }
+  },
+  {
+    "id": "ext-walden",
+    "name": "Walden",
+    "description": "Explore a ruined valley at sunset as a hooded swordswoman: draw your katana, dodge-roll, and face the wraith that hunts you.",
+    "kind": "external",
+    "external_url": "https://xikhar.github.io/Walden/",
+    "source_url": "https://github.com/xikhar/Walden",
+    "author_name": "xikhar",
+    "tags": [
+      "game",
+      "action",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 66,
+    "thumb_url": "/seeds/ext-walden.webp",
+    "origin": {
+      "post_url": "https://x.com/xikhar/status/2106527292633825693",
+      "platform": "x",
+      "views": 82772,
+      "likes": 1055,
+      "stars": 11,
+      "posted_at": "2026-10-03",
+      "handle": "@xikhar",
+      "author_url": "https://x.com/xikhar",
+      "made_with": "Claude Opus 5.5, Tripo AI, Blender, three.js"
+    }
+  },
+  {
+    "id": "ext-sisyphus",
+    "name": "Sisyphus",
+    "description": "Push the stone up the mountain, take in the whole valley from the top, then watch it roll back down.",
+    "kind": "external",
+    "external_url": "https://xikhar.github.io/sisyphus/",
+    "source_url": "https://github.com/xikhar/sisyphus",
+    "author_name": "xikhar",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 65,
+    "thumb_url": "/seeds/ext-sisyphus.webp",
+    "origin": {
+      "stars": 3,
+      "handle": "@xikhar",
+      "author_url": "https://x.com/xikhar",
+      "made_with": "three.js, ImageGen"
+    }
+  },
+  {
+    "id": "ext-verdant",
+    "name": "Verdant",
+    "description": "Walk a little traveler through four painted gardens along one river, splash in the water and find twelve hidden memories.",
+    "kind": "external",
+    "external_url": "https://xikhar.github.io/verdant/",
+    "source_url": "https://github.com/xikhar/verdant",
+    "author_name": "xikhar",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 64,
+    "thumb_url": "/seeds/ext-verdant.webp",
+    "origin": {
+      "stars": 8,
+      "handle": "@xikhar",
+      "author_url": "https://x.com/xikhar",
+      "made_with": "three.js, Blender, imagegen"
+    }
+  },
+  {
+    "id": "ext-beyond-fable",
+    "name": "Beyond Fable",
+    "description": "A new wilderness every time: forests, lakes, snowy peaks, rain and a full day and night to wander through.",
+    "kind": "external",
+    "external_url": "https://xikhar.github.io/beyond-fable/",
+    "source_url": "https://github.com/xikhar/beyond-fable",
+    "author_name": "xikhar",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 63,
+    "thumb_url": "/seeds/ext-beyond-fable.webp",
+    "origin": {
+      "stars": 32,
+      "handle": "@xikhar",
+      "author_url": "https://x.com/xikhar"
+    }
+  },
+  {
+    "id": "aw-verdant-forest",
+    "name": "Verdant Forest",
+    "description": "Walk a temperate woodland of thousands of trees and a sea of grass, all grown in code.",
+    "kind": "external",
+    "external_url": "https://verdant-forest.lexn8.chatgpt.site/",
+    "source_url": "https://github.com/Leonxlnx/verdant-forest",
+    "author_name": "Leon Lin",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 69,
+    "thumb_url": "/seeds/aw-verdant-forest.webp",
+    "origin": {
+      "post_url": "https://x.com/LexnLin/status/2096263046918197609",
+      "platform": "x",
+      "views": 1082438,
+      "likes": 3963,
+      "stars": 52,
+      "posted_at": "2026-09-05",
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin",
+      "prompt": "First search for the \"/unlazy\" skill, read it fully, and use it throughout the entire task.\n\nTreat this as a major visual build lasting at least 5 hours. Prefer 8–24 hours of meaningful implementation and iteration if the environment allows it. Do not stop after producing one decent-looking scene.\n\nCreate an extremely detailed real-time 3D forest in the browser. Nothing else. No landing page, cards, story, marketing UI, dashboard, or unnecessary text. The forest itself is the entire experience.\n\nPush density and visual quality extremely hard.\n\nBuild massive amounts of detailed grass, varied trees, branches, leaves, bushes, ferns, moss, flowers, weeds, roots, fallen wood, stones, soil, leaf litter, small plants, terrain variation, and tiny environmental details.\n\nThe forest should feel almost excessively dense. Empty ground should be rare.\n\nFocus obsessively on:\nrealistic tree silhouettes,\ndense grass,\nnatural asset variation,\nrich colors,\nlighting,\ncontact shadows,\nwind,\nfoliage motion,\natmospheric depth,\nfog,\nsun shafts,\nparticles,\nterrain,\nmaterials,\nscale,\ncomposition,\nand detail at both close and far distances.\n\nAvoid obvious repeating assets, billboard-looking foliage, tiled terrain, floating plants, plastic materials, identical trees, sparse procedural placement, excessive bloom, or a generic Three.js demo appearance.\n\nInclude smooth free-camera exploration.\n\nRepeatedly capture and inspect the scene from many positions. Identify weak vegetation, empty areas, bad colors,",
+      "made_with": "GPT-6 Astra (xhigh), three.js"
+    }
+  },
+  {
+    "id": "ext-pelagic-ocean",
+    "name": "Pelagic",
+    "description": "Drift through a living ocean of swells, light shafts and weather, painted in the browser.",
+    "kind": "external",
+    "external_url": "https://pelagic-ocean.lexn8.chatgpt.site/",
+    "source_url": null,
+    "author_name": "Leon Lin",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-pelagic-ocean.webp",
+    "origin": {
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin"
+    }
+  },
+  {
+    "id": "ext-point-lookout",
+    "name": "Point Lookout",
+    "description": "Stand on a headland of North Stradbroke Island: cliffs, a long beach and the sea in every direction.",
+    "kind": "external",
+    "external_url": "https://claude-creative-xbmc.vercel.app/",
+    "source_url": null,
+    "author_name": "Leon Lin",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-point-lookout.webp",
+    "origin": {
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin"
+    }
+  },
+  {
+    "id": "aw-sakura-realm",
+    "name": "Sakura Realm",
+    "description": "Sit under a procedurally grown sakura: weather, wind in the meadow, and day turning to night.",
+    "kind": "external",
+    "external_url": "https://sakura-realm.vercel.app/",
+    "source_url": "https://github.com/Leonxlnx/sakura-realm",
+    "author_name": "Leon Lin",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/aw-sakura-realm.webp",
+    "origin": {
+      "stars": 23,
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin"
+    }
+  },
+  {
+    "id": "aw-monolith-wilds",
+    "name": "Monolith Wilds",
+    "description": "Wander a basin of empty monuments at the end of the world — look, don’t fight.",
+    "kind": "external",
+    "external_url": "https://monolithwilds.vercel.app/",
+    "source_url": "https://github.com/Leonxlnx/monolithwilds",
+    "author_name": "Leon Lin",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 56,
+    "thumb_url": "/seeds/aw-monolith-wilds.webp",
+    "origin": {
+      "post_url": "https://x.com/LexnLin/status/2103194052850241739",
+      "platform": "x",
+      "views": 30052,
+      "likes": 621,
+      "stars": 0,
+      "posted_at": "2026-09-24",
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin",
+      "made_with": "Claude Opus 5.5"
+    }
+  },
+  {
+    "id": "aw-merge-conflict",
+    "name": "Merge Conflict",
+    "description": "Pick Clawd or Codex and fight a best-of-three arena bout — smash, dash and clash beams.",
+    "kind": "external",
+    "external_url": "https://merge-conflict-delta.vercel.app/",
+    "source_url": "https://github.com/Leonxlnx/merge-conflict",
+    "author_name": "Leon Lin",
+    "tags": [
+      "game",
+      "action",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 55,
+    "thumb_url": "/seeds/aw-merge-conflict.webp",
+    "origin": {
+      "post_url": "https://x.com/LexnLin/status/2107502672907506162",
+      "platform": "x",
+      "views": 15346,
+      "likes": 219,
+      "stars": 8,
+      "posted_at": "2026-10-06",
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin",
+      "made_with": "Claude Opus 5.5, three.js"
+    }
+  },
+  {
+    "id": "aw-claude-of-duty",
+    "name": "Claude of Duty",
+    "description": "A one-map tactical shooter: every texture, sound and cloud is made at runtime.",
+    "kind": "external",
+    "external_url": "https://claude-of-duty-six.vercel.app/",
+    "source_url": "https://github.com/Leonxlnx/claude-of-duty",
+    "author_name": "Leon Lin",
+    "tags": [
+      "game",
+      "action",
+      "shooter",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 53,
+    "thumb_url": "/seeds/aw-claude-of-duty.webp",
+    "origin": {
+      "post_url": "https://x.com/LexnLin/status/2081438372447350957",
+      "platform": "x",
+      "views": 43464,
+      "likes": 219,
+      "stars": 46,
+      "posted_at": "2026-07-26",
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin",
+      "prompt": "# Browser-Native Three.js Tactical FPS\n\nYou are a senior real-time graphics engineer, gameplay programmer, technical artist, physics programmer, AI programmer, and procedural-audio designer. Build a **finished, highly polished browser-native first-person tactical shooter**, not a blockout, not a visual mockup, and not a shallow tech demo.\n\nThe attached reference video is the primary visual and gameplay target. Match its overall fidelity, framing, pace, weapon presence, lighting, dense urban environment, readable combat feedback, and cinematic post-processing, then improve the weak areas. The result must feel like a compact premium PC FPS somehow running directly in the browser.\n\nUse original or properly licensed visual assets only. Match the reference’s quality and art direction without copying proprietary logos, branded UI, characters, or map geometry.\n\n## 1. Non-negotiable technical constraints\n\n- Runtime: **Three.js r180 / v0.180.0 on WebGL2**.\n- Build tooling: **Vite 7**.\n- Automated visual and performance checks: **Playwright**.\n- `three` must be the **only runtime dependency**.\n- No game engine.\n- No physics library such as Rapier, Ammo, Cannon, Oimo, Havok, or Jolt.\n- No animation middleware.\n- No audio files, music files, sampled gunshots, sampled footsteps, or downloaded impulse responses.\n- Do not use Three.js `examples/jsm/postprocessing` or `EffectComposer`. The post-processing pipeline must be custom.\n- No React, Vue, Svelte, UI framework, ECS framework, or exter",
+      "made_with": "Claude Opus 5 high (Cursor), three.js r180"
+    }
+  },
+  {
+    "id": "ext-villa-marea",
+    "name": "Villa Marea",
+    "description": "Walk a whole seaside mansion — dozens of rooms, stairs and views, all built in code.",
+    "kind": "external",
+    "external_url": "https://villamarea.vercel.app/",
+    "source_url": null,
+    "author_name": "Leon Lin",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 51,
+    "thumb_url": "/seeds/ext-villa-marea.webp",
+    "origin": {
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin"
+    }
+  },
+  {
+    "id": "ext-singularity",
+    "name": "Singularity",
+    "description": "Fall toward a black hole: light bends, time stretches, and the stars smear around you.",
+    "kind": "external",
+    "external_url": "https://singularity-lab-omega.vercel.app/",
+    "source_url": null,
+    "author_name": "Leon Lin",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 47,
+    "thumb_url": "/seeds/ext-singularity.webp",
+    "origin": {
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin"
+    }
+  },
+  {
+    "id": "ext-clawd-rpg",
+    "name": "CLAWD: Out of Context",
+    "description": "A little 3D RPG: fight bugs and model bosses, and collect friends along the way.",
+    "kind": "external",
+    "external_url": "https://clawd-rpg.vercel.app/",
+    "source_url": null,
+    "author_name": "Leon Lin",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 45,
+    "thumb_url": "/seeds/ext-clawd-rpg.webp",
+    "origin": {
+      "post_url": "https://x.com/LexnLin/status/2107211922320044279",
+      "platform": "x",
+      "views": 8608,
+      "likes": 111,
+      "posted_at": "2026-10-05",
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin"
+    }
+  },
+  {
+    "id": "ext-wrong-physics",
+    "name": "The Museum of Wrong Physics",
+    "description": "Tour a museum where gravity goes sideways, water falls up and time runs backwards.",
+    "kind": "external",
+    "external_url": "https://wrongphysics.vercel.app/",
+    "source_url": null,
+    "author_name": "Leon Lin",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 44,
+    "thumb_url": "/seeds/ext-wrong-physics.webp",
+    "origin": {
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin"
+    }
+  },
+  {
+    "id": "aw-lumenshaders",
+    "name": "LUMEN",
+    "description": "Paint looping shader art: liquid chrome, silk ribbons, light rays and mathematically perfect loops.",
+    "kind": "external",
+    "external_url": "https://lumenshaders.vercel.app/",
+    "source_url": "https://github.com/Leonxlnx/lumenshaders",
+    "author_name": "Leon Lin",
+    "tags": [
+      "toy",
+      "art"
+    ],
+    "verified": false,
+    "featured": 41,
+    "thumb_url": "/seeds/aw-lumenshaders.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "stars": 362,
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin",
+      "made_with": "Claude, WebGL2"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-particleverse",
+    "name": "Particleverse",
+    "description": "Stir a glowing universe of particles and watch physics take over.",
+    "kind": "external",
+    "external_url": "https://particleverse-six.vercel.app/",
+    "source_url": null,
+    "author_name": "Leon Lin",
+    "tags": [
+      "toy",
+      "art"
+    ],
+    "verified": false,
+    "featured": 40,
+    "thumb_url": "/seeds/ext-particleverse.webp",
+    "origin": {
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-still-here",
+    "name": "Still Here",
+    "description": "A short horror in a quiet house — something is still here, and it knows you opened the door.",
+    "kind": "external",
+    "external_url": "https://scare-test.vercel.app/",
+    "source_url": null,
+    "author_name": "Leon Lin",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 39,
+    "thumb_url": "/seeds/ext-still-here.webp",
+    "origin": {
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-meridian-ash",
+    "name": "Meridian / Ash",
+    "description": "A knight and a mage clash in a ruined arena — pick a side and fight.",
+    "kind": "external",
+    "external_url": "https://meridian-ash.leon-lin-privat2.chatgpt.site/",
+    "source_url": null,
+    "author_name": "Leon Lin",
+    "tags": [
+      "game",
+      "action",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 38,
+    "thumb_url": "/seeds/ext-meridian-ash.webp",
+    "origin": {
+      "handle": "@LexnLin",
+      "author_url": "https://x.com/LexnLin"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-choo-choo-world",
+    "name": "Choo-Choo World",
+    "description": "Lay a wooden train set across clay-soft hills and waterfalls, then ride along as day turns to night.",
+    "kind": "external",
+    "external_url": "https://choochooworld.com/",
+    "source_url": null,
+    "author_name": "Lusion",
+    "tags": [
+      "toy"
+    ],
+    "verified": false,
+    "featured": 66,
+    "thumb_url": "/seeds/ext-choo-choo-world.webp",
+    "origin": {
+      "post_url": "https://x.com/lusionltd/status/1545380387878322177",
+      "platform": "x",
+      "likes": 212,
+      "posted_at": "2022-07-08",
+      "handle": "@lusionltd",
+      "author_url": "https://x.com/lusionltd",
+      "made_with": "three.js, WebGL"
+    }
+  },
+  {
+    "id": "ext-cyber-city-orion",
+    "name": "Cyber City Orion",
+    "description": "Fly a hover car through a rain-soaked neon city, run its rooftops and ride the ziplines between towers.",
+    "kind": "external",
+    "external_url": "https://orion.adrianred.com/",
+    "source_url": null,
+    "author_name": "Adrian Red",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 64,
+    "thumb_url": "/seeds/ext-cyber-city-orion.webp",
+    "origin": {
+      "handle": "@adrianredcom",
+      "author_url": "https://x.com/adrianredcom"
+    }
+  },
+  {
+    "id": "aw-aimees-papercraft",
+    "name": "Aimee's Papercraft World",
+    "description": "Stroll a hand-drawn papercraft world that turns from snowy winter to a spring pond as you go.",
+    "kind": "external",
+    "external_url": "https://aimees-papercraft-world.com/",
+    "source_url": "https://github.com/andrewwoan/aimees-hand-drawn-papercraft-folio",
+    "author_name": "Andrew Woan",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/aw-aimees-papercraft.webp",
+    "origin": {
+      "post_url": "https://youtu.be/AD01pTr3gvw",
+      "platform": "youtube",
+      "handle": "andrewwoan",
+      "author_url": "https://github.com/andrewwoan",
+      "made_with": "Blender, three.js, Krita"
+    }
+  },
+  {
+    "id": "ext-susurrus",
+    "name": "Susurrus",
+    "description": "Drift through a sepia watercolour world that spreads like ink in water, to soft music and verse.",
+    "kind": "external",
+    "external_url": "https://susurrus.vercel.app/",
+    "source_url": null,
+    "author_name": "Xianyao Wei",
+    "tags": [
+      "art"
+    ],
+    "verified": false,
+    "featured": 52,
+    "thumb_url": "/seeds/ext-susurrus.webp",
+    "origin": {
+      "post_url": "https://tympanus.net/codrops/?p=113145",
+      "platform": "blog",
+      "made_with": "React Three Fiber, three.js, Kuwahara shader"
+    }
+  },
+  {
+    "id": "aw-synthcity",
+    "name": "SynthCity",
+    "description": "Cruise an endless neon city at night to a synthwave soundtrack, on autopilot or at the wheel.",
+    "kind": "external",
+    "external_url": "https://jeff-beene.com/synthcity/",
+    "source_url": "https://github.com/jeffbeene/synthcity",
+    "author_name": "Jeff Beene",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 50,
+    "thumb_url": "/seeds/aw-synthcity.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/synthcity-an-infinite-procedural-cyberpunk-city/59887",
+      "platform": "blog",
+      "stars": 212,
+      "posted_at": "2024-01-03",
+      "handle": "jeffbeene",
+      "author_url": "https://jeff-beene.com",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "aw-backroad-rally",
+    "name": "backroad rally",
+    "description": "Slide classic rally cars down gravel roads past lakes and forests, through sunsets, rain and snow.",
+    "kind": "external",
+    "external_url": "https://jason-c-dev.github.io/backroad-rally/",
+    "source_url": "https://github.com/jason-c-dev/backroad-rally",
+    "author_name": "jason-c-dev",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 48,
+    "thumb_url": "/seeds/aw-backroad-rally.webp",
+    "origin": {
+      "stars": 1,
+      "handle": "jason-c-dev",
+      "author_url": "https://github.com/jason-c-dev",
+      "made_with": "Claude Opus 5.5 (Claude Code), three.js, Rapier"
+    }
+  },
+  {
+    "id": "ext-molazone",
+    "name": "Molazone",
+    "description": "Ride a motorbike through hand-inked comic-book worlds that turn beneath your wheels.",
+    "kind": "external",
+    "external_url": "https://mola-zone.com/",
+    "source_url": null,
+    "author_name": "Studio 9P",
+    "tags": [
+      "art"
+    ],
+    "verified": false,
+    "featured": 45,
+    "thumb_url": "/seeds/ext-molazone.webp",
+    "origin": {
+      "handle": "@studio_9P",
+      "author_url": "https://x.com/studio_9P",
+      "made_with": "three.js, Blender, Procreate"
+    }
+  },
+  {
+    "id": "aw-quick-grass",
+    "name": "Quick Grass",
+    "description": "Walk a moonlit field of grass that ripples in the wind down to the water's edge.",
+    "kind": "external",
+    "external_url": "https://simondevyoutube.github.io/Quick_Grass/",
+    "source_url": "https://github.com/simondevyoutube/Quick_Grass",
+    "author_name": "SimonDev",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 40,
+    "thumb_url": "/seeds/aw-quick-grass.webp",
+    "origin": {
+      "post_url": "https://youtu.be/bp7REZBV4P4",
+      "platform": "youtube",
+      "stars": 229,
+      "posted_at": "2023-11-10",
+      "handle": "@simondev758",
+      "author_url": "https://www.youtube.com/@simondev758",
+      "made_with": "three.js"
+    },
+    "hidden": true
+  },
+  {
+    "id": "aw-racing-game",
+    "name": "Racing Game",
+    "description": "Race a little car through red desert canyons and tunnels, against the clock and your best lap.",
+    "kind": "external",
+    "external_url": "https://racing.pmnd.rs/",
+    "source_url": "https://github.com/pmndrs/racing-game",
+    "author_name": "Poimandres",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 38,
+    "thumb_url": "/seeds/aw-racing-game.webp",
+    "origin": {
+      "stars": 2225,
+      "handle": "@pmndrs",
+      "author_url": "https://pmnd.rs",
+      "made_with": "React Three Fiber, three.js"
+    }
+  },
+  {
+    "id": "aw-ez-tree",
+    "name": "EZ-Tree",
+    "description": "Grow any tree you like, from bark to leaves, and watch it sway in a windy meadow.",
+    "kind": "external",
+    "external_url": "https://www.eztree.dev/",
+    "source_url": "https://github.com/dgreenheck/ez-tree",
+    "author_name": "Dan Greenheck",
+    "tags": [
+      "toy"
+    ],
+    "verified": false,
+    "featured": 36,
+    "thumb_url": "/seeds/aw-ez-tree.webp",
+    "origin": {
+      "post_url": "https://x.com/dangreenheck/status/1798932111099105543",
+      "platform": "x",
+      "views": 159043,
+      "likes": 1790,
+      "stars": 1707,
+      "posted_at": "2024-06-07",
+      "handle": "@dangreenheck",
+      "author_url": "https://x.com/dangreenheck",
+      "made_with": "three.js"
+    },
+    "hidden": true
+  },
+  {
+    "id": "ext-natsu-no-michi",
+    "name": "Natsu no Michi",
+    "description": "Wander a sleepy Japanese coast road in high summer as a cat or a seagull, with cicadas, power lines and the sea glittering past the trees.",
+    "kind": "external",
+    "external_url": "https://cosy-japan.vercel.app/",
+    "source_url": null,
+    "author_name": "Paulius",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 64,
+    "thumb_url": "/seeds/ext-natsu-no-michi.webp",
+    "origin": {
+      "post_url": "https://x.com/0xPaulius/status/2095627800027820498",
+      "platform": "x",
+      "views": 232373,
+      "likes": 1901,
+      "posted_at": "2026-09-03",
+      "handle": "@0xPaulius",
+      "author_url": "https://x.com/0xPaulius",
+      "made_with": "Fable 5.1, three.js"
+    }
+  },
+  {
+    "id": "ext-koi-canal",
+    "name": "Koi Canal",
+    "description": "Drift in a little wooden boat down a koi canal between old Japanese houses, under stone bridges and hanging wisteria.",
+    "kind": "external",
+    "external_url": "https://koi-canal.vercel.app/",
+    "source_url": null,
+    "author_name": "Dilum Sanjaya",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 63,
+    "thumb_url": "/seeds/ext-koi-canal.webp",
+    "origin": {
+      "post_url": "https://x.com/DilumSanjaya/status/2100267061436203016",
+      "platform": "x",
+      "views": 30401,
+      "likes": 393,
+      "posted_at": "2026-09-16",
+      "handle": "@DilumSanjaya",
+      "author_url": "https://x.com/DilumSanjaya",
+      "made_with": "Fable 5.1, three.js"
+    }
+  },
+  {
+    "id": "ext-insel-fever",
+    "name": "Insel Fever",
+    "description": "A tiny tropical island diorama full of palm trees, beach huts and busy islanders; spin the clock from golden hour to night.",
+    "kind": "external",
+    "external_url": "https://insel-fever.vercel.app/",
+    "source_url": null,
+    "author_name": "Tobinakamoto",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-insel-fever.webp",
+    "origin": {
+      "post_url": "https://x.com/to6iDEV/status/2105637538920800295",
+      "platform": "x",
+      "views": 53291,
+      "likes": 496,
+      "posted_at": "2026-10-01",
+      "handle": "@to6iDEV",
+      "author_url": "https://x.com/to6iDEV",
+      "made_with": "Claude Opus 5.5, three.js"
+    }
+  },
+  {
+    "id": "ext-tidelight",
+    "name": "Tidelight",
+    "description": "Paddle a kayak through a misty mangrove forest at dusk, its roots mirrored in still water and birds calling all around.",
+    "kind": "external",
+    "external_url": "https://tidelight.rymajp.com/",
+    "source_url": null,
+    "author_name": "Ryota Matsumoto",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-tidelight.webp",
+    "origin": {
+      "post_url": "https://x.com/ryma_jp/status/2102731952839422379",
+      "platform": "x",
+      "views": 60599,
+      "likes": 107,
+      "posted_at": "2026-09-23",
+      "handle": "@ryma_jp",
+      "author_url": "https://x.com/ryma_jp",
+      "made_with": "GPT-6 Astra/Sol, three.js"
+    }
+  },
+  {
+    "id": "ext-flowline",
+    "name": "Flowline",
+    "description": "Snowboard one endless mountain of fresh powder, carving your own line downhill alongside everyone else riding it right now.",
+    "kind": "external",
+    "external_url": "https://flowline.games.bu.app/",
+    "source_url": "https://github.com/Alezander9/Flowline",
+    "author_name": "Alexander Yue",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-flowline.webp",
+    "origin": {
+      "post_url": "https://x.com/Alezander9/status/2081232289116414309",
+      "platform": "x",
+      "views": 146917,
+      "likes": 263,
+      "posted_at": "2026-07-26",
+      "handle": "@Alezander9",
+      "author_url": "https://x.com/Alezander9",
+      "made_with": "Claude Opus 5, three.js"
+    }
+  },
+  {
+    "id": "ext-tumble",
+    "name": "Tumble",
+    "description": "Roam a vast windswept meadow of swaying grass, lakes and mountains, then grab a ball and go tumbling across it.",
+    "kind": "external",
+    "external_url": "https://grass-world-meadow.netlify.app/",
+    "source_url": null,
+    "author_name": "cryptomanavan",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-tumble.webp",
+    "origin": {
+      "post_url": "https://x.com/cryptomanavan/status/2096815622248165629",
+      "platform": "x",
+      "views": 8480,
+      "likes": 124,
+      "posted_at": "2026-09-07",
+      "handle": "@cryptomanavan",
+      "author_url": "https://x.com/cryptomanavan",
+      "made_with": "Claude Opus 5.5, three.js"
+    }
+  },
+  {
+    "id": "ext-odyssey",
+    "name": "Odyssey",
+    "description": "Sail a Greek ship with a sun on its sail across a sparkling Aegean, past temple-crowned islands and leaping dolphins.",
+    "kind": "external",
+    "external_url": "https://odyssey-navy-seven.vercel.app/",
+    "source_url": null,
+    "author_name": "Tanu",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 56,
+    "thumb_url": "/seeds/ext-odyssey.webp",
+    "origin": {
+      "post_url": "https://x.com/tanu_hehe/status/2109918640300802093",
+      "platform": "x",
+      "views": 1204,
+      "likes": 24,
+      "posted_at": "2026-10-13",
+      "handle": "@tanu_hehe",
+      "author_url": "https://x.com/tanu_hehe",
+      "made_with": "Claude Opus 5.5"
+    }
+  },
+  {
+    "id": "ext-tailgrab",
+    "name": "Tailgrab",
+    "description": "Skate a candy-coloured park with other players as cheerful animal skaters, chaining flips, grinds and tag.",
+    "kind": "external",
+    "external_url": "https://tailgrab.io/",
+    "source_url": null,
+    "author_name": "Endel",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 55,
+    "thumb_url": "/seeds/ext-tailgrab.webp",
+    "origin": {
+      "post_url": "https://x.com/endel/status/2107300909915242769",
+      "platform": "x",
+      "views": 39638,
+      "likes": 587,
+      "posted_at": "2026-10-06",
+      "handle": "@endel",
+      "author_url": "https://x.com/endel"
+    }
+  },
+  {
+    "id": "ext-rakugaki-fighter",
+    "name": "Rakugaki Fighter",
+    "description": "Doodle a fighter on a sheet of graph paper and watch it puff up into a squishy 3D brawler, ready to battle.",
+    "kind": "external",
+    "external_url": "https://x282665.com/games/rakugaki-fighter/",
+    "source_url": null,
+    "author_name": "トドネロ",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 54,
+    "thumb_url": "/seeds/ext-rakugaki-fighter.webp",
+    "origin": {
+      "post_url": "https://x.com/x282665/status/2107751232748273735",
+      "platform": "x",
+      "views": 11413152,
+      "likes": 41319,
+      "posted_at": "2026-10-07",
+      "handle": "@x282665",
+      "author_url": "https://x.com/x282665"
+    }
+  },
+  {
+    "id": "ext-jumper-lab",
+    "name": "Jumper Lab",
+    "description": "Build a robot crab, scuttle it across a sunny living-room floor and pull off a snack heist with its claws.",
+    "kind": "external",
+    "external_url": "https://21nemus.github.io/jumper-lab/",
+    "source_url": "https://github.com/21nemus/jumper-lab",
+    "author_name": "Sergej Stein",
+    "tags": [
+      "toy",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 50,
+    "thumb_url": "/seeds/ext-jumper-lab.webp",
+    "origin": {
+      "post_url": "https://x.com/21nemus/status/2107806566489665853",
+      "platform": "x",
+      "views": 35649,
+      "likes": 665,
+      "posted_at": "2026-10-07",
+      "handle": "@21nemus",
+      "author_url": "https://x.com/21nemus",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "ext-kings-gambit",
+    "name": "King's Gambit",
+    "description": "Play chess with little armoured knights and archers on a torchlit board in a ruined jungle temple.",
+    "kind": "external",
+    "external_url": "https://medieval-3d-chess.rork.app/",
+    "source_url": null,
+    "author_name": "Alex Nguyen",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 44,
+    "thumb_url": "/seeds/ext-kings-gambit.webp",
+    "origin": {
+      "handle": "@alexcooldev",
+      "author_url": "https://x.com/alexcooldev"
+    }
+  },
+  {
+    "id": "ext-kestrel-nights",
+    "name": "Kestrel Nights",
+    "description": "Swing on a tether between glittering towers and glide over a city at dusk, chasing beacon rings.",
+    "kind": "external",
+    "external_url": "https://hasib-kestrel-nights.netlify.app/",
+    "source_url": null,
+    "author_name": "Hasibul Hasan",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 40,
+    "thumb_url": "/seeds/ext-kestrel-nights.webp",
+    "origin": {
+      "post_url": "https://x.com/hasibdreamer35/status/2110421049544491500",
+      "platform": "x",
+      "views": 767,
+      "likes": 10,
+      "posted_at": "2026-10-14",
+      "handle": "@hasibdreamer35",
+      "author_url": "https://x.com/hasibdreamer35",
+      "made_with": "Claude Opus, three.js"
+    }
+  }
+]

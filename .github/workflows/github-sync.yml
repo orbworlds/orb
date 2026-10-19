@@ -1,0 +1,18 @@
+# Worlds kept in sync with GitHub: every 10 minutes, Orb checks the linked repositories nobody's
+# world page looked at lately, so a push there comes in by itself (src/server/reposync.ts).
+name: GitHub sync
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  sweep:
+    if: github.repository == 'orbworlds/orb'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - run: curl -fsS --max-time 300 "${{ vars.ORB_SITE_URL || 'https://orbworlds.com' }}/api/cron/github"

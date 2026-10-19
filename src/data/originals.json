@@ -1,0 +1,276 @@
+{
+  "org": "orbworlds",
+  "site": "https://orbworlds.com",
+  "license": "MIT",
+  "profile": {
+    "public": false
+  },
+  "worlds": [
+    {
+      "id": "orb-craft",
+      "repo": "orbcraft",
+      "branch": "main",
+      "template": "craft",
+      "name": "Orbcraft",
+      "description": "The Wilds: one survival world for everyone, kept for good. Set out from Haven, a safe walled town, to where anyone can fight you and anything can be broken: dig for diamonds, loot ruins, outlast the night. Quests and a monthly Wild Pass; a build island and Ten Nights a portal away.",
+      "tags": [
+        "game"
+      ],
+      "featured": 1000,
+      "thumb": "/templates/craft.webp",
+      "about": "A survival sandbox in the browser where everyone shares one world. Dig, build and get through the night together.",
+      "topics": [
+        "voxel",
+        "sandbox",
+        "survival",
+        "minecraft-like"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-bedwars",
+      "repo": "bedwars",
+      "branch": "main",
+      "template": "bedwars",
+      "name": "Bed Wars",
+      "description": "Solo, Doubles, Trios and Squads on ten sky arenas, each a world of its own: bridge across, gear up, guard your bed and break theirs. Bots fill every empty seat. Meet friends in the lobby, run its parkour, and earn looks with daily quests, the login streak and a monthly Bed Pass.",
+      "tags": [
+        "game"
+      ],
+      "featured": 95,
+      "thumb": "/templates/bedwars.webp",
+      "about": "Bed Wars in the browser. Bridge across, protect your bed and break everyone else's. Bots fill the empty seats.",
+      "topics": [
+        "bedwars",
+        "pvp",
+        "voxel",
+        "minecraft-like"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-wildbrush",
+      "repo": "wildbrush",
+      "branch": "orb",
+      "template": null,
+      "name": "Wildbrush",
+      "description": "Paint a grey island back to life with four colours (fire, frost, bounce and bloom), fight the Smudges, explore caverns, temples and a sky island, and face Greymaw. Play together: everyone is a hero in the looks they wear, and their paint lands in your world.",
+      "tags": [
+        "game",
+        "keyboard"
+      ],
+      "featured": 93,
+      "thumb": "/worlds/wildbrush.webp",
+      "about": "Paint a grey island back to life with fire, frost, bounce and bloom. Fight the Smudges and take on Greymaw.",
+      "topics": [
+        "action-adventure",
+        "painting",
+        "rapier"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-foxfire",
+      "repo": "foxfire-fjord",
+      "branch": "orb",
+      "template": null,
+      "name": "Foxfire Fjord",
+      "description": "A glass cabin on a snowy Arctic island under the northern lights — soak in the hot spring, skate the frozen lake and follow the fox.",
+      "tags": [
+        "world"
+      ],
+      "featured": 92,
+      "thumb": "/worlds/foxfire.webp",
+      "about": "A glass cabin on a snowy Arctic island under the northern lights. Soak in the hot spring, skate the lake, follow the fox.",
+      "topics": [
+        "arctic",
+        "aurora",
+        "exploration",
+        "cozy"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-vampirez",
+      "repo": "vampirez",
+      "branch": "main",
+      "template": "vampirez",
+      "name": "VampireZ",
+      "description": "Survive one night in a blocky village or in Frosthaven, a frozen harbour where a ghost ship lies locked in the ice: fight zombie waves, gear up and hold off the vampires until dawn. Get bitten and you join them. Between nights, walk Ravencross: quests, coffins, a daily reward, a monthly Blood Pass.",
+      "tags": [
+        "game"
+      ],
+      "featured": 90,
+      "thumb": "/templates/vampirez.webp",
+      "about": "Survive one night against zombies and the vampires hunting you. Get bitten and you become one of them.",
+      "topics": [
+        "zombies",
+        "vampires",
+        "survival",
+        "voxel"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-lanterns",
+      "repo": "wish-lanterns",
+      "branch": "main",
+      "template": "lanterns",
+      "name": "Wish Lanterns",
+      "description": "Write a wish and release a glowing lantern into a sky full of everyone’s wishes.",
+      "tags": [
+        "toy"
+      ],
+      "featured": 86,
+      "thumb": "/templates/lanterns.webp",
+      "about": "Write a wish and let it float up as a glowing lantern, into a sky full of other people's wishes.",
+      "topics": [
+        "cozy",
+        "shared",
+        "lanterns"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-garden",
+      "repo": "community-garden",
+      "branch": "main",
+      "template": "garden",
+      "name": "Community Garden",
+      "description": "Plant a flower a day in a garden everyone shares — and watch it grow.",
+      "tags": [
+        "toy"
+      ],
+      "featured": 84,
+      "thumb": "/templates/garden.webp",
+      "about": "One garden that everyone shares. Plant a flower a day and come back to see it grow.",
+      "topics": [
+        "cozy",
+        "shared",
+        "garden"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-hangout",
+      "repo": "hangout",
+      "branch": "main",
+      "template": "hangout",
+      "name": "Hangout",
+      "description": "A glowing plaza where everyone here right now shows up — wave hi!",
+      "tags": [
+        "world"
+      ],
+      "featured": 82,
+      "thumb": "/templates/hangout.webp",
+      "about": "A small plaza where you see everyone who has it open right now. Walk around and say hi.",
+      "topics": [
+        "social",
+        "presence",
+        "starter"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-island",
+      "repo": "seashell-island",
+      "branch": "main",
+      "template": "island",
+      "name": "Seashell Island",
+      "description": "Wander a sunny island and find all seven shiny seashells.",
+      "tags": [
+        "game"
+      ],
+      "featured": 80,
+      "thumb": "/templates/island.webp",
+      "about": "Walk around a sunny little island and find all seven seashells.",
+      "topics": [
+        "exploration",
+        "cozy",
+        "starter"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-blocks",
+      "repo": "block-garden",
+      "branch": "main",
+      "template": "blocks",
+      "name": "Block Garden",
+      "description": "Build anything you can imagine, one cozy block at a time.",
+      "tags": [
+        "toy"
+      ],
+      "featured": 78,
+      "thumb": "/templates/blocks.webp",
+      "about": "A cozy block-building sandbox. Pick a block, build something, switch between day and night.",
+      "topics": [
+        "voxel",
+        "sandbox",
+        "building"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-runner",
+      "repo": "star-runner",
+      "branch": "main",
+      "template": "runner",
+      "name": "Star Runner",
+      "description": "Dash across candy-colored clouds, jump and collect stars.",
+      "tags": [
+        "game"
+      ],
+      "featured": 76,
+      "thumb": "/templates/runner.webp",
+      "about": "Run across candy-coloured clouds, jump the sleepy jellies and grab the stars. Get on the top 10.",
+      "topics": [
+        "runner",
+        "arcade",
+        "leaderboard"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-paint",
+      "repo": "glow-paint",
+      "branch": "main",
+      "template": "paint",
+      "name": "Glow Paint",
+      "description": "Paint glowing ribbons of light that float in 3D space.",
+      "tags": [
+        "art",
+        "toy"
+      ],
+      "featured": 74,
+      "thumb": "/templates/paint.webp",
+      "about": "Paint ribbons of light that hang in the air, then walk around them.",
+      "topics": [
+        "art",
+        "painting",
+        "creative"
+      ],
+      "public": false
+    },
+    {
+      "id": "orb-room",
+      "repo": "dream-room",
+      "branch": "main",
+      "template": "room",
+      "name": "Dream Room",
+      "description": "Decorate a cozy little room exactly the way you like it.",
+      "tags": [
+        "toy"
+      ],
+      "featured": 72,
+      "thumb": "/templates/room.webp",
+      "about": "Decorate a small room however you like. Add furniture, move it around, switch between day and night.",
+      "topics": [
+        "decorating",
+        "cozy",
+        "creative"
+      ],
+      "public": false
+    }
+  ]
+}
