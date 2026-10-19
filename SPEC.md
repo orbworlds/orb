@@ -50,9 +50,11 @@ If you change a contract, update this file in the same change.
 - **Chat**: per-world conversations stored locally (localStorage). A new chat starts per world;
   a dropdown switches between chats.
 - **Home** (`/`) is Explore under an invitation to make a world: the headline ("Step into a
-  world"), the big composer and the starter templates, then (for people who have some) a row of
-  their friends' worlds and their own, then Explore's header and worlds, scrolling on from there.
-  Sending from the composer or picking a template hands over to the chat on the start canvas.
+  world"), the big composer and under it "Or remix": the four most played remixable worlds (picking
+  one remixes it), the starter templates and **More to remix** (Explore on Remix), then (for people
+  who have some) a row of their friends' worlds and their own, then Explore's header and worlds,
+  scrolling on from there. Sending from the composer, picking a template or remixing hands over to
+  the chat on the canvas.
   There is one Explore, and it is this page: the Orb's Explore tab, a world's back arrow, "See all",
   `/explore` and a missing world's Explore button all go home, down at its worlds.
   Tapping the Orb there opens its You tab, not an empty chat (the page's composer is the chat), unless a
@@ -413,7 +415,10 @@ header (filters, sort, search, New world) slips away while scrolling down and co
 up. Sorts: Trending (default), Most played (`plays`), Most liked (`likes`), Most viewed (the views
 of the maker's post, or its plays if more) and Newest. People's own worlds join the ranked sorts (all but
 Newest) once they've earned it: a like, 10 plays (`EARNED_PLAYS`) or Orb's pick (`featured`,
-`verified`); until then they're under Newest, in search and on their maker's page. Curated worlds
+`verified`). A world just built (changed since it began: version 2 on) gets its first 2 days there
+(`FRESH_DAYS`), wearing a "New" badge, so its first players can find it; Trending's fading boost for
+new worlds does the rest. Untouched templates and bare copies wait. Otherwise they're under Newest,
+in search and on their maker's page. Curated worlds
 that don't hold up are `hidden` in `src/data/seeds.json` (playable by link). `/explore` opens home at its worlds and
 carries them in its address (`?filter=games&sort=liked&q=…`). Explore stays as it was left (filter,
 sort, search, scroll) while a world is played: going back to it (the world's arrow, the Orb's tab)

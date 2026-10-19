@@ -25,12 +25,15 @@ export const HERO_COMPOSER_ID = 'orb-hero-composer';
 export function HomeIntro({
   onSend,
   onPickTemplate,
+  onRemix,
   onExplore,
   onOpenWorld,
   onOpenMine,
 }: {
   onSend(text: string): void;
   onPickTemplate(id: string): void;
+  /** Remix a world, or (no id) see all there is to remix. */
+  onRemix(id?: string): void;
   onExplore(): void;
   onOpenWorld(id: string): void;
   /** All of this person's worlds (the You tab). */
@@ -44,13 +47,13 @@ export function HomeIntro({
           Step into a <em className="italic">world</em>
         </h1>
         <p className="animate-rise mx-auto mt-2 max-w-[460px] text-center text-[15px] leading-snug text-ink-2 [animation-delay:60ms] sm:mt-3 sm:max-w-[600px] sm:text-[17px]">
-          Play what others made — or describe your own and watch it come alive.
+          Play what others made, remix one into your own, or describe a new one and watch it come alive.
         </p>
         <div className="mx-auto mt-6 w-full max-w-[680px] sm:mt-8">
           <div className="animate-rise [animation-delay:120ms]">
             <Composer variant="hero" id={HERO_COMPOSER_ID} value={draft} onChange={setDraft} onSend={onSend} placeholder="Describe a world to make…" ideas={IDEAS} autoFocus />
           </div>
-          <TemplatePicker className="mt-2.5 sm:mt-3.5" onPick={onPickTemplate} />
+          <TemplatePicker className="mt-2.5 sm:mt-3.5" onPick={onPickTemplate} onRemix={onRemix} onMore={() => onRemix()} />
         </div>
         <WorldStrip personal className="animate-rise mt-8 [animation-delay:160ms]" onOpenWorld={onOpenWorld} onExplore={onExplore} onOpenMine={onOpenMine} />
       </div>

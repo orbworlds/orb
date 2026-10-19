@@ -40,6 +40,8 @@ export interface WorldCard {
   origin?: WorldOrigin | null;
   /** How many are in it right now (a heartbeat in the last 90 s). */
   live?: number;
+  /** A person's world built in the last 2 days (FRESH_DAYS): shown as "New". */
+  fresh?: boolean;
 }
 
 /** Where a curated world came from, as its maker shared it. Every field may be unknown. */

@@ -388,6 +388,14 @@ export default function Shell({
     u.openPanel('chat', 'half');
   }, []);
 
+  const remixFromHome = useCallback((id?: string) => {
+    const u = useUi.getState();
+    if (!id) return u.requestExplore('remix');
+    track('home_remix', { world: id });
+    u.setHeroDone(true);
+    void useWorld.getState().remix(id);
+  }, []);
+
   // ---- actions shared by the world bar and chat ---------------------------------------------------------
   const openWorld = useCallback((id: string) => {
     const u = useUi.getState();
@@ -570,7 +578,7 @@ export default function Shell({
           open={ui.exploreOpen || heroVisible}
           intro={
             heroVisible && !ui.exploreOpen ? (
-              <HomeIntro onSend={sendFromHero} onPickTemplate={(id) => void pickTemplate(id)} onExplore={() => ui.requestExplore()} onOpenWorld={openWorld} onOpenMine={() => ui.openPanel('you')} />
+              <HomeIntro onSend={sendFromHero} onPickTemplate={(id) => void pickTemplate(id)} onRemix={remixFromHome} onExplore={() => ui.requestExplore()} onOpenWorld={openWorld} onOpenMine={() => ui.openPanel('you')} />
             ) : undefined
           }
           onClose={() => {

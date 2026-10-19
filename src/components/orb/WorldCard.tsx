@@ -436,6 +436,13 @@ export function ExploreTile({
         </span>
       )}
 
+      {/* Just made (a person's world, its first days): a nudge to be among its first players. */}
+      {!world.live && world.fresh && (
+        <span className={`pointer-events-none absolute top-2.5 right-2.5 z-[2] flex h-7 items-center rounded-full bg-[rgba(8,8,16,.55)] px-2.5 text-[12px] font-medium text-white backdrop-blur-md transition-opacity duration-200 ${canRemix ? 'group-hover/tile:opacity-0' : ''}`}>
+          New
+        </span>
+      )}
+
       {/* The whole tile opens the world. */}
       <button
         type="button"

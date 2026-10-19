@@ -240,6 +240,7 @@ interface CardRow {
   license: string | null;
   origin: unknown;
   live?: number | string | null;
+  fresh?: boolean | null;
 }
 
 interface FullRow extends CardRow {
@@ -268,10 +269,14 @@ interface MetaRow {
 
 /** How recent a heartbeat (orb_here) still counts someone as in a world. */
 export const LIVE_SECONDS = 90;
+/** Days a person's newly built world (changed at least once since it began) is "New": in the ranked lists, with a badge. */
+export const FRESH_DAYS = 2;
+const FRESH = `((w.owner_user is not null or w.owner_device is not null) and w.version > 1 and w.created_at > now() - interval '${FRESH_DAYS} days')`;
 const CARD_COLS = `w.id, w.name, w.description, w.kind, w.external_url, w.source_url, w.author_name, w.visibility,
   w.forkable, w.forked_from, case when f.visibility = 'public' then f.name end as forked_from_name, w.template,
   w.verified, w.featured, w.tags, w.thumb_version, w.thumb_url, w.plays, w.likes, w.forks, w.created_at, w.updated_at, w.handle, w.slug, w.license, w.origin,
-  (select count(*) from orb_here h where h.world_id = w.id and h.at > now() - interval '${LIVE_SECONDS} seconds')::int as live`;
+  (select count(*) from orb_here h where h.world_id = w.id and h.at > now() - interval '${LIVE_SECONDS} seconds')::int as live,
+  ${FRESH} as fresh`;
 const CARD_FROM = `orb_worlds w left join orb_worlds f on f.id = w.forked_from`;
 const META_COLS = `id, name, kind, visibility, forkable, owner_device, owner_user`;
 
@@ -313,6 +318,7 @@ export function toCard(r: CardRow): WorldCard {
     license: r.license ?? null,
     origin: toOrigin(r.origin),
     live: Number(r.live) || 0,
+    fresh: !!r.fresh,
   };
 }
 
@@ -492,10 +498,11 @@ const LISTED = [...SHOWABLE, `not w.hidden`, `w.broken_at is null`];
 /** Plays that earn a person's world its place in Explore's ranked lists (or one like, or Orb's pick). */
 export const EARNED_PLAYS = 10;
 /**
- * Explore's ranked lists (Trending, Most played, liked, viewed) show the curated worlds and people's
- * worlds that earned it; every listed world is under Newest, in search and on its maker's page.
+ * Explore's ranked lists (Trending, Most played, liked, viewed) show the curated worlds, people's
+ * worlds that earned it, and for their first days the ones just built; every listed world is under
+ * Newest, in search and on its maker's page.
  */
-const EARNED = `((w.owner_user is null and w.owner_device is null) or w.featured > 0 or w.verified or w.likes > 0 or w.plays >= ${EARNED_PLAYS})`;
+const EARNED = `((w.owner_user is null and w.owner_device is null) or w.featured > 0 or w.verified or w.likes > 0 or w.plays >= ${EARNED_PLAYS} or ${FRESH})`;
 
 /** Engagement fades with this time constant (seconds): a half-life of about two days. */
 const HEAT_TAU = 3 * 86400;

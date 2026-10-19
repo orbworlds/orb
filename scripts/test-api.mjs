@@ -1249,6 +1249,17 @@ async function run() {
     const rank = async () => (await feed()).indexOf(w.id);
     // A person's new world is under Newest, and joins the ranked lists once it earns it (a like).
     check('a new world waits under Newest until it earns its place', (await rank()) === -1 && (await request('GET', '/api/worlds?sort=new&limit=100')).json.worlds.some((x) => x.id === w.id));
+    {
+      // …but once built (its code changed: version 2), it gets its first days there, marked new.
+      const built = (await create(OWNER, { name: `Fresh ${TOKEN}` })).json.world;
+      await request('PUT', `/api/worlds/${built.id}/thumb`, { dev: OWNER, raw: WEBP, type: 'image/webp' });
+      const unbuilt = (await feed()).includes(built.id);
+      await patch(OWNER, built.id, { code: '<!doctype html><p>built</p>', prompt: 'a test' });
+      const listed = (await feed()).includes(built.id);
+      const card = (await request('GET', '/api/worlds?sort=new&limit=60')).json.worlds.find((x) => x.id === built.id);
+      check('a world just built is in Trending for its first days, marked new', !unbuilt && listed && card?.fresh === true, { unbuilt, listed, fresh: card?.fresh, version: (await get(OWNER, built.id)).json.world?.version });
+      await request('DELETE', `/api/worlds/${built.id}`, { dev: OWNER });
+    }
     await request('POST', `/api/worlds/${w.id}/like`, { dev: OWNER });
     const before = await rank();
     check('…and one like gets it into Trending', before >= 0, before);
