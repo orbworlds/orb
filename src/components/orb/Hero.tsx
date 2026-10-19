@@ -53,7 +53,10 @@ export function HomeIntro({
           <div className="animate-rise [animation-delay:120ms]">
             <Composer variant="hero" id={HERO_COMPOSER_ID} value={draft} onChange={setDraft} onSend={onSend} placeholder="Describe a world to make…" ideas={IDEAS} autoFocus />
           </div>
-          <TemplatePicker className="mt-2.5 sm:mt-3.5" onPick={onPickTemplate} onRemix={onRemix} onMore={() => onRemix()} />
+        </div>
+        {/* A little wider than the headline column, so the row fits one line on a laptop. */}
+        <div className="mt-2.5 sm:-mx-16 sm:mt-3.5">
+          <TemplatePicker onPick={onPickTemplate} onRemix={onRemix} onMore={() => onRemix()} />
         </div>
         <WorldStrip personal className="animate-rise mt-8 [animation-delay:160ms]" onOpenWorld={onOpenWorld} onExplore={onExplore} onOpenMine={onOpenMine} />
       </div>

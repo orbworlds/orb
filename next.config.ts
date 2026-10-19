@@ -57,6 +57,17 @@ function moveRedirects() {
 }
 
 const nextConfig: NextConfig = {
+  // Share images read thumbnails from /public by a computed path, so the tracer copies all of /public
+  // (preview videos included) into every function; they are served as static files anyway. Vercel's
+  // runtime is glibc Linux: sharp's musl and wasm builds are dead weight there.
+  outputFileTracingExcludes: {
+    "/**": [
+      "public/previews/**",
+      "node_modules/@img/sharp-libvips-linuxmusl-x64/**",
+      "node_modules/@img/sharp-linuxmusl-x64/**",
+      "node_modules/@img/sharp-wasm32/**",
+    ],
+  },
   env: {
     // Vercel BotID (src/server/botid.ts) needs Vercel's request context: on in builds made there.
     ORB_BOTID: process.env.VERCEL ? "on" : "",

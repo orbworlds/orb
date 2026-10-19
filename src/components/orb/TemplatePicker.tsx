@@ -1,11 +1,9 @@
 'use client';
-// Worlds to start from, as small chips under the hero composer: the most played worlds one can
-// remix, then two starter templates, then all there is to remix (Explore's Remix filter). A round
+// Worlds to start from, as small chips under the hero composer: two of Orb's worlds to remix,
+// three starter templates (each a different kind of world), then all there is to remix (Explore's Remix filter). A round
 // thumbnail (graceful gradient fallback) and the name. One scrolling row on phones, wrapped and
 // centered on larger screens.
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import { readJSON, writeJSON } from '@/lib/local';
+import { useState } from 'react';
 import { templateCard, TEMPLATES } from '@/lib/templates';
 import { Icon } from '@/components/ui/Icon';
 
@@ -21,16 +19,15 @@ const FALLBACK: Record<string, string> = {
 const CHIP =
   'group glass-soft animate-fade-up flex h-9 shrink-0 items-center gap-2 rounded-full py-1 pr-3.5 pl-1 text-[13px] font-medium text-ink transition-[transform,background,box-shadow] duration-300 ease-[var(--ease)] hover:-translate-y-0.5 hover:bg-[var(--glass-bg)] hover:shadow-[inset_0_0_0_1px_var(--glass-hairline),0_0_0_1px_var(--glass-edge),var(--shadow-lift)] focus-visible:rounded-full active:scale-[.97]';
 
-/** How many of the most played remixable worlds lead the row, and how many templates follow (one line on a laptop). */
-const REMIXES = 4;
-const STARTERS = ['runner', 'paint'];
-const REMIX_KEY = 'orb:home-remixes';
-
-interface RemixChip {
-  id: string;
-  name: string;
-  thumbUrl: string | null;
-}
+/**
+ * The row, hand-picked so each is a different kind of start: two of Orb's worlds to remix (by id),
+ * then templates. Most played would be all block games.
+ */
+const REMIXES = [
+  { id: 'orb-craft', name: 'Orbcraft', thumbUrl: '/templates/cards/craft.webp' },
+  { id: 'orb-foxfire', name: 'Foxfire Fjord', thumbUrl: '/templates/cards/foxfire.webp' },
+];
+const STARTERS = ['runner', 'paint', 'room'];
 
 export function TemplatePicker({
   onPick,
@@ -46,27 +43,8 @@ export function TemplatePicker({
   className?: string;
 }) {
   const [broken, setBroken] = useState<Record<string, boolean>>({});
-  // Shown from the last visit's copy right away (none on the very first), refreshed from Explore.
-  const [remixes, setRemixes] = useState<RemixChip[]>([]);
-  useEffect(() => {
-    const cached = readJSON<RemixChip[] | null>(REMIX_KEY, null);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- local copy read after hydration
-    if (Array.isArray(cached)) setRemixes(cached.slice(0, REMIXES));
-    let live = true;
-    api
-      .listWorlds({ remixable: true, sort: 'played', limit: REMIXES })
-      .then(({ worlds }) => {
-        const next = worlds.slice(0, REMIXES).map((w) => ({ id: w.id, name: w.name, thumbUrl: w.thumbUrl }));
-        if (!live || !next.length) return;
-        setRemixes(next);
-        writeJSON(REMIX_KEY, next);
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, []);
-  const items = TEMPLATES.filter((t) => STARTERS.includes(t.id));
+  const remixes = REMIXES;
+  const items = STARTERS.map((id) => TEMPLATES.find((t) => t.id === id)!).filter(Boolean);
   const thumb = (key: string, src: string | null, fallback: string) => (
     <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full" style={{ background: fallback }}>
       {src && !broken[key] && (

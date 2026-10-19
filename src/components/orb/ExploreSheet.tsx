@@ -366,8 +366,11 @@ function ExploreOverlay({
     }
   };
 
+  const frostRef = useRef<HTMLDivElement>(null);
   const onScroll = (el: HTMLDivElement) => {
     const top = el.scrollTop;
+    // At home: frosted once the worlds' header is a little way up the screen.
+    if (home && frostRef.current) frostRef.current.style.opacity = String(Math.min(1, top / Math.max(1, (headerRef.current?.offsetTop ?? 400) * 0.6)));
     if (open) savedTop.current = top;
     setScrolled(top > (home ? (headerRef.current?.offsetTop ?? 0) - 4 : 8));
     const dy = top - lastTop.current;
@@ -398,8 +401,15 @@ function ExploreOverlay({
       // At home it's the page, under the Orb and its panel; otherwise a sheet over everything.
       className={`fixed inset-0 ${home ? 'z-[35]' : 'z-[60]'} outline-none transition-opacity ease-[var(--ease)] starting:opacity-0 ${closing ? 'pointer-events-none opacity-0 duration-[240ms]' : 'opacity-100 duration-[380ms]'}`}
     >
-      {/* Heavy frosted backdrop — the world glows through. */}
-      <div aria-hidden="true" className="absolute inset-0 bg-[color-mix(in_oklab,var(--paper)_62%,transparent)] backdrop-blur-[44px] backdrop-saturate-[1.6]" />
+      {/* At home a light veil leaves the world behind the headline in view; the heavy frosted backdrop
+          (the world only glows through) comes in as the worlds scroll up. */}
+      {home && <div aria-hidden="true" className="absolute inset-0 bg-[color-mix(in_oklab,var(--paper)_30%,transparent)] backdrop-blur-[3px]" />}
+      <div
+        ref={frostRef}
+        aria-hidden="true"
+        style={home ? { opacity: 0 } : undefined}
+        className="absolute inset-0 bg-[color-mix(in_oklab,var(--paper)_62%,transparent)] backdrop-blur-[44px] backdrop-saturate-[1.6]"
+      />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 h-[360px] opacity-[.22] [background:radial-gradient(60%_100%_at_15%_0%,var(--iris-1),transparent_70%),radial-gradient(50%_90%_at_85%_0%,var(--iris-2),transparent_70%)] dark:opacity-[.14]"
@@ -496,7 +506,7 @@ function ExploreOverlay({
   );
 }
 
-/** The home page's foot, past the last world: Orb's name, its plans, the kit, llms.txt for agents, its source (once public) and a way back up. */
+/** The home page's foot, past the last world: Orb's name, its plans, the kit, llms.txt for agents, GitHub and a way back up. */
 function Footer({ onTop }: { onTop(): void }) {
   const link = 'rounded-full px-2.5 py-1.5 text-ink-2 transition-colors hover:text-ink';
   return (
@@ -512,11 +522,9 @@ function Footer({ onTop }: { onTop(): void }) {
         <a className={link} href="/llms.txt" title="How to make Orb worlds, for AI agents">
           llms.txt
         </a>
-        {GITHUB_URL && (
-          <a className={`${link} inline-flex items-center gap-1.5`} href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-            <Icon name="github" size={14} /> GitHub
-          </a>
-        )}
+        <a className={`${link} inline-flex items-center gap-1.5`} href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+          <Icon name="github" size={14} /> GitHub
+        </a>
         <button type="button" className={`${link} inline-flex items-center gap-1`} onClick={onTop}>
           Back to top <Icon name="arrow-up" size={13} />
         </button>
