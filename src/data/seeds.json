@@ -1643,6 +1643,9 @@
       "handle": "@LexnLin",
       "author_url": "https://x.com/LexnLin",
       "made_with": "Claude Opus 5.5"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {
@@ -1701,6 +1704,9 @@
       "author_url": "https://x.com/LexnLin",
       "prompt": "# Browser-Native Three.js Tactical FPS\n\nYou are a senior real-time graphics engineer, gameplay programmer, technical artist, physics programmer, AI programmer, and procedural-audio designer. Build a **finished, highly polished browser-native first-person tactical shooter**, not a blockout, not a visual mockup, and not a shallow tech demo.\n\nThe attached reference video is the primary visual and gameplay target. Match its overall fidelity, framing, pace, weapon presence, lighting, dense urban environment, readable combat feedback, and cinematic post-processing, then improve the weak areas. The result must feel like a compact premium PC FPS somehow running directly in the browser.\n\nUse original or properly licensed visual assets only. Match the reference’s quality and art direction without copying proprietary logos, branded UI, characters, or map geometry.\n\n## 1. Non-negotiable technical constraints\n\n- Runtime: **Three.js r180 / v0.180.0 on WebGL2**.\n- Build tooling: **Vite 7**.\n- Automated visual and performance checks: **Playwright**.\n- `three` must be the **only runtime dependency**.\n- No game engine.\n- No physics library such as Rapier, Ammo, Cannon, Oimo, Havok, or Jolt.\n- No animation middleware.\n- No audio files, music files, sampled gunshots, sampled footsteps, or downloaded impulse responses.\n- Do not use Three.js `examples/jsm/postprocessing` or `EffectComposer`. The post-processing pipeline must be custom.\n- No React, Vue, Svelte, UI framework, ECS framework, or exter",
       "made_with": "Claude Opus 5 high (Cursor), three.js r180"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {

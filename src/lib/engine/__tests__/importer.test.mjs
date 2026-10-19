@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 register('./resolve-hooks.mjs', import.meta.url);
 
-const { rewritePageForOrb, stripTrackers } = await import('../../../server/importer.ts');
+const { rewritePageForOrb, rewriteModuleForOrb, bareImports, stripTrackers } = await import('../../../server/importer.ts');
 
 const PAGE = `<!doctype html>
 <html><head>
@@ -51,10 +51,28 @@ test('tracker stripping still runs on a rewritten page', () => {
 
 test('code that imports three by name gets an import map for it, first in the head', () => {
   const page = `<!doctype html><html><head><title>x</title></head><body><script type="module" src="/src/main.js"></script></body></html>`;
-  const html = rewritePageForOrb(page, new Set(['src/main.js']), JSON.stringify({ dependencies: { three: '^0.170.0' } }), { bareThree: true });
+  const html = rewritePageForOrb(page, new Set(['src/main.js']), JSON.stringify({ dependencies: { three: '^0.170.0' } }), { bare: ['three'] });
   const map = JSON.parse(/<script type="importmap">([^<]+)<\/script>/.exec(html)[1]);
   assert.equal(map.imports.three, 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js');
   assert.equal(map.imports['three/addons/'], 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/');
   assert.ok(html.indexOf('importmap') < html.indexOf('src/main.js'));
-  assert.equal(rewritePageForOrb(PAGE, new Set(), null, { bareThree: true }).match(/importmap/g).length, 1, 'a page with its own map keeps just that');
+  assert.equal(rewritePageForOrb(PAGE, new Set(), null, { bare: ['three'] }).match(/importmap/g).length, 1, 'a page with its own map keeps just that');
+});
+
+test('packages imported by name: found in the code, mapped to esm.sh sharing three', () => {
+  const js = `import * as THREE from 'three';\nimport { EffectComposer } from "postprocessing";\nimport { N8AOPass } from 'n8ao';\nimport x from './local.js';\nimport '@scope/pkg/sub.js';\nconst m = await import('lil-gui');`;
+  assert.deepEqual(bareImports(js).sort(), ['@scope/pkg', 'lil-gui', 'n8ao', 'postprocessing', 'three']);
+  const html = rewritePageForOrb('<html><head></head></html>', new Set(), JSON.stringify({ dependencies: { postprocessing: '^6.36.0' } }), { bare: ['three', 'postprocessing'] });
+  const map = JSON.parse(/<script type="importmap">([^<]+)<\/script>/.exec(html)[1]).imports;
+  assert.equal(map.postprocessing, 'https://esm.sh/postprocessing@6.36.0?external=three');
+  assert.match(map.three, /cdn\.jsdelivr\.net\/npm\/three@/);
+});
+
+test('a module written for Vite: imported stylesheets become links, import.meta.env a production build', () => {
+  const js = rewriteModuleForOrb(`import './style.css';\nimport "../ui/hud.css"\nif (import.meta.env.DEV) console.log('dev');\nimport { a } from './a.js';`);
+  assert.doesNotMatch(js, /import\s*['"][^'"]+\.css/);
+  assert.match(js, /new URL\("\.\/style\.css", import\.meta\.url\)/);
+  assert.match(js, /new URL\("\.\.\/ui\/hud\.css", import\.meta\.url\)/);
+  assert.match(js, /DEV: false/);
+  assert.match(js, /import \{ a \} from '\.\/a\.js'/);
 });

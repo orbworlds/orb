@@ -162,19 +162,58 @@ export function stripTrackers(html: string): string {
 }
 
 const THREE_DEFAULT = '0.186.1';
-/** `import … from 'three'` (or 'three/addons/…', 'three/examples/jsm/…'), as only a bundler or an import map resolves. */
-const BARE_THREE = /(?:\bfrom\s*|\bimport\s*\(?\s*)["']three(?:\/(?:addons|examples\/jsm)\/[^"']*)?["']/;
+/** `import … from 'pkg'` (or '@scope/pkg/sub'): a package by name, as only a bundler or an import map resolves. */
+const BARE_IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*)["']((?:@[\w.-]+\/)?[a-zA-Z0-9_][\w.-]*)(?:\/[^"']*)?["']/g;
 
-function threeVersion(pkgJson: string | null | undefined): string {
-  if (!pkgJson) return THREE_DEFAULT;
+/** The packages this code imports by name. */
+export function bareImports(code: string): string[] {
+  return [...new Set([...code.matchAll(BARE_IMPORT)].map((m) => m[1]).filter((n) => !n.startsWith('node:')))];
+}
+
+/** The version package.json pins for a dependency ("^0.170.0" → "0.170.0"), or null. */
+function depVersion(pkgJson: string | null | undefined, name: string): string | null {
+  if (!pkgJson) return null;
   try {
     const pkg = JSON.parse(pkgJson) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-    const raw = pkg.dependencies?.three || pkg.devDependencies?.three || '';
-    const m = String(raw).match(/(\d+\.\d+\.\d+)/);
-    return m ? m[1] : THREE_DEFAULT;
+    const raw = pkg.dependencies?.[name] || pkg.devDependencies?.[name] || '';
+    return String(raw).match(/(\d+\.\d+\.\d+)/)?.[1] ?? null;
   } catch {
-    return THREE_DEFAULT;
+    return null;
   }
+}
+
+function threeVersion(pkgJson: string | null | undefined): string {
+  return depVersion(pkgJson, 'three') ?? THREE_DEFAULT;
+}
+
+/**
+ * An import map for packages imported by name: three from jsdelivr (as Orb's own worlds load it),
+ * the rest from esm.sh, sharing that three (`external`) so there's one copy of it.
+ */
+function importMapFor(names: readonly string[], pkgJson: string | null | undefined): Record<string, string> {
+  const cdn = threeCdn(threeVersion(pkgJson));
+  const imports: Record<string, string> = {};
+  for (const name of names) {
+    if (name === 'three') Object.assign(imports, { three: cdn.three, 'three/addons/': cdn.addons, 'three/examples/jsm/': cdn.addons });
+    else {
+      const at = `https://esm.sh/${name}${depVersion(pkgJson, name) ? `@${depVersion(pkgJson, name)}` : ''}`;
+      imports[name] = `${at}?external=three`;
+      imports[`${name}/`] = `${at}/`;
+    }
+  }
+  return imports;
+}
+
+/**
+ * Make a module written for a bundler (Vite) run as it is: a stylesheet it imports becomes a
+ * `<link>` it adds, and `import.meta.env` reads as a production build's.
+ */
+export function rewriteModuleForOrb(js: string): string {
+  return js
+    .replace(/\bimport\s*(["'])([^"'\n]+\.css)\1\s*;?/g, (_all, _q: string, href: string) =>
+      `(() => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = new URL(${JSON.stringify(href)}, import.meta.url).href; document.head.appendChild(l); })();`,
+    )
+    .replace(/\bimport\.meta\.env\b/g, `({ MODE: 'production', PROD: true, DEV: false, SSR: false, BASE_URL: './' })`);
 }
 
 function threeCdn(ver: string): { three: string; addons: string } {
@@ -189,11 +228,11 @@ function threeCdn(ver: string): { three: string; addons: string } {
  * `node_modules` become jsdelivr (Orb's tree never includes node_modules), and root-absolute
  * `src`/`href` of files in the tree become relative so they follow the tree `<base>`.
  */
-export function rewritePageForOrb(html: string, files: ReadonlySet<string>, pkgJson?: string | null, opts: { bareThree?: boolean } = {}): string {
+export function rewritePageForOrb(html: string, files: ReadonlySet<string>, pkgJson?: string | null, opts: { bare?: readonly string[] } = {}): string {
   const cdn = threeCdn(threeVersion(pkgJson));
-  // Code that imports `three` by name, as a bundler would resolve it, gets an import map for it.
-  if (opts.bareThree && !/<script\b[^>]*\btype\s*=\s*["']importmap["']/i.test(html)) {
-    const map = `<script type="importmap">${JSON.stringify({ imports: { three: cdn.three, 'three/addons/': cdn.addons, 'three/examples/jsm/': cdn.addons } })}</script>`;
+  // Code that imports packages by name, as a bundler would resolve them, gets an import map for them.
+  if (opts.bare?.length && !/<script\b[^>]*\btype\s*=\s*["']importmap["']/i.test(html)) {
+    const map = `<script type="importmap">${JSON.stringify({ imports: importMapFor(opts.bare, pkgJson) })}</script>`;
     html = /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, (head) => `${head}${map}`) : `${map}${html}`;
   }
   let out = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (all, attrs: string, body: string) => {
@@ -276,13 +315,15 @@ export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | 
     names.add(root ? p.slice(root.length + 1) : p);
   }
   const pkgJson = (root ? raw.get(`${root}/package.json`) : null)?.toString('utf8') ?? raw.get('package.json')?.toString('utf8') ?? null;
-  const bareThree = [...raw].some(([p, data]) => (!root || p.startsWith(`${root}/`)) && /\.(m?js|html?)$/i.test(p) && BARE_THREE.test(data.toString('utf8')));
+  const bare = [...new Set([...raw].flatMap(([p, data]) => ((!root || p.startsWith(`${root}/`)) && /\.(m?js|html?)$/i.test(p) ? bareImports(data.toString('utf8')) : [])))];
   for (const [p, data] of raw) {
     if (root && !p.startsWith(`${root}/`)) continue;
     const rel = root ? p.slice(root.length + 1) : p;
     const bytes = /\.html?$/i.test(rel)
-      ? Buffer.from(rewritePageForOrb(stripTrackers(data.toString('utf8')), names, pkgJson, { bareThree }))
-      : data;
+      ? Buffer.from(rewritePageForOrb(stripTrackers(data.toString('utf8')), names, pkgJson, { bare }))
+      : /\.m?js$/i.test(rel)
+        ? Buffer.from(rewriteModuleForOrb(data.toString('utf8')))
+        : data;
     tree[rel] = (await putBlob(db, bytes)).sha;
   }
   // The license travels with the files (also when the page lives in a subfolder).
