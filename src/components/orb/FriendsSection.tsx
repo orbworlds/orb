@@ -66,7 +66,7 @@ export function FriendsSection() {
         {header()}
         <Empty
           title="Play with friends"
-          text="With an account you can add friends, see what they’re playing and invite them into your worlds."
+          text="With an account, add friends & play together."
           action={
             <Button variant="primary" size="sm" className="mt-3.5" onClick={() => useUi.getState().requestSignup()}>
               Create account
@@ -110,7 +110,7 @@ export function FriendsSection() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {nobody && <Empty title="Play with friends" text="Add a friend by their username. Then you’ll see what they’re playing, jump in with them and invite them into your worlds." />}
+          {nobody && <Empty title="Play with friends" text="Add friends by username to see what they play & join them." />}
           {(adding || nobody) && <AddFriend autoFocus={adding} onAdded={() => setAdding(true)} />}
           {invites.length > 0 && <Invites notes={invites} />}
           {sales.length > 0 && <Sales notes={sales} />}
@@ -412,7 +412,7 @@ function ProfileLink({ handle }: { handle: string }) {
     const url = `${location.origin}${href}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast('Profile link copied — send it to friends so they can add you', 'success');
+      toast('Profile link copied. Send it to friends so they can add you', 'success');
     } catch {
       toast(url);
     }

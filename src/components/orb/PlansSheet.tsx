@@ -99,7 +99,7 @@ function Plans({ info, signedIn, onClose }: { info: BillingInfo; signedIn: boole
                 key={pack.id}
                 type="button"
                 disabled={!!going}
-                onClick={() => (signedIn ? void useBilling.getState().checkout(pack.id, 'plans') : signUp('Create your free account first — then buy credits.'))}
+                onClick={() => (signedIn ? void useBilling.getState().checkout(pack.id, 'plans') : signUp('Make a free account to buy credits.'))}
                 className="rounded-[14px] bg-[var(--glass-bg-strong)] px-3 py-2.5 text-left shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--ink)_8%,transparent)] transition-[transform,box-shadow] duration-200 hover:shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--ink)_16%,transparent)] active:scale-[.98] disabled:opacity-55"
               >
                 <span className="flex items-center justify-between gap-2 text-[14px] font-semibold text-ink tabular-nums">

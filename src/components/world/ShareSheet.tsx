@@ -119,7 +119,7 @@ function ShareBody({ world, onChange }: { world: WorldFull; onChange(patch: Part
       track('share_copy', { world_id: world.id, how: 'copy', where: 'sheet' });
       setCopied(true);
       toast('Link copied', 'success');
-    } else toast('Couldn’t copy — select the link and copy it yourself.', 'error');
+    } else toast('Couldn’t copy. Select the link & copy it yourself.', 'error');
   };
 
   const share = async () => {

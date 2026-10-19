@@ -102,7 +102,7 @@ function HistoryBody({ worldId, currentVersion, onRestore }: { worldId: string; 
 
   return (
     <div className="pb-1">
-      <p className="mb-2 px-1 text-[13px] text-ink-2">Every build is saved. Go back to any version — nothing is lost.</p>
+      <p className="mb-2 px-1 text-[13px] text-ink-2">Every build is saved. Go back to any version.</p>
       <ol className="relative">
         {current.versions.map((v, i) => {
           const isCurrent = v.version === currentVersion;

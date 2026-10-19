@@ -1,0 +1,41 @@
+# Orb
+
+> Orb (https://orbworlds.com) is a place to play, remix and make small 3D worlds and games in the browser. People describe a world and Orb's AI builds it; anyone can play it, and remix it when its maker allows.
+
+## Make a world
+
+An Orb world is a small web project: an `index.html` and the files it loads with relative URLs. Plain ES modules, no build step. three.js comes from jsdelivr through an import map:
+
+```html
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
+```
+
+It should work with mouse, keys and touch, run smoothly on a phone, and keep the bottom-right 90×90 px free (Orb's button lives there).
+
+## window.orb
+
+Inside Orb a world gets `window.orb` (undefined elsewhere: use `orb?.…` with a fallback). Types: https://www.npmjs.com/package/@orbworlds/kit (`orb.d.ts`).
+
+- `orb.me`: the player (`id`, `name`, `color`). `localStorage` is kept per player, per world.
+- `orb.store`: state every visitor shares (leaderboards, guestbooks): `get`, `set`, `incr`, `push`, `merge`, `list`.
+- `orb.room`: realtime with everyone in the world: `join`, `send`, `setState`, `peers`, `invite`.
+- `orb.visitors`: shows who else is in a world you move around in.
+- `orb.shop`: things players buy with Orb credits.
+
+## The Orb kit
+
+`@orbworlds/kit` runs a world on your computer the way Orb does (`window.orb` included) and puts it on Orb:
+
+```bash
+npx @orbworlds/kit dev path/to/world     # play it at http://127.0.0.1:4242
+npx @orbworlds/kit test path/to/world    # headless check: it draws and nothing throws
+npx @orbworlds/kit push -m "What changed"  # put it on Orb as the person
+```
+
+For coding agents: if `push` prints a link and exits with code 2, show the person that link, wait until they say they allowed it, then run the same command again. It prints the world's address when done.
+
+## Also
+
+- A public GitHub repository with an `index.html` can be imported as a world from the You tab.
+- Explore: https://orbworlds.com/explore
+- Plans: https://orbworlds.com/pricing

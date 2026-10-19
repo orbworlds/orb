@@ -496,7 +496,7 @@ function ExploreOverlay({
   );
 }
 
-/** The home page's foot, past the last world: Orb's name, its plans, its source (once public) and a way back up. */
+/** The home page's foot, past the last world: Orb's name, its plans, the kit, llms.txt for agents, its source (once public) and a way back up. */
 function Footer({ onTop }: { onTop(): void }) {
   const link = 'rounded-full px-2.5 py-1.5 text-ink-2 transition-colors hover:text-ink';
   return (
@@ -506,6 +506,12 @@ function Footer({ onTop }: { onTop(): void }) {
         <button type="button" className={link} onClick={() => useUi.getState().setPlans(true)}>
           Plans
         </button>
+        <a className={link} href="https://www.npmjs.com/package/@orbworlds/kit" target="_blank" rel="noopener noreferrer" title="Make worlds on your own computer">
+          Orb kit
+        </a>
+        <a className={link} href="/llms.txt" title="How to make Orb worlds, for AI agents">
+          llms.txt
+        </a>
         {GITHUB_URL && (
           <a className={`${link} inline-flex items-center gap-1.5`} href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
             <Icon name="github" size={14} /> GitHub
@@ -680,7 +686,7 @@ function ResultsGrid({
       <EmptyState
         icon="search"
         title={`Nothing called “${q}” yet`}
-        body="Try another word — or close Explore and ask the Orb to build it for you."
+        body="Try another word, or ask the Orb to make it."
         action={
           <Button variant="glass" onClick={onClear}>
             Clear search
@@ -688,7 +694,7 @@ function ResultsGrid({
         }
       />
     ) : (
-      <EmptyState icon="sparkle" title="Nothing here yet" body="Be the first — make something and share it with the world." />
+      <EmptyState icon="sparkle" title="Nothing here yet" body="Be the first to make one." />
     );
 
   return (

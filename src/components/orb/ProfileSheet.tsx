@@ -187,7 +187,7 @@ function FriendBar({ profile: p, onChange }: { profile: Profile; onChange(friend
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(link);
-      toast('Profile link copied — send it to friends so they can add you', 'success');
+      toast('Profile link copied. Send it to friends so they can add you', 'success');
     } catch {
       toast(link);
     }

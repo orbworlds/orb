@@ -686,7 +686,7 @@ function welcomeBack(): void {
     toast(note === 'payouts' ? 'Payouts are set up ✨ You can cash out what your worlds earn.' : 'Stripe still needs a few details before it can pay you: pick up where you left off any time.', note === 'payouts' ? 'success' : 'default');
     return;
   }
-  toast('Thanks! Your payment is being confirmed — your credits will show up in a moment.');
+  toast('Thanks! Your credits will show up in a moment.');
   // Stripe's webhook brings it shortly: look again a few times.
   for (const ms of [4000, 12_000, 30_000]) setTimeout(() => void billing.load(true), ms);
 }

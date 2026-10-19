@@ -53,8 +53,8 @@ If you change a contract, update this file in the same change.
   world"), the big composer and under it "Or remix": the four most played remixable worlds (picking
   one remixes it), two starter templates and **More to remix** (Explore on Remix), then (for people
   who have some) a row of their friends' worlds and their own, then Explore's header and worlds,
-  scrolling on from there, down to a footer (orbworlds, Plans, GitHub once the source is public:
-  `GITHUB_URL`, and Back to top). Sending from the composer, picking a template or remixing hands
+  scrolling on from there, down to a footer (orbworlds, Plans, the Orb kit on npm, `/llms.txt` (how to
+  make worlds, for AI agents), GitHub once the source is public: `GITHUB_URL`, and Back to top). Sending from the composer, picking a template or remixing hands
   over to the chat on the canvas.
   There is one Explore, and it is this page: the Orb's Explore tab, a world's back arrow, "See all",
   `/explore` and a missing world's Explore button all go home, down at its worlds.

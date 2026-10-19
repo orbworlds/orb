@@ -257,7 +257,7 @@ function EmptyState({
   const template = templateId ? TEMPLATE_BY_ID[templateId] : undefined;
   if (!world) {
     return (
-      <OrbLine text="What shall we make? Describe anything — a world, a game, a toy — and watch it come alive." chips={(template ?? TEMPLATE_BY_ID.blank).suggestions} onPick={onPick}>
+      <OrbLine text="What shall we make? Describe it & watch it come alive." chips={(template ?? TEMPLATE_BY_ID.blank).suggestions} onPick={onPick}>
         <StartFrom onStart={onStartFrom} />
       </OrbLine>
     );

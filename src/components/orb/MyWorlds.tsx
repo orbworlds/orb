@@ -117,7 +117,7 @@ export function MyWorlds({ onOpenWorld, onNewWorld, liked = false }: { onOpenWor
           </span>
           <p className="text-[14px] font-medium text-ink">{liked ? 'No favorites yet' : 'No worlds yet'}</p>
           <p className="mx-auto mt-1 max-w-[260px] text-[13px] leading-snug text-ink-2">
-            {liked ? 'Tap ♥ on worlds you love — they’ll be waiting for you here.' : 'Tell the Orb what to make — your worlds will show up here.'}
+            {liked ? 'Tap ♥ on worlds you love to keep them here.' : 'Your worlds will show up here.'}
           </p>
         </div>
       ) : (
