@@ -220,6 +220,25 @@ const SHOTS = {
   },
   // Nova Lancer: its mission intro runs in game time, so the clip starts after it, firing and weaving low over the sea
   'aw-nova-lancer': { wait: 30000, steps: [{ key: 'Enter', wait: 10000 }], settle: 16, hold: ['Space'], press: [['ArrowLeft', 0.8, 1.8], ['ArrowRight', 2.8, 3.8]] },
+  // Palmera Bay: cruising the coast boulevard at sunset, kept on the road as it bends (the game's own curve for it)
+  'aw-palmera-bay': {
+    wait: 30000, steps: [{ key: 'Enter', wait: 10000 }], settle: 3, hold: ['w'],
+    setup: () => {
+      const car = window.__game?.car;
+      if (!car) return;
+      // the sea sits so close under the land that software GL's depth lets it flash through the street
+      const w = window.__game.world;
+      w.scene.traverse((o) => { if (o.material === w.oceanMat) o.position.y = -2; });
+      const road = (z) => -125 + 16 * Math.sin(z * 0.0105 + 0.5) + 7 * Math.sin(z * 0.031 + 2) - 5;
+      const slope = (z) => 16 * 0.0105 * Math.cos(z * 0.0105 + 0.5) + 7 * 0.031 * Math.cos(z * 0.031 + 2);
+      window.__shot = () => {
+        const z = car.pos.y;
+        car.h = Math.atan2(slope(z + 8), 1);
+        car.pos.x += (road(z) - car.pos.x) * 0.05;
+      };
+      window.__shot();
+    },
+  },
   // Foxfire Fjord: a glide from the fire pit past the cabin's lit glass wing to the deck and its steaming tub and back, under the aurora
   'orb-foxfire': {
     // past its first 15 s, when it checks its frame rate and may switch quality (a switch empties the canvas); it runs
