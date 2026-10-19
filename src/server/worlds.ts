@@ -643,7 +643,8 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
     where.push(...SHOWABLE, `w.hidden`);
   } else {
     where.push(...LISTED);
-    if (p.sort !== 'new' && !p.q) where.push(EARNED);
+    // Newest is what people just made on Orb: curated worlds come in batches and would bury them.
+    if (!p.q) where.push(p.sort === 'new' ? `(w.owner_user is not null or w.owner_device is not null)` : EARNED);
   }
   if (p.q) {
     const q = $(likePattern(p.q));

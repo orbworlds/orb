@@ -416,7 +416,8 @@ hover or keyboard focus, and on touch screens its name and maker stay on it. A w
 it right now always says so ("● 3 playing": `WorldCard.live`, from `orb_here`). A click plays it. The
 header (filters, sort, search, New world) slips away while scrolling down and comes back on the way
 up. Sorts: Trending (default), Most played (`plays`), Most liked (`likes`), Most viewed (the views
-of the maker's post, or its plays if more) and Newest. People's own worlds join the ranked sorts (all but
+of the maker's post, or its plays if more) and Newest (people's worlds only, newest first: curated
+worlds arrive in batches and would bury them). People's own worlds join the ranked sorts (all but
 Newest) once they've earned it: a like, 10 plays (`EARNED_PLAYS`) or Orb's pick (`featured`,
 `verified`). A world just built (changed since it began: version 2 on) gets its first 2 days there
 (`FRESH_DAYS`), wearing a "New" badge, so its first players can find it; Trending's fading boost for

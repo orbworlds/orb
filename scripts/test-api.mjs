@@ -1248,7 +1248,9 @@ async function run() {
     await request('PUT', `/api/worlds/${w.id}/thumb`, { dev: OWNER, raw: WEBP, type: 'image/webp' });
     const rank = async () => (await feed()).indexOf(w.id);
     // A person's new world is under Newest, and joins the ranked lists once it earns it (a like).
-    check('a new world waits under Newest until it earns its place', (await rank()) === -1 && (await request('GET', '/api/worlds?sort=new&limit=100')).json.worlds.some((x) => x.id === w.id));
+    const newest = (await request('GET', '/api/worlds?sort=new&limit=100')).json.worlds;
+    check('a new world waits under Newest until it earns its place', (await rank()) === -1 && newest.some((x) => x.id === w.id));
+    check('Newest is people\'s worlds only (no curated ones)', newest.length > 0 && newest.every((x) => !/^(ext|aw|orb)-/.test(x.id)), newest.filter((x) => /^(ext|aw|orb)-/.test(x.id)).map((x) => x.id));
     {
       // …but once built (its code changed: version 2), it gets its first days there, marked new.
       const built = (await create(OWNER, { name: `Fresh ${TOKEN}` })).json.world;
