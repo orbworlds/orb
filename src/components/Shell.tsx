@@ -359,7 +359,8 @@ export default function Shell({
   }, [build.isBuilding]);
 
   // ---- hero (start canvas) ---------------------------------------------------------------------------
-  const heroVisible = !world && status !== 'not-found' && status !== 'error' && !ui.heroDone && mode !== 'world';
+  // Landing on a world's address, home waits for the start canvas (going home from there loads it).
+  const heroVisible = !world && status !== 'not-found' && status !== 'error' && !ui.heroDone && (mode !== 'world' || ws.onStart);
   const exploreUsed = useEver(ui.exploreOpen || heroVisible);
   const heroVisibleRef = useRef(heroVisible);
   useEffect(() => {

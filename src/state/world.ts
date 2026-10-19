@@ -60,6 +60,8 @@ interface WorldState {
   chatKey: string;
   /** Template on the start canvas (or the template a world was made from). */
   templateId: string | null;
+  /** The start canvas is on screen (a template loaded since the last world): home can show over it. */
+  onStart: boolean;
   /** Committed code — the base for the next build. */
   baseCode: string | null;
   /** Code shown in the frame (may run ahead of baseCode while a build streams). */
@@ -290,6 +292,7 @@ export const useWorld = create<WorldState>((set, get) => {
     world: null,
     chatKey: 'new',
     templateId: null,
+    onStart: false,
     baseCode: null,
     previewCode: null,
     frameId: 'template-blank',
@@ -318,7 +321,7 @@ export const useWorld = create<WorldState>((set, get) => {
       const t = TEMPLATE_BY_ID[id] ?? TEMPLATE_BY_ID.blank;
       // The world identity resets right away (chat, world bar); the frame keeps showing the
       // previous scene until the template arrives, then cross-fades.
-      set({ world: null, chatKey: 'new', canEdit: true, isExternal: false, verified: true, status: get().previewCode ? 'ready' : 'loading' });
+      set({ world: null, chatKey: 'new', canEdit: true, isExternal: false, verified: true, onStart: true, status: get().previewCode ? 'ready' : 'loading' });
       try {
         const code = await fetchTemplate(t.id);
         if (token !== loadToken) return;
@@ -333,6 +336,7 @@ export const useWorld = create<WorldState>((set, get) => {
 
     async loadWorld(id, initial) {
       const token = ++loadToken;
+      set({ onStart: false });
       const native = initial?.kind !== 'external';
       // Signed in, the account's progress in this world (if it's newer than this browser's) comes
       // first: the world starts once it's here, so it never plays, and saves, from where it began.
