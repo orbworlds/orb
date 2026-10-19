@@ -43,7 +43,7 @@ export function StartFrom({ onStart }: { onStart(id: string): void }) {
           type="button"
           onClick={() => {
             track('start_from_more');
-            useUi.getState().setExplore(true, 'remix');
+            useUi.getState().requestExplore('remix');
           }}
           className="group -mr-1 inline-flex h-7 items-center gap-0.5 rounded-full pr-1 pl-2 text-[13px] font-medium text-ink-2 transition-colors hover:text-ink"
         >

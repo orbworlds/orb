@@ -53,7 +53,10 @@ If you change a contract, update this file in the same change.
   world"), the big composer and the starter templates, then (for people who have some) a row of
   their friends' worlds and their own, then Explore's header and worlds, scrolling on from there.
   Sending from the composer or picking a template hands over to the chat on the start canvas.
-  Explore opened anywhere else (`/explore`, the Orb) is the same without the invitation.
+  There is one Explore, and it is this page: the Orb's Explore tab, a world's back arrow, "See all",
+  `/explore` and a missing world's Explore button all go home, down at its worlds.
+  Tapping the Orb there opens its You tab, not an empty chat (the page's composer is the chat), unless a
+  build is running or has news.
 - **New world** (Explore, You, a missing world's page) opens the start canvas with the Orb's chat
   open and its composer focused, not the start screen. The Orb's first line there ("What shall we
   make?") also offers "Or start from an existing world": three popular remixable worlds
@@ -410,11 +413,11 @@ up. Sorts: Trending (default), Most played (`plays`), Most liked (`likes`), Most
 of the maker's post, or its plays if more) and Newest. People's own worlds join the ranked sorts (all but
 Newest) once they've earned it: a like, 10 plays (`EARNED_PLAYS`) or Orb's pick (`featured`,
 `verified`); until then they're under Newest, in search and on their maker's page. Curated worlds
-that don't hold up are `hidden` in `src/data/seeds.json` (playable by link). At `/explore` the address carries them
-(`?filter=games&sort=liked&q=…`). Explore stays as it was left (filter, sort, search, scroll) while a
-world is played: the world's back arrow returns to it (pushing its address, so the browser's back
-returns to the world), and a world someone was only visiting is left (unloaded); their own stays
-behind it. Its filters: All, Games (`tag=game`), Worlds (`tag=world`), Art & toys
+that don't hold up are `hidden` in `src/data/seeds.json` (playable by link). `/explore` opens home at its worlds and
+carries them in its address (`?filter=games&sort=liked&q=…`). Explore stays as it was left (filter,
+sort, search, scroll) while a world is played: going back to it (the world's arrow, the Orb's tab)
+leaves the world (a build of one's own goes on in the background) and goes home (pushed, so the
+browser's back returns to the world), down where it was left. Its filters: All, Games (`tag=game`), Worlds (`tag=world`), Art & toys
 (`tag=art,toy`) and Remix (`remixable=1`: Orb worlds anyone may remix). The first three are one
 category per world: the first of `game`, `world`, `art`/`toy` in its tags (a game has a goal, a
 world is a place to wander, a toy is something to make or play with freely, or a scene to look at),

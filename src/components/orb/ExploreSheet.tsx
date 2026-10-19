@@ -289,6 +289,20 @@ function ExploreOverlay({
     if (!hidden && open && scrollRef.current && savedTop.current) scrollRef.current.scrollTop = savedTop.current;
   }, [hidden, open]);
 
+  // Asked for Explore (the Orb's tab, a world's back arrow, "See all"): at home, down to its worlds,
+  // unless they were already further down (back from a world, where they left off). Once per ask.
+  const exploreRequest = useUi((s) => s.exploreRequest);
+  const handledAsk = useRef(0);
+  useEffect(() => {
+    if (!exploreRequest || exploreRequest === handledAsk.current || !home || hidden) return;
+    const t = setTimeout(() => {
+      handledAsk.current = exploreRequest;
+      const el = scrollRef.current, header = headerRef.current;
+      if (el && header && el.scrollTop < header.offsetTop - 4) el.scrollTo({ top: header.offsetTop, behavior: 'smooth' });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [exploreRequest, home, hidden]);
+
   // A new result set starts at the top.
   useEffect(() => {
     savedTop.current = 0;

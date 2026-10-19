@@ -26,6 +26,8 @@ interface UiState {
   exploreOpen: boolean;
   /** The filter Explore opens on (e.g. 'remix'); its own default otherwise. */
   exploreFilter: string | null;
+  /** Someone asked for Explore (the Orb's tab, "See all"…): the home page, down at its worlds. */
+  exploreRequest: number;
   shareOpen: boolean;
   historyOpen: boolean;
   /** The plans sheet (Free, Pro, credit packs). */
@@ -56,6 +58,8 @@ interface UiState {
   setTab(tab: PanelTab): void;
   setDetent(d: SheetDetent): void;
   setExplore(open: boolean, filter?: string): void;
+  /** Go to Explore, which is the home page's worlds (on `filter`, e.g. 'remix'). The shell does it. */
+  requestExplore(filter?: string): void;
   setShare(open: boolean): void;
   setHistory(open: boolean): void;
   setPlans(open: boolean): void;
@@ -82,6 +86,7 @@ export const useUi = create<UiState>((set, get) => ({
   detent: 'full',
   exploreOpen: false,
   exploreFilter: null,
+  exploreRequest: 0,
   shareOpen: false,
   historyOpen: false,
   plansOpen: false,
@@ -115,6 +120,9 @@ export const useUi = create<UiState>((set, get) => ({
   },
   setExplore(exploreOpen, filter) {
     set({ exploreOpen, exploreFilter: exploreOpen ? (filter ?? null) : null });
+  },
+  requestExplore(filter) {
+    set({ exploreRequest: Date.now(), exploreFilter: filter ?? null });
   },
   setShare(shareOpen) {
     set({ shareOpen });

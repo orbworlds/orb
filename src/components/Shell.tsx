@@ -170,19 +170,12 @@ export default function Shell({
     bindCurrentThread(() => buildRef.current.activeThreadId());
   }, []);
 
-  // A visitor going back to Explore leaves the world they were playing (its sound and work stop);
-  // a world of their own stays on screen behind Explore, as it is (it may be building).
+  // Set when Explore was opened by leaving a world (nothing is behind it any more).
   const leftWorld = useRef(false);
   const exploreAddress = useRef('/explore');
   const placeExplore = useCallback((address: string) => {
     exploreAddress.current = address;
   }, []);
-  const leaveWorld = () => {
-    const w = useWorld.getState();
-    if (!w.world || w.canEdit) return;
-    leftWorld.current = true;
-    void w.loadTemplate('blank');
-  };
 
   // ---- boot: player, orb position, GitHub OAuth hand-off, first route ------------------------------
   const booted = useRef(false);
@@ -218,7 +211,7 @@ export default function Shell({
     } else {
       if (initialPrompt) u.setDraft(initialPrompt);
       void w.loadTemplate(initialTemplate && TEMPLATE_BY_ID[initialTemplate] ? initialTemplate : 'blank');
-      if (mode === 'explore') u.setExplore(true);
+      if (mode === 'explore') u.requestExplore();
       if (mode === 'plans') u.setPlans(true);
       if (initialProfile) u.openProfile(initialProfile);
     }
@@ -267,8 +260,12 @@ export default function Shell({
           () => w.loadWorld(`${r.handle}/${r.slug}`), // shows "not found"
         );
       } else if (r.kind === 'explore') {
-        leaveWorld();
-        u.setExplore(true);
+        // Explore is the home page (down at its worlds)
+        u.setExplore(false);
+        u.setHeroDone(false);
+        u.setIntro(null);
+        u.closePanel();
+        void w.loadTemplate('blank');
       } else if (r.kind === 'plans') {
         u.setPlans(true);
       } else if (r.kind === 'profile') {
@@ -378,10 +375,21 @@ export default function Shell({
   // Browser back from there returns to the world.
   const backToExplore = useCallback(() => {
     track('explore_back', { world_id: useWorld.getState().world?.id });
-    leaveWorld();
-    if (!window.location.pathname.startsWith('/explore')) window.history.pushState(null, '', exploreAddress.current);
-    useUi.getState().setExplore(true);
+    useUi.getState().requestExplore();
   }, []);
+
+  // Explore is the home page: every way to it (the back arrow, the Orb's tab, "See all") goes home,
+  // to its worlds as they were left. A world is left (a build of one's own goes on in the background,
+  // and the page's composer starts a new world, never a change to that one); browser back returns to it.
+  const exploreRequest = useUi((s) => s.exploreRequest);
+  useEffect(() => {
+    if (!exploreRequest) return;
+    const u = useUi.getState();
+    u.setExplore(false);
+    u.closePanel();
+    leftWorld.current = false;
+    if (useWorld.getState().world || u.heroDone) void useWorld.getState().goStart({});
+  }, [exploreRequest]);
 
   const makeLikeThis = useCallback(() => {
     const w = useWorld.getState().world;
@@ -473,7 +481,7 @@ export default function Shell({
               <Button variant="primary" icon="sparkle" onClick={() => void useWorld.getState().goStart({ replace: true, chat: true })}>
                 Make a world
               </Button>
-              <Button variant="glass" icon="compass" onClick={() => useUi.getState().setExplore(true)}>
+              <Button variant="glass" icon="compass" onClick={() => useUi.getState().requestExplore()}>
                 Explore
               </Button>
             </div>
@@ -499,7 +507,8 @@ export default function Shell({
         building={build.isBuilding || build.background.length > 0}
         unread={ui.unread || friendUnread > 0}
         hidden={ui.panelOpen}
-        onOpen={() => (!ui.unread && friendUnread > 0 ? ui.openPanel('you') : ui.openPanel())}
+        // At home the page's own composer is the chat, so the Orb opens You (unless a build has news).
+        onOpen={() => (!ui.unread && (friendUnread > 0 || (heroVisible && !build.isBuilding)) ? ui.openPanel('you') : ui.openPanel())}
       />
 
       <OrbPanel
@@ -511,7 +520,7 @@ export default function Shell({
             <SaveNudge show={builds >= 2 && !signedInRef.current && !!world?.canEdit} onSaved={() => (signedInRef.current = true)} />
           </>
         }
-        onExplore={() => ui.setExplore(true)}
+        onExplore={() => ui.requestExplore()}
         youBadge={friendUnread}
         chat={
           <ChatView
@@ -535,7 +544,7 @@ export default function Shell({
           open={ui.exploreOpen || heroVisible}
           intro={
             heroVisible && !ui.exploreOpen ? (
-              <HomeIntro onSend={sendFromHero} onPickTemplate={(id) => void pickTemplate(id)} onExplore={() => ui.setExplore(true)} onOpenWorld={openWorld} onOpenMine={() => ui.openPanel('you')} />
+              <HomeIntro onSend={sendFromHero} onPickTemplate={(id) => void pickTemplate(id)} onExplore={() => ui.requestExplore()} onOpenWorld={openWorld} onOpenMine={() => ui.openPanel('you')} />
             ) : undefined
           }
           onClose={() => {
