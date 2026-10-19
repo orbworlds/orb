@@ -68,7 +68,7 @@ const SHOTS = {
   },
   // Merge Conflict: its own capture mode, a bot-against-bot bout drawn frame by frame at film quality (no HUD), past the opening
   'aw-merge-conflict': {
-    query: 'mode=capture&scene=botfight&fps=30&s=2', ready: () => !!window.__cap, wait: 5000,
+    query: 'mode=capture&scene=botfight&fps=30&s=2', crf: [52, 34], ready: () => !!window.__cap, wait: 5000,
     setup: () => {
       if (!window.__cap) return;
       window.__cap.skip(90);
@@ -80,7 +80,7 @@ const SHOTS = {
   // Molazone: the rider in the desert, and the world turning beneath the wheels as it scrolls on to the next
   'ext-molazone': { viewport: [1024, 640], wait: 45000, steps: [{ click: [512, 573], wait: 20000 }], scroll: 200 },
   // Odyssey: Enter sets sail and the wind carries the ship on (its autopilot's camera ends up in the rigging here)
-  'ext-odyssey': { wait: 40000, steps: [{ key: 'Enter', wait: 60000 }], settle: 2, blank: true },
+  'ext-odyssey': { wait: 40000, steps: [{ key: 'Enter', wait: 60000 }], settle: 2, blank: true, crf: [44, 30] },
   // Flowline: dropping in and carving down the groomed run, an edge one way and then the other
   'ext-flowline': { wait: 30000, steps: [{ click: [320, 162], wait: 20000 }], settle: 3, press: [['d', 0.4, 0.9], ['a', 2.2, 2.7], ['a', 3.6, 4.2]] },
   // Tiny Planet: building a little town across the planet, a house at a time (its buttons and credit cropped off)
@@ -242,7 +242,7 @@ const SHOTS = {
   // Long Wind: past the title and the first chapter's opening, the swordsman in the golden grass leaping at the bandits (the drag's
   // button is his strike) as the camera turns and back (walking on into them brings the fight's letterbox)
   'aw-long-wind': {
-    ready: () => /click to begin/.test(document.body.innerText), readyTimeout: 1200000, wait: 120000, drag: swing(160, 0),
+    ready: () => /click to begin/.test(document.body.innerText), readyTimeout: 1200000, wait: 120000, drag: swing(160, 0), crf: [47, 30],
     // clicked until the title gives way (a click while it's still loading does nothing), then the chapter's opening
     // shot plays out (slowly here)
     setup: async () => {
@@ -263,7 +263,7 @@ const SHOTS = {
   // Wish Lanterns: on the dock at night, looking slowly across the lake as the lanterns rise
   'orb-lanterns': { wait: 15000, drag: [10, 0] },
   // Community Garden: closer in, turning around the flower bed and back
-  'orb-garden': { wait: 15000, steps: [{ wheel: -600, wait: 5000 }], drag: swing(70, 0) },
+  'orb-garden': { crf: [46, 30], wait: 15000, steps: [{ wheel: -600, wait: 5000 }], drag: swing(70, 0) },
   // Hangout: strolling along the plaza past the fountain and the others there at dusk, and back
   'orb-hangout': {
     wait: 20000, company: 3,
@@ -459,9 +459,11 @@ const SHOTS = {
       window.__shot = () => m.look(0.15, 0);
     },
   },
+  // Sakura: the cherry tree by the torii in full sun, petals drifting off it, the bough shaken twice
+  'aw-sakura': { crf: [60, 36], wait: 30000, settle: 2, press: [['Space', 0.5, 0.6], ['Space', 2.5, 2.6]] },
   // VampireZ: a night with the bots, past the grace, the survivor running from the vampires on its own
   'orb-vampirez': {
-    file: '?debug', ready: () => window.__vz?.game.state === 'title', wait: 3000,
+    file: '?debug', ready: () => window.__vz?.game.state === 'title', wait: 3000, crf: [48, 31],
     setup: async () => {
       const vz = window.__vz;
       vz.start(true);
