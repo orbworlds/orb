@@ -47,6 +47,29 @@ const QUICK = !!process.env.QUICK;
 // over the last one, leaving ghosts here, where frames are kept until captured).
 const swing = (dx, dy, x = W / 2, y = H / 2) => (t) => { const e = (1 - Math.cos((2 * Math.PI * t) / SECONDS)) / 2; return [x + dx * e, y + dy * e]; };
 const SHOTS = {
+  // Monolith Wilds: a slow glide in over the basin of monuments toward the red peaks (its `cam` view leaves its controls out)
+  'aw-monolith-wilds': {
+    query: 'cam=-998,330,1248&look=-398,250,452', ready: () => !!window.__MW?.ready, readyTimeout: 600000, wait: 30000,
+    setup: () => {
+      const mw = window.__MW;
+      if (!mw?.ctx) return;
+      const cam = mw.ctx.camera, p0 = cam.position.clone(), d = new mw.THREE.Vector3(0.6, -0.06, -0.8).normalize();
+      const side = new mw.THREE.Vector3(0.8, 0, 0.6);
+      window.__shot = (t) => {
+        cam.position.copy(p0).addScaledVector(d, 45 * t);
+        cam.lookAt(p0.clone().addScaledVector(d, 1200).addScaledVector(side, 12 * t));
+      };
+    },
+  },
+  // Merge Conflict: its own capture mode, a bot-against-bot bout drawn frame by frame at film quality (no HUD), past the opening
+  'aw-merge-conflict': {
+    query: 'mode=capture&scene=botfight&fps=30&s=2', ready: () => !!window.__cap, wait: 5000,
+    setup: () => {
+      if (!window.__cap) return;
+      window.__cap.skip(90);
+      window.__shot = () => window.__cap.frame();
+    },
+  },
   // Backroad Rally drives itself with ?autopilot: the Finnish gravel stage at 90 km/h, through the forest
   'aw-backroad-rally': { query: 'mode=quick&stage=finland&autopilot=90', wait: 150000, settle: 2 },
   // Molazone: the rider in the desert, and the world turning beneath the wheels as it scrolls on to the next
@@ -153,6 +176,20 @@ const SHOTS = {
       await new Promise((r) => setTimeout(r, 90000));
     },
     hold: ['w'],
+  },
+  // Susurrus: past its ink sketch in the colour world, the camera gliding in toward the island on its scrolled path and back
+  // (its verse and buttons are the page's, not the canvas's)
+  'ext-susurrus': {
+    viewport: [1024, 640], wait: 40000, settle: 2,
+    setup: async () => {
+      const el = [...document.querySelectorAll('div')].find((e) => e.scrollHeight > e.clientHeight + 50 && /auto|scroll/.test(getComputedStyle(e).overflowY));
+      if (!el) return;
+      // the ink has spread over the whole picture by 70% of the way down, and past 80% the camera hardly moves
+      const at = (f) => { el.scrollTop = f * (el.scrollHeight - el.clientHeight); };
+      at(0.71);
+      await new Promise((r) => setTimeout(r, 20000));
+      window.__shot = (t) => at(0.71 + 0.1 * (1 - Math.cos((2 * Math.PI * t) / 5)) / 2);
+    },
   },
   // Jumper Lab: the robot crab scuttling sideways across the living-room floor (its panels are the page's, not the canvas's)
   'ext-jumper-lab': { wait: 15000, hold: ['d'] },
@@ -276,6 +313,8 @@ const SHOTS = {
       window.__shot();
     },
   },
+  // Kaiju Dokan: the monster wading up a street of the sunset city, its tail toppling towers (a detailed city: smaller files at a higher crf)
+  'aw-kaiju-dokan': { crf: [56, 31], wait: 30000, steps: [{ click: [320, 154], wait: 10000 }], settle: 16, hold: ['w'], press: [['j', 1, 1.3], ['j', 2.5, 2.8], ['k', 3.8, 4.1]] },
   // Foxfire Fjord: a glide from the fire pit past the cabin's lit glass wing to the deck and its steaming tub and back, under the aurora
   'orb-foxfire': {
     // past its first 15 s, when it checks its frame rate and may switch quality (a switch empties the canvas); it runs
@@ -369,6 +408,18 @@ const SHOTS = {
         const a = -0.25 + 0.5 * (t / 5), r = 19 - 1.5 * (t / 5);
         s.setCamera([r * Math.sin(a), 2.6, r * Math.cos(a)], [0, 0.2, 0], 44);
       };
+    },
+  },
+  // The Museum of Wrong Physics: strolling into the Ascending Waters, its rivers pouring up, turning slowly to take
+  // the hall in (its test switches give its own hooks: the gallery to stand in, and walking without a pointer lock)
+  'ext-wrong-physics': {
+    query: 'test&loop&quality=high&only=atrium,upstream', ready: () => window.__museum?.ready, readyTimeout: 900000, wait: 5000,
+    setup: () => {
+      const m = window.__museum;
+      if (!m?.ready) return;
+      m.view('upstream', 1);
+      m.app.input.sim.forward = 0.2;
+      window.__shot = () => m.look(0.15, 0);
     },
   },
   // VampireZ: a night with the bots, past the grace, the survivor running from the vampires on its own
