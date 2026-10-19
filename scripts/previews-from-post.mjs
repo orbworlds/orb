@@ -7,6 +7,7 @@
 //   node scripts/previews-from-post.mjs <id> <video url or file> [start seconds]
 //   SHEET=1 node scripts/previews-from-post.mjs <id> <video> — a contact sheet (a still every few
 //   seconds, with its time) to pick where the clip starts.
+//   CRF=44,30 … — [VP9, H.264] quality (default 40,27; higher is smaller), for a busy video that comes out large.
 //
 // A post on X: its video's address is in https://api.fxtwitter.com/<user>/status/<id> (media.videos).
 import { execFileSync } from 'node:child_process';
@@ -49,8 +50,9 @@ const fade =
   `[main][head]xfade=transition=fade:duration=${FADE}:offset=${SECONDS - FADE},format=yuv420p[v]`;
 const input = ['-y', '-loglevel', 'error', '-ss', String(start), '-t', String(SECONDS + FADE), '-i', file, '-filter_complex', fade, '-map', '[v]', '-an'];
 const base = path.join(root, 'public/previews', id);
-execFileSync('ffmpeg', [...input, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '40', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2', `${base}.webm`]);
-execFileSync('ffmpeg', [...input, '-c:v', 'libx264', '-preset', 'slow', '-crf', '27', '-movflags', '+faststart', `${base}.mp4`]);
+const [crfWebm, crfMp4] = (process.env.CRF || '40,27').split(',');
+execFileSync('ffmpeg', [...input, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', crfWebm, '-row-mt', '1', '-deadline', 'good', '-cpu-used', '2', `${base}.webm`]);
+execFileSync('ffmpeg', [...input, '-c:v', 'libx264', '-preset', 'slow', '-crf', crfMp4, '-movflags', '+faststart', `${base}.mp4`]);
 fs.rmSync(tmp, { recursive: true });
 
 const hash = createHash('sha256');

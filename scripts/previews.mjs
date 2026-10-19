@@ -111,7 +111,7 @@ const SHOTS = {
     mouse: (t) => [320 + 210 * Math.sin((2 * Math.PI * t) / 2.8), 200 + 110 * Math.sin((4 * Math.PI * t) / 2.8), t % 1.4 < 1.3],
   },
   // Ancient Earth: the globe of 240 million years ago turning, Pangaea coming round (the page's text is outside its canvas)
-  'ext-ancient-earth': { wait: 25000, scale: 3, crop: [136, 85, 368, 230] },
+  'ext-ancient-earth': { wait: 25000, scale: 3.5, crop: [136, 85, 368, 230], crf: [44, 28] },
   // Marble Blast: past its menu into Time Trial (the tenth level), rolling off the start pad down its long straight
   'ext-marble-blast': {
     wait: 30000, hold: ['w'],
@@ -148,7 +148,7 @@ const SHOTS = {
   'aw-fall-line': { wait: 40000 },
   'ext-cyber-city-orion': { wait: 60000, steps: [{ click: [320, 276], wait: 60000 }], hold: ['w'], drag: [10, 0] },
   // Claybound is a side-on platformer that sets its level up slowly here: running right, jumping up the steps
-  'ext-claybound': { wait: 40000, steps: [{ click: [152, 168], wait: 150000 }], hold: ['d'], press: [['w', 1.3, 1.8], ['w', 2.9, 3.3], ['w', 4.3, 4.8]] },
+  'ext-claybound': { wait: 40000, steps: [{ click: [152, 168], wait: 150000 }], crf: [43, 29], hold: ['d'], press: [['w', 1.3, 1.8], ['w', 2.9, 3.3], ['w', 4.3, 4.8]] },
   // King's Gambit: an AI-vs-AI duel, paused (its engines move on real-time timers, many a frame here), the camera
   // orbiting the torchlit board in the ruined temple. Its controls are the page's, not the canvas's
   'ext-kings-gambit': {
@@ -202,7 +202,7 @@ const SHOTS = {
   // Verdant: the traveler following the trail from the campfire toward the Sanctuary, the camera with them (filmed as
   // a page: reading its canvas gives an old picture)
   'ext-verdant': {
-    ready: () => !!window.__world, wait: 20000, steps: [{ wheel: -300, wait: 3000 }, { wheel: -300, wait: 5000 }], screenshot: true, settle: 2.5,
+    ready: () => !!window.__world, wait: 20000, steps: [{ wheel: -300, wait: 3000 }, { wheel: -300, wait: 5000 }], screenshot: true, settle: 2.5, crf: [47, 30],
     setup: () => {
       const w = window.__world;
       if (!w) return;
@@ -232,7 +232,7 @@ const SHOTS = {
   },
   // Beyond Fable: flying low over pines along a lakeshore on a clear afternoon, turned away from the mountain it starts
   // facing (its world, hour and weather are set by the address)
-  'ext-beyond-fable': { query: 'seed=3777735625&tod=0.68&weather=clear', wait: 40000, steps: [{ click: [320, 200], wait: 15000 }, { key: 'f', wait: 3000 }, { look: [1496, 0], wait: 5000 }], lead: { seconds: 3, hold: ['Space'] }, hold: ['w'] },
+  'ext-beyond-fable': { query: 'seed=3777735625&tod=0.68&weather=clear', wait: 40000, steps: [{ click: [320, 200], wait: 15000 }, { key: 'f', wait: 3000 }, { look: [1496, 0], wait: 5000 }], lead: { seconds: 3, hold: ['Space'] }, hold: ['w'], crf: [47, 32] },
   // Voxel Frontline: over a barrier, down the road and round another into the foundry at the start of a wave (deployed
   // in its probe mode: it won't start on a screen this narrow)
   'ext-voxel-frontline': {
@@ -333,7 +333,7 @@ const SHOTS = {
   'aw-nova-lancer': { wait: 30000, steps: [{ key: 'Enter', wait: 10000 }], settle: 16, hold: ['Space'], press: [['ArrowLeft', 0.8, 1.8], ['ArrowRight', 2.8, 3.8]] },
   // Palmera Bay: cruising the coast boulevard at sunset, kept on the road as it bends (the game's own curve for it)
   'aw-palmera-bay': {
-    wait: 30000, steps: [{ key: 'Enter', wait: 10000 }], settle: 3, hold: ['w'],
+    wait: 30000, steps: [{ key: 'Enter', wait: 10000 }], settle: 3, hold: ['w'], crf: [55, 36],
     setup: () => {
       const car = window.__game?.car;
       if (!car) return;
@@ -450,7 +450,7 @@ const SHOTS = {
   // The Museum of Wrong Physics: strolling into the Ascending Waters, its rivers pouring up, turning slowly to take
   // the hall in (its test switches give its own hooks: the gallery to stand in, and walking without a pointer lock)
   'ext-wrong-physics': {
-    query: 'test&loop&quality=high&only=atrium,upstream', ready: () => window.__museum?.ready, readyTimeout: 900000, wait: 5000,
+    query: 'test&loop&quality=high&only=atrium,upstream', ready: () => window.__museum?.ready, readyTimeout: 900000, wait: 5000, crf: [48, 31],
     setup: () => {
       const m = window.__museum;
       if (!m?.ready) return;
