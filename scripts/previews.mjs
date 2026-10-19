@@ -36,14 +36,25 @@ const QUICK = !!process.env.QUICK;
 // in before recording). `screenshot` captures the page rather than its canvas (a transparent canvas over a CSS backdrop), and
 // `patch` ([find, replace] in the world's code) lets `setup` reach a world's own state. `company` opens that many more players
 // (Orb's own worlds). `scale` draws the page at that many device pixels per CSS pixel
-// and `size` is the video's [width, height] (default W × H), for a crisper picture; `crf` is [VP9, H.264] quality
+// and `size` is the video's [width, height] (default W × H), for a crisper picture; `viewport` is the page's [width, height] in CSS
+// pixels (default W × H; some sites take a small window for a turned phone); `crf` is [VP9, H.264] quality
 // (higher is smaller). `crop` keeps only [x, y, width, height] (CSS px) of the picture, for a world that draws its own
 // buttons and credits into its canvas. `mouse(t)` gives [x, y, down] for each frame of the recording (t in seconds): a
 // path the pointer follows, pressing to build or paint as it goes. Orb's single-file games are opened as a file with `file` as the query (their debug hooks): `ready` waits for the
 // game, `setup` (after the steps) stages it and may define `window.__shot(t)`, called before each frame with the
-// recording's time in seconds (to fly the camera).
+// recording's time in seconds (to fly the camera). `query` is added to an embedded world's address (its own switches: an
+// autopilot, a stage). `blank` clears the picture before each frame, for a world that counts on the browser to (it draws
+// over the last one, leaving ghosts here, where frames are kept until captured).
 const swing = (dx, dy, x = W / 2, y = H / 2) => (t) => { const e = (1 - Math.cos((2 * Math.PI * t) / SECONDS)) / 2; return [x + dx * e, y + dy * e]; };
 const SHOTS = {
+  // Backroad Rally drives itself with ?autopilot: the Finnish gravel stage at 90 km/h, through the forest
+  'aw-backroad-rally': { query: 'mode=quick&stage=finland&autopilot=90', wait: 150000, settle: 2 },
+  // Molazone: the rider in the desert, and the world turning beneath the wheels as it scrolls on to the next
+  'ext-molazone': { viewport: [1024, 640], wait: 45000, steps: [{ click: [512, 573], wait: 20000 }], scroll: 200 },
+  // Odyssey: Enter sets sail and the wind carries the ship on (its autopilot's camera ends up in the rigging here)
+  'ext-odyssey': { wait: 40000, steps: [{ key: 'Enter', wait: 60000 }], settle: 2, blank: true },
+  // Flowline: dropping in and carving down the groomed run, an edge one way and then the other
+  'ext-flowline': { wait: 30000, steps: [{ click: [320, 162], wait: 20000 }], settle: 3, press: [['d', 0.4, 0.9], ['a', 2.2, 2.7], ['a', 3.6, 4.2]] },
   // Tiny Planet: building a little town across the planet, a house at a time (its buttons and credit cropped off)
   'ext-tiny-planet': {
     wait: 40000, steps: [{ click: [48, 112], wait: 3000 }], scale: 2, crop: [110, 50, 416, 260],
@@ -307,7 +318,7 @@ const SHOTS = {
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */
-function clock() {
+function clock({ blank: blanking } = {}) {
   const realNow = performance.now.bind(performance), RealDate = Date, realDateNow = Date.now;
   const realRaf = requestAnimationFrame.bind(window), realCancel = cancelAnimationFrame.bind(window);
   let on = false, t0 = 0, d0 = 0, t = 0, next = 1e9, queue = new Map();
@@ -332,12 +343,30 @@ function clock() {
   };
   window.cancelAnimationFrame = (id) => (queue.has(id) ? queue.delete(id) : realCancel(id));
   // frames are drawn outside the browser's own frame loop, so WebGL must keep them until captured
-  const getContext = HTMLCanvasElement.prototype.getContext;
+  const getContext = HTMLCanvasElement.prototype.getContext, gls = new Set();
   HTMLCanvasElement.prototype.getContext = function (type, opts) {
     if (!/webgl/.test(type)) return getContext.call(this, type, opts);
     this.__orbGL = true;   // the recorder captures this canvas (not a HUD's 2D one over it)
-    return getContext.call(this, type, { ...opts, preserveDrawingBuffer: true });
+    const gl = getContext.call(this, type, { ...opts, preserveDrawingBuffer: true });
+    if (gl && blanking && !opts?.preserveDrawingBuffer) gls.add(gl);
+    return gl;
   };
+  // ...so with `blank` they're cleared before each frame as the browser would have (for worlds that draw over the last frame)
+  function blank() {
+    for (const gl of gls) {
+      if (gl.isContextLost()) continue;
+      const P = (k) => gl.getParameter(k), fb = P(gl.FRAMEBUFFER_BINDING), read = gl.READ_FRAMEBUFFER && P(gl.READ_FRAMEBUFFER_BINDING), color = P(gl.COLOR_CLEAR_VALUE), mask = P(gl.COLOR_WRITEMASK);
+      const depth = [P(gl.DEPTH_CLEAR_VALUE), P(gl.DEPTH_WRITEMASK)], stencil = [P(gl.STENCIL_CLEAR_VALUE), P(gl.STENCIL_WRITEMASK)], scissor = gl.isEnabled(gl.SCISSOR_TEST);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.clearColor(0, 0, 0, 0); gl.colorMask(true, true, true, true); gl.clearDepth(1); gl.depthMask(true); gl.clearStencil(0); gl.stencilMask(0xffffffff);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      if (gl.READ_FRAMEBUFFER) gl.bindFramebuffer(gl.READ_FRAMEBUFFER, read);
+      if (scissor) gl.enable(gl.SCISSOR_TEST);
+      gl.clearColor(...color); gl.colorMask(...mask); gl.clearDepth(depth[0]); gl.depthMask(depth[1]); gl.clearStencil(stencil[0]); gl.stencilMask(stencil[1]);
+    }
+  }
   window.__orbClock = {
     start() { if (!on) { t0 = realNow(); d0 = realDateNow(); t = 0; on = true; } },
     // one of the browser's own frames: the mouse moves since reach the page only with one
@@ -346,6 +375,7 @@ function clock() {
     step(ms) {
       t += ms;
       const run = [...queue.values()]; queue = new Map();
+      if (run.length) blank();
       for (const cb of run) try { cb(t0 + t); } catch (e) { console.error(e); }
     },
   };
@@ -389,7 +419,7 @@ async function record(browser, id, shot) {
   const res = await fetch(`${SITE}/api/worlds/${id}`);
   const world = res.ok ? (await res.json()).world : null;
   if (!world) throw new Error(`${SITE} didn't send ${id} (${res.status})`);
-  let url = world.externalUrl, kit = null, code = world.code ?? '';
+  let url = world.externalUrl && shot.query ? `${world.externalUrl}${world.externalUrl.includes('?') ? '&' : '?'}${shot.query}` : world.externalUrl, kit = null, code = world.code ?? '';
   for (const [find, replace] of shot.patch ?? []) {
     if (!code.includes(find)) throw new Error(`the world's code has no ${JSON.stringify(find)} to patch`);
     code = code.replace(find, replace);
@@ -404,11 +434,12 @@ async function record(browser, id, shot) {
     kit = await serve({ dir, port: 0, watch: false, quiet: true });
     url = `${kit.url}?bare`;
   }
-  const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: shot.scale ?? 1 });
+  const [vw, vh] = shot.viewport ?? [W, H];
+  const context = await browser.newContext({ viewport: { width: vw, height: vh }, deviceScaleFactor: shot.scale ?? 1 });
   const page = await context.newPage();
   const [outW, outH] = shot.size ?? [W, H];
   try {
-    await page.addInitScript(clock);
+    await page.addInitScript(clock, { blank: !!shot.blank });
     // Orb's own worlds: the kit's host, with the world's files from Orb
     if (kit) await context.route(new RegExp(`/api/tree/${TREE}/`), async (route) => {
       const rest = new URL(route.request().url()).pathname.split(`/api/tree/${TREE}/`)[1] || 'index.html';
@@ -435,12 +466,12 @@ async function record(browser, id, shot) {
     for (const s of shot.steps ?? []) {
       if (s.click) await page.mouse.click(...s.click, { button: s.button ?? 'left' });
       if (s.key) await page.keyboard.press(s.key);
-      if (s.wheel) { await page.mouse.move(W / 2, H / 2); await page.mouse.wheel(0, s.wheel); }
+      if (s.wheel) { await page.mouse.move(vw / 2, vh / 2); await page.mouse.wheel(0, s.wheel); }
       if (s.wait) await page.waitForTimeout(s.wait);
     }
     if (shot.setup) await frames(page, shot.setup);
     for (const k of shot.hold ?? []) await page.keyboard.down(k);
-    const at = typeof shot.drag === 'function' ? shot.drag : (t) => [W / 2 + shot.drag[0] * t, H / 2 + shot.drag[1] * t];
+    const at = typeof shot.drag === 'function' ? shot.drag : (t) => [vw / 2 + shot.drag[0] * t, vh / 2 + shot.drag[1] * t];
     if (shot.drag) { await page.mouse.move(...at(0)); await page.mouse.down({ button: shot.button ?? 'left' }); }
     await frames(page, () => window.__orbClock?.start());
     // the world's loop is on the recorder's clock once its frame asked for before is queued (a slow world's next
