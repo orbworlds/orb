@@ -51,7 +51,7 @@ If you change a contract, update this file in the same change.
   a dropdown switches between chats.
 - **Home** (`/`) is Explore under an invitation to make a world: the headline ("Step into a
   world"), the big composer and under it "Or remix": the four most played remixable worlds (picking
-  one remixes it), the starter templates and **More to remix** (Explore on Remix), then (for people
+  one remixes it), two starter templates and **More to remix** (Explore on Remix), then (for people
   who have some) a row of their friends' worlds and their own, then Explore's header and worlds,
   scrolling on from there. Sending from the composer, picking a template or remixing hands over to
   the chat on the canvas.
@@ -554,7 +554,7 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `GET /api/kit/login?poll=` | | `{ token, name }` once allowed (once), 202 `{ status: 'pending' }`, 404 expired (10 minutes) |
 | `POST /api/kit/approve` | `{ code }`, as the browser allowing it | `{ name }` (null without one); 404 expired, 409 already allowed |
 | `POST /api/kit/push?world=&name=&message=` | `Authorization: Bearer <kit token>`, body: the files as a .tar.gz with `index.html` at the top | `{ world: WorldFull, outcome: 'created' \| 'remixed' \| 'updated' \| 'unchanged', skipped, url }` (§2 "The Orb kit"). 400 `push_failed`, 401 `kit_login`, 404 not theirs and not remixable; 120 an hour |
-| `POST /api/worlds/import` | `{ url }` (a GitHub repository, optionally `/tree/<ref>/<dir>`; private ones with the importer's token kept on Orb) | `{ world: WorldFull, files, warning? }`: its files become a new world of the importer's (no `orb-kit/`, `node_modules`, `.git`…), linked to the repository (and, imported from a branch, kept in sync with it: `world.repo`), with its license (remixable only with one). Import maps that load three.js from `node_modules` are rewritten to jsdelivr, and root-absolute `src`/`href` of files in the tree become relative so they follow the tree `<base>`. An `orb.json` naming a public, remixable world (`world`) makes it a remix of that world (see §2 "Open-source games"). 400 `bad_request` / `import_failed`; 12 an hour |
+| `POST /api/worlds/import` | `{ url }` (a GitHub repository, optionally `/tree/<ref>/<dir>`; private ones with the importer's token kept on Orb) | `{ world: WorldFull, files, warning? }`: its files become a new world of the importer's (no `orb-kit/`, `node_modules`, `.git`…), linked to the repository (and, imported from a branch, kept in sync with it: `world.repo`), with its license (remixable only with one). Import maps that load three.js from `node_modules` are rewritten to jsdelivr, code that imports `three` by name with no import map gets one (jsdelivr), a Vite project's `public/` is also served at the top, and root-absolute `src`/`href` of files in the tree become relative so they follow the tree `<base>`. An `orb.json` naming a public, remixable world (`world`) makes it a remix of that world (see §2 "Open-source games"). 400 `bad_request` / `import_failed`; 12 an hour |
 | `PUT /api/worlds/:id/thumb` | raw `image/webp\|jpeg\|png` body ≤ 500 KB | `{ thumbVersion: number }` |
 | `GET /api/worlds/:id/thumb?v=` | | image bytes, `Cache-Control: public, max-age=31536000, immutable` |
 | `POST /api/worlds/:id/play` | | `{ plays }` (deduped per device/day; shown as "plays") |

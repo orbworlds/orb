@@ -120,6 +120,9 @@
       "author_url": "https://x.com/tank__ai",
       "prompt": "Three.js等を使って、それでなくても良いですけど、スターフォックスみたいなゲーム作れます？可能な限りリッチな品質でお願いしたく。",
       "made_with": "Claude Opus 5.5 MAX (Claude Code), three.js"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {
@@ -167,6 +170,9 @@
       "handle": "@winchxyz",
       "author_url": "https://x.com/winchxyz",
       "made_with": "Claude Opus 5 (Ultracode), three.js"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {
@@ -2222,6 +2228,9 @@
       "handle": "@Alezander9",
       "author_url": "https://x.com/Alezander9",
       "made_with": "Claude Opus 5, three.js"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {

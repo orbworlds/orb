@@ -48,3 +48,13 @@ test('tracker stripping still runs on a rewritten page', () => {
   assert.doesNotMatch(html, /google-analytics/);
   assert.match(html, /cdn\.jsdelivr\.net\/npm\/three@/);
 });
+
+test('code that imports three by name gets an import map for it, first in the head', () => {
+  const page = `<!doctype html><html><head><title>x</title></head><body><script type="module" src="/src/main.js"></script></body></html>`;
+  const html = rewritePageForOrb(page, new Set(['src/main.js']), JSON.stringify({ dependencies: { three: '^0.170.0' } }), { bareThree: true });
+  const map = JSON.parse(/<script type="importmap">([^<]+)<\/script>/.exec(html)[1]);
+  assert.equal(map.imports.three, 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js');
+  assert.equal(map.imports['three/addons/'], 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/');
+  assert.ok(html.indexOf('importmap') < html.indexOf('src/main.js'));
+  assert.equal(rewritePageForOrb(PAGE, new Set(), null, { bareThree: true }).match(/importmap/g).length, 1, 'a page with its own map keeps just that');
+});

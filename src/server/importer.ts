@@ -162,6 +162,8 @@ export function stripTrackers(html: string): string {
 }
 
 const THREE_DEFAULT = '0.186.1';
+/** `import … from 'three'` (or 'three/addons/…', 'three/examples/jsm/…'), as only a bundler or an import map resolves. */
+const BARE_THREE = /(?:\bfrom\s*|\bimport\s*\(?\s*)["']three(?:\/(?:addons|examples\/jsm)\/[^"']*)?["']/;
 
 function threeVersion(pkgJson: string | null | undefined): string {
   if (!pkgJson) return THREE_DEFAULT;
@@ -187,8 +189,13 @@ function threeCdn(ver: string): { three: string; addons: string } {
  * `node_modules` become jsdelivr (Orb's tree never includes node_modules), and root-absolute
  * `src`/`href` of files in the tree become relative so they follow the tree `<base>`.
  */
-export function rewritePageForOrb(html: string, files: ReadonlySet<string>, pkgJson?: string | null): string {
+export function rewritePageForOrb(html: string, files: ReadonlySet<string>, pkgJson?: string | null, opts: { bareThree?: boolean } = {}): string {
   const cdn = threeCdn(threeVersion(pkgJson));
+  // Code that imports `three` by name, as a bundler would resolve it, gets an import map for it.
+  if (opts.bareThree && !/<script\b[^>]*\btype\s*=\s*["']importmap["']/i.test(html)) {
+    const map = `<script type="importmap">${JSON.stringify({ imports: { three: cdn.three, 'three/addons/': cdn.addons, 'three/examples/jsm/': cdn.addons } })}</script>`;
+    html = /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, (head) => `${head}${map}`) : `${map}${html}`;
+  }
   let out = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (all, attrs: string, body: string) => {
     if (!/\btype\s*=\s*["']importmap["']/i.test(attrs)) return all;
     try {
@@ -258,6 +265,10 @@ export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | 
   // The page to run: index.html at the top, else in a usual web folder (which becomes the root).
   const root = ENTRY_DIRS.find((d) => raw.has(d ? `${d}/${ENTRY}` : ENTRY));
   if (root === undefined) throw new FileError("That repository has no index.html, so there's no page to run.");
+  // A Vite project run from its source serves public/ at the top: so does its world.
+  if (root === '' && [...raw.keys()].some((k) => /^vite\.config\.[cm]?[jt]s$/.test(k))) {
+    for (const [p, data] of [...raw]) if (p.startsWith('public/') && !raw.has(p.slice(7))) raw.set(p.slice(7), data);
+  }
   const tree: Tree = {};
   const names = new Set<string>();
   for (const p of raw.keys()) {
@@ -265,11 +276,12 @@ export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | 
     names.add(root ? p.slice(root.length + 1) : p);
   }
   const pkgJson = (root ? raw.get(`${root}/package.json`) : null)?.toString('utf8') ?? raw.get('package.json')?.toString('utf8') ?? null;
+  const bareThree = [...raw].some(([p, data]) => (!root || p.startsWith(`${root}/`)) && /\.(m?js|html?)$/i.test(p) && BARE_THREE.test(data.toString('utf8')));
   for (const [p, data] of raw) {
     if (root && !p.startsWith(`${root}/`)) continue;
     const rel = root ? p.slice(root.length + 1) : p;
     const bytes = /\.html?$/i.test(rel)
-      ? Buffer.from(rewritePageForOrb(stripTrackers(data.toString('utf8')), names, pkgJson))
+      ? Buffer.from(rewritePageForOrb(stripTrackers(data.toString('utf8')), names, pkgJson, { bareThree }))
       : data;
     tree[rel] = (await putBlob(db, bytes)).sha;
   }

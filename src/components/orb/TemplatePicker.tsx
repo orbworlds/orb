@@ -1,6 +1,6 @@
 'use client';
 // Worlds to start from, as small chips under the hero composer: the most played worlds one can
-// remix, then the starter templates, then all there is to remix (Explore's Remix filter). A round
+// remix, then two starter templates, then all there is to remix (Explore's Remix filter). A round
 // thumbnail (graceful gradient fallback) and the name. One scrolling row on phones, wrapped and
 // centered on larger screens.
 import { useEffect, useState } from 'react';
@@ -21,8 +21,9 @@ const FALLBACK: Record<string, string> = {
 const CHIP =
   'group glass-soft animate-fade-up flex h-9 shrink-0 items-center gap-2 rounded-full py-1 pr-3.5 pl-1 text-[13px] font-medium text-ink transition-[transform,background,box-shadow] duration-300 ease-[var(--ease)] hover:-translate-y-0.5 hover:bg-[var(--glass-bg)] hover:shadow-[inset_0_0_0_1px_var(--glass-hairline),0_0_0_1px_var(--glass-edge),var(--shadow-lift)] focus-visible:rounded-full active:scale-[.97]';
 
-/** How many of the most played remixable worlds lead the row. */
+/** How many of the most played remixable worlds lead the row, and how many templates follow (one line on a laptop). */
 const REMIXES = 4;
+const STARTERS = ['runner', 'paint'];
 const REMIX_KEY = 'orb:home-remixes';
 
 interface RemixChip {
@@ -65,7 +66,7 @@ export function TemplatePicker({
       live = false;
     };
   }, []);
-  const items = TEMPLATES.filter((t) => t.id !== 'blank');
+  const items = TEMPLATES.filter((t) => STARTERS.includes(t.id));
   const thumb = (key: string, src: string | null, fallback: string) => (
     <span className="relative block h-7 w-7 shrink-0 overflow-hidden rounded-full" style={{ background: fallback }}>
       {src && !broken[key] && (
