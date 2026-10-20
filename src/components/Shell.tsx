@@ -32,7 +32,7 @@ import { useClip } from '@/state/clips';
 import { useShop } from '@/state/shop';
 import { toast, useToasts } from '@/state/toast';
 import { trackBackgroundBuild, trackPrompt, trackWorldError, useTracking } from '@/state/tracking';
-import { useIsMobile, useUi } from '@/state/ui';
+import { useIsMobile, usePhone, useUi } from '@/state/ui';
 import { bindCurrentThread, buildModeFor, getFrameHandle, useWorld } from '@/state/world';
 import { Spinner } from '@/components/ui/Spinner';
 import { useSession } from '@/components/orb/AccountCard';
@@ -125,6 +125,7 @@ export default function Shell({
   const clipUsed = useEver(useClip((s) => s.status !== 'idle'));
   const shopUsed = useEver(useShop((s) => !!s.ask));
   const mobile = useIsMobile();
+  const phone = usePhone();
   useFriendsSync();
   useInviteWelcome();
   useGitHubLinks();
@@ -319,7 +320,7 @@ export default function Shell({
     document.title =
       ui.plansOpen && window.location.pathname.startsWith('/pricing')
         ? 'Plans · Orb'
-        : ui.exploreOpen && window.location.pathname.startsWith('/explore')
+        : (ui.exploreOpen || !worldName) && window.location.pathname.startsWith('/explore')
         ? 'Explore worlds · Orb'
         : status === 'not-found'
           ? 'A world on Orb'
@@ -542,6 +543,8 @@ export default function Shell({
         building={build.isBuilding || build.background.length > 0}
         unread={ui.unread || friendUnread > 0}
         hidden={ui.panelOpen}
+        // Phones: off a world's touch controls and Explore's tiles (the start screen's top keeps it whole)
+        tucked={phone && (!heroVisible || ui.exploreScrolled)}
         // At home the page's own composer is the chat, so the Orb opens You (unless a build has news).
         onOpen={() => (!ui.unread && (friendUnread > 0 || (heroVisible && !build.isBuilding)) ? ui.openPanel('you') : ui.openPanel())}
       />

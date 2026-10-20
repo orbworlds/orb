@@ -11,7 +11,8 @@ const variants: Record<Variant, string> = {
   glass: 'glass text-ink hover:bg-[var(--glass-bg-strong)]',
   ghost: 'text-ink-2 hover:bg-ink-4 hover:text-ink',
   danger: 'text-[var(--bad)] hover:bg-[color-mix(in_oklab,var(--bad)_12%,transparent)]',
-  iris: 'text-white shadow-[0_8px_24px_-8px_rgba(139,123,255,.8)] [background:var(--iris)] hover:brightness-105',
+  // dark text, in both themes: white on the gradient's pale blue and peach is hard to read
+  iris: 'font-semibold text-[#0c0c14] shadow-[0_8px_24px_-8px_rgba(139,123,255,.8)] [background:var(--iris)] hover:brightness-105',
 };
 const sizes: Record<Size, string> = {
   sm: 'h-8 px-3 text-[13px]',

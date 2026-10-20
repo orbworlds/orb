@@ -78,7 +78,7 @@ const SHOTS = {
   // Backroad Rally drives itself with ?autopilot: the Finnish gravel stage at 90 km/h, through the forest
   'aw-backroad-rally': { query: 'mode=quick&stage=finland&autopilot=90', wait: 150000, settle: 2 },
   // Molazone: the rider in the desert, and the world turning beneath the wheels as it scrolls on to the next
-  'ext-molazone': { viewport: [1024, 640], wait: 45000, steps: [{ click: [512, 573], wait: 20000 }], scroll: 200 },
+  'ext-molazone': { viewport: [1024, 640], wait: 45000, steps: [{ click: [512, 573], wait: 20000 }], scroll: 200, crf: [46, 30] },
   // Odyssey: Enter sets sail and the wind carries the ship on (its autopilot's camera ends up in the rigging here)
   'ext-odyssey': { wait: 40000, steps: [{ key: 'Enter', wait: 60000 }], settle: 2, blank: true, crf: [44, 30] },
   // Flowline: dropping in and carving down the groomed run, an edge one way and then the other
@@ -235,7 +235,7 @@ const SHOTS = {
   },
   'ext-sisyphus': { wait: 25000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['ArrowRight', 'd'] },
   // Emberglade: into the glade, sprinting across the meadow toward the trees, the camera turning a little
-  'ext-emberglade': { wait: 40000, steps: [{ click: [112, 260], wait: 30000 }], hold: ['w', 'Shift'], drag: [12, 0] },
+  'ext-emberglade': { wait: 40000, steps: [{ click: [112, 260], wait: 30000 }], hold: ['w', 'Shift'], drag: [12, 0], crf: [46, 31] },
   // Kansō: past the title and the tour, a cherry bonsai on the bench, the camera turning slowly round it
   'ext-kanso': { wait: 25000, steps: [{ click: [320, 354], wait: 8000 }, { click: [373, 329], wait: 3000 }, { click: [320, 336], wait: 15000 }], drag: [15, 0] },
   // Pelagic Ocean: the swells rolling under the clouds, as it opens
@@ -297,7 +297,7 @@ const SHOTS = {
       camera.position.set(3, 5.2, 22.5);
       camera.lookAt(3, 1.4, 6);
       window.__shot = (t) => {
-        const a = (2 * Math.PI * t) / 5;
+        const a = (2 * Math.PI * t) / 4;
         p.set(3 - 12 * (1 - Math.cos(a)) / 2, 0, 9);
         me.heading = Math.abs(Math.sin(a)) < 0.3 ? 0 : Math.sin(a) > 0 ? -Math.PI / 2 : Math.PI / 2;   // facing us when it stops
       };
@@ -425,7 +425,7 @@ const SHOTS = {
   },
   // Bed Wars: a Duos match on Sunset Mesa, the camera chasing a bot as it bridges, buys and fights
   'orb-bedwars': {
-    file: '?debug', ready: () => window.__bw?.game.mode === 'lobby', wait: 2000,
+    file: '?debug', ready: () => window.__bw?.game.mode === 'lobby', wait: 2000, crf: [42, 28],
     setup: async () => {
       const b = window.__bw;
       document.getElementById('daily')?.classList.add('hidden');

@@ -372,7 +372,9 @@ function ExploreOverlay({
     // At home: frosted once the worlds' header is a little way up the screen.
     if (home && frostRef.current) frostRef.current.style.opacity = String(Math.min(1, top / Math.max(1, (headerRef.current?.offsetTop ?? 400) * 0.6)));
     if (open) savedTop.current = top;
-    setScrolled(top > (home ? (headerRef.current?.offsetTop ?? 0) - 4 : 8));
+    const down = top > (home ? (headerRef.current?.offsetTop ?? 0) - 4 : 8);
+    setScrolled(down);
+    useUi.getState().setExploreScrolled(down);
     const dy = top - lastTop.current;
     if (Math.abs(dy) > 6) {
       // Not while typing a search: the field stays in reach.

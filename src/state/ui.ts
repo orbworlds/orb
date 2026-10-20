@@ -5,6 +5,7 @@
 import { useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { getOrbPosition, readJSON, setOrbPosition, writeJSON } from '@/lib/local';
+import { PHONE_MEDIA } from '@/lib/keyboard';
 
 export type PanelTab = 'chat' | 'you';
 /** Mobile bottom-sheet height: 'half' keeps the world visible (e.g. while building). */
@@ -28,6 +29,8 @@ interface UiState {
   exploreFilter: string | null;
   /** Someone asked for Explore (the Orb's tab, "See all"…): the home page, down at its worlds. */
   exploreRequest: number;
+  /** Explore is scrolled down to its worlds (at home: past the invitation to make one). */
+  exploreScrolled: boolean;
   shareOpen: boolean;
   historyOpen: boolean;
   /** The plans sheet (Free, Pro, credit packs). */
@@ -65,6 +68,7 @@ interface UiState {
   setPlans(open: boolean): void;
   setUnread(v: boolean): void;
   setDraft(text: string): void;
+  setExploreScrolled(v: boolean): void;
   setIntro(intro: ChatIntro | null): void;
   setHeroDone(v: boolean): void;
   openProfile(handle: string): void;
@@ -87,6 +91,7 @@ export const useUi = create<UiState>((set, get) => ({
   exploreOpen: false,
   exploreFilter: null,
   exploreRequest: 0,
+  exploreScrolled: false,
   shareOpen: false,
   historyOpen: false,
   plansOpen: false,
@@ -145,6 +150,9 @@ export const useUi = create<UiState>((set, get) => ({
   setHeroDone(heroDone) {
     set({ heroDone });
   },
+  setExploreScrolled(exploreScrolled) {
+    if (get().exploreScrolled !== exploreScrolled) set({ exploreScrolled });
+  },
   openProfile(profile) {
     set({ profile });
   },
@@ -189,10 +197,15 @@ function mediaStore(query: string) {
 }
 const mobileMq = mediaStore('(max-width: 639px)');
 const reducedMq = mediaStore('(prefers-reduced-motion: reduce)');
+const phoneMq = mediaStore(PHONE_MEDIA);
 
 /** True below the 640px breakpoint (bottom-sheet layout). False during SSR. */
 export function useIsMobile(): boolean {
   return useSyncExternalStore(mobileMq.subscribe, mobileMq.get, () => false);
+}
+/** A touch screen with no mouse (`PHONE_MEDIA`). False during SSR. */
+export function usePhone(): boolean {
+  return useSyncExternalStore(phoneMq.subscribe, phoneMq.get, () => false);
 }
 export function useReducedMotion(): boolean {
   return useSyncExternalStore(reducedMq.subscribe, reducedMq.get, () => false);

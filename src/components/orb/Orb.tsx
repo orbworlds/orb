@@ -2,7 +2,8 @@
 // The Orb: Orb's signature — a living iridescent sphere and the only always-on-screen control.
 // Drag it anywhere (pointer events, tap-vs-drag threshold); on release it springs to the nearest
 // left/right edge inside the safe area and remembers where it lives. Tap (or Enter/Space) opens
-// the panel, which grows out of the Orb's position.
+// the panel, which grows out of the Orb's position. On phones, past the start screen, it tucks half
+// behind its edge so it never sits on a world's own buttons or Explore's tiles.
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
 import { useUi, type OrbSide } from '@/state/ui';
 
@@ -10,6 +11,8 @@ export const ORB_SIZE = 56;
 /** Gap between the Orb and the screen edge (inside the safe area). */
 export const ORB_MARGIN = 18;
 const DRAG_THRESHOLD = 6;
+/** How much of a tucked Orb shows past its edge. */
+const TUCKED_SHOWN = 30;
 
 /** The sphere itself — reused by the floating Orb, the panel's mini orb, avatars and loaders. */
 export function OrbSphere({ size = ORB_SIZE, building = false, glow = true, className = '' }: { size?: number; building?: boolean; glow?: boolean; className?: string }) {
@@ -30,11 +33,14 @@ export function OrbSphere({ size = ORB_SIZE, building = false, glow = true, clas
   );
 }
 
-/** CSS position of the docked Orb (top-left corner), in viewport terms. */
-export function dockedOrbStyle(side: OrbSide, y: number): { left: string; top: string } {
+/** CSS position of the docked Orb (top-left corner), in viewport terms; `tucked`: half behind its edge. */
+export function dockedOrbStyle(side: OrbSide, y: number, tucked = false): { left: string; top: string } {
   const free = `(100% - var(--safe-t) - var(--safe-b) - ${ORB_MARGIN * 2 + ORB_SIZE}px)`;
+  const left = tucked
+    ? side === 'left' ? `calc(var(--safe-l) - ${ORB_SIZE - TUCKED_SHOWN}px)` : `calc(100% - var(--safe-r) - ${TUCKED_SHOWN}px)`
+    : side === 'left' ? `calc(var(--safe-l) + ${ORB_MARGIN}px)` : `calc(100% - var(--safe-r) - ${ORB_MARGIN + ORB_SIZE}px)`;
   return {
-    left: side === 'left' ? `calc(var(--safe-l) + ${ORB_MARGIN}px)` : `calc(100% - var(--safe-r) - ${ORB_MARGIN + ORB_SIZE}px)`,
+    left,
     top: `calc(var(--safe-t) + ${ORB_MARGIN}px + ${free} * ${y.toFixed(4)})`,
   };
 }
@@ -44,6 +50,7 @@ export function Orb({
   unread,
   hidden,
   forceTop,
+  tucked = false,
   onOpen,
 }: {
   building: boolean;
@@ -52,6 +59,8 @@ export function Orb({
   hidden: boolean;
   /** Keep the Orb at the top (e.g. the mobile start screen, where the hero owns the bottom). */
   forceTop?: boolean;
+  /** Half behind its edge (phones, while a world plays or Explore is open). */
+  tucked?: boolean;
   onOpen(): void;
 }) {
   const { orb, orbLoaded, loadOrb, moveOrb } = useUi();
@@ -65,7 +74,7 @@ export function Orb({
   }, [loadOrb]);
 
   const y = forceTop ? 0 : orb.y;
-  const docked = dockedOrbStyle(orb.side, y);
+  const docked = dockedOrbStyle(orb.side, y, tucked);
 
   const onPointerDown = (e: PointerEvent<HTMLButtonElement>) => {
     if (e.button !== 0 || hidden) return;
@@ -109,7 +118,7 @@ export function Orb({
     const frac = maxTop > minTop ? (r.top - minTop) / (maxTop - minTop) : 1;
     const next = Math.min(1, Math.max(0, frac));
     // Spring from where it was dropped to the dock (React may not touch these if nothing changed).
-    const target = dockedOrbStyle(side, forceTop ? 0 : next);
+    const target = dockedOrbStyle(side, forceTop ? 0 : next, tucked);
     el.style.left = target.left;
     el.style.top = target.top;
     if (!forceTop) moveOrb(side, next);
