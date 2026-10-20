@@ -107,7 +107,7 @@ const SHOTS = {
   // Fluid: ink swirled through the water with the pointer held down, round and round in a figure eight (let go for a
   // moment now and then: each stroke takes a new colour)
   'ext-fluid': {
-    wait: 20000, crf: [48, 31], setup: () => document.querySelectorAll('.dg.ac').forEach((el) => el.remove()),   // its settings panel, over the canvas
+    wait: 20000, crf: [54, 34], setup: () => document.querySelectorAll('.dg.ac').forEach((el) => el.remove()),   // its settings panel, over the canvas
     mouse: (t) => [320 + 210 * Math.sin((2 * Math.PI * t) / 2.8), 200 + 110 * Math.sin((4 * Math.PI * t) / 2.8), t % 1.4 < 1.3],
   },
   // Ancient Earth: the globe of 240 million years ago turning, Pangaea coming round (the page's text is outside its canvas)
@@ -121,6 +121,7 @@ const SHOTS = {
   // steered by looking ahead on its collision map (the track's open pixels) and turning toward the side with more room
   'ext-hexgl': {
     wait: 20000, steps: [{ click: [320, 297], wait: 1000 }, { click: [320, 155], wait: 10000 }, { click: [320, 200], wait: 60000 }],
+    crf: [48, 32],
     hold: ['ArrowUp'],
     setup: () => {
       const c = window.hexGL?.components?.shipControls;
@@ -144,8 +145,8 @@ const SHOTS = {
     },
   },
   // Walden walks with WASD (not the arrows), and a held mouse button swings the sword: walking down the path to the arch
-  'ext-walden': { wait: 60000, steps: [{ click: [320, 200], wait: 35000 }], hold: ['w'] },
-  'aw-fall-line': { wait: 40000 },
+  'ext-walden': { wait: 60000, steps: [{ click: [320, 200], wait: 35000 }], hold: ['w'], crf: [47, 32] },
+  'aw-fall-line': { wait: 40000, crf: [50, 32] },
   'ext-cyber-city-orion': { wait: 60000, steps: [{ click: [320, 276], wait: 60000 }], hold: ['w'], drag: [10, 0] },
   // Claybound is a side-on platformer that sets its level up slowly here: running right, jumping up the steps
   'ext-claybound': { wait: 40000, steps: [{ click: [152, 168], wait: 150000 }], crf: [43, 29], hold: ['d'], press: [['w', 1.3, 1.8], ['w', 2.9, 3.3], ['w', 4.3, 4.8]] },
@@ -198,7 +199,7 @@ const SHOTS = {
   },
   // Jumper Lab: the robot crab scuttling sideways across the living-room floor (its panels are the page's, not the canvas's)
   'ext-jumper-lab': { wait: 15000, hold: ['d'] },
-  'aw-aimees-papercraft': { wait: 25000, steps: [{ click: [320, 282], wait: 15000 }], scroll: 700 },
+  'aw-aimees-papercraft': { wait: 25000, steps: [{ click: [320, 282], wait: 15000 }], scroll: 1400, crf: [46, 30] },
   // Verdant: the traveler following the trail from the campfire toward the Sanctuary, the camera with them (filmed as
   // a page: reading its canvas gives an old picture)
   'ext-verdant': {
@@ -226,7 +227,7 @@ const SHOTS = {
   'ext-point-lookout': { wait: 30000, steps: [{ click: [320, 200], wait: 20000 }] },
   // Komorebi: the whole garden turning a little and back, pagoda, blossom and koi pond (filmed as a page: its canvas is see-through)
   'ext-komorebi': {
-    wait: 30000, steps: [...Array(3).fill({ wheel: -200, wait: 1500 }), { wheel: -200, wait: 25000 }], screenshot: true, settle: 5.5,
+    wait: 30000, steps: [...Array(5).fill({ wheel: -200, wait: 1500 }), { wheel: -200, wait: 25000 }], screenshot: true, settle: 5.5,
     drag: (t) => [W / 2 + 50 * Math.sin((2 * Math.PI * t) / SECONDS), H / 2],
     setup: () => { for (const el of document.querySelectorAll('.ui, #sulat-demo-referral-overlay')) el.style.display = 'none'; },
   },
@@ -352,6 +353,17 @@ const SHOTS = {
   },
   // Kaiju Dokan: the monster wading up a street of the sunset city, its tail toppling towers (a detailed city: smaller files at a higher crf)
   'aw-kaiju-dokan': { crf: [56, 31], wait: 30000, steps: [{ click: [320, 154], wait: 10000 }], settle: 16, hold: ['w'], press: [['j', 1, 1.3], ['j', 2.5, 2.8], ['k', 3.8, 4.1]] },
+  // Last Courier: the delivery robot walking up the moor, the camera in close and low, swinging gently round it and back
+  'aw-last-courier': {
+    wait: 40000, steps: [{ click: [92, 143], wait: 15000 }], settle: 8, hold: ['w'],
+    setup: () => {
+      if (typeof camState === 'undefined') return;
+      camState.tDist = 3.4;
+      camState.pitch = 0.2;
+      const yaw = camState.yaw;
+      window.__shot = (t) => { camState.yaw = yaw + 0.4 * Math.sin((2 * Math.PI * t) / 4); };
+    },
+  },
   // Foxfire Fjord: a glide from the fire pit past the cabin's lit glass wing to the deck and its steaming tub and back, under the aurora
   'orb-foxfire': {
     // past its first 15 s, when it checks its frame rate and may switch quality (a switch empties the canvas); it runs
@@ -377,18 +389,18 @@ const SHOTS = {
   },
   // Wildbrush: sprinting down the path, jumping and gliding (it boots slowly here: its shaders compile before the first frame)
   'orb-wildbrush': {
-    ready: () => window.__wb?.ctx?.time?.frame > 30, readyTimeout: 600000, wait: 10000, steps: [{ click: [320, 200], wait: 5000 }],
+    ready: () => window.__wb?.ctx?.time?.frame > 30, readyTimeout: 600000, wait: 10000, steps: [{ click: [320, 200], wait: 5000 }], crf: [54, 35],
     setup: () => {
       const wb = window.__wb;
       if (!wb) return;
       const input = wb.ctx.input;
       input.inject('KeyW', true);
       input.inject('ShiftLeft', true);
-      // sprint, then jump and glide, land, sprint on and jump again; a little to the left and right
+      // sprint, then jump and glide (bearing left, clear of the arch's pillar), land, sprint on and jump again
       window.__shot = (t) => {
-        input.inject('Space', (t > 0.8 && t < 2.4) || (t > 3.4 && t < 4.4));
-        input.inject('KeyA', t > 2.6 && t < 3.2);
-        input.inject('KeyD', t > 4.5 && t < 4.9);
+        input.inject('Space', (t > 0.6 && t < 1.9) || (t > 2.8 && t < 3.6));
+        input.inject('KeyA', t > 1 && t < 1.5);
+        input.inject('KeyD', t > 3.8 && t < 4.2);
       };
     },
   },

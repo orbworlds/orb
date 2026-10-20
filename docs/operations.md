@@ -372,7 +372,7 @@ plaza, its keepers and portals, and the Wilds past the north gate).
 high-density screens; the lead tile's Orbcraft at 2.5×). How each world is shot is set in the script; `QUICK=1` takes a few stills first, to check a shot.
 `node scripts/previews-from-post.mjs <id> <video> [start]` cuts one from its maker's own video instead (the
 one in their post; for X, `https://api.fxtwitter.com/<user>/status/<id>` lists its files), for worlds
-they filmed better than the recorder can play them here; `SHEET=1` shows stills with their times, to pick the start. A trailer that cuts every few seconds can still
+they filmed better than the recorder can play them here; `SHEET=1` shows stills with their times, to pick the start; `CROP=w:h:x:y` keeps part of the picture (past a video's own buttons) and `CRF=vp9,h264` sets its quality. A trailer that cuts every few seconds can still
 give one: join three or four of its clean shots (no text, menus or faces) with ffmpeg's `xfade`
 (fade, 0.4 s) into a file of about 6 s and cut the preview from that (Arkenfall, Messenger).
 

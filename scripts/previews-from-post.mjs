@@ -8,6 +8,7 @@
 //   SHEET=1 node scripts/previews-from-post.mjs <id> <video> — a contact sheet (a still every few
 //   seconds, with its time) to pick where the clip starts.
 //   CRF=44,30 … — [VP9, H.264] quality (default 40,27; higher is smaller), for a busy video that comes out large.
+//   CROP=w:h:x:y keeps only that part of the video (source pixels), for one with its own buttons or menus at the edges.
 //
 // A post on X: its video's address is in https://api.fxtwitter.com/<user>/status/<id> (media.videos).
 import { execFileSync } from 'node:child_process';
@@ -45,7 +46,7 @@ if (process.env.SHEET) {
 // Where the clip starts: as asked, or a third of the way in (past the title cards).
 const start = startArg !== undefined ? Number(startArg) : Math.max(0, Math.min(duration / 3, duration - SECONDS - FADE));
 const fade =
-  `[0:v]fps=${FPS},scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,split[a][b];` +
+  `[0:v]fps=${FPS},${process.env.CROP ? `crop=${process.env.CROP},` : ''}scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,split[a][b];` +
   `[a]trim=start=${FADE},setpts=PTS-STARTPTS[main];[b]trim=0:${FADE},setpts=PTS-STARTPTS[head];` +
   `[main][head]xfade=transition=fade:duration=${FADE}:offset=${SECONDS - FADE},format=yuv420p[v]`;
 const input = ['-y', '-loglevel', 'error', '-ss', String(start), '-t', String(SECONDS + FADE), '-i', file, '-filter_complex', fade, '-map', '[v]', '-an'];
