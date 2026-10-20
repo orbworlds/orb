@@ -81,7 +81,7 @@ Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Cl
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, and the games on genex.games
 (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
-Three refuse a frame but are MIT on GitHub, yet are too big for a world (80 MB, `FILE_LIMITS` in
+Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
 walking a WebGPU planet of a million grass blades and flowers, the most beautiful thing found;
 84 MB of assets, and its engine is a git submodule), **Neon Zenith** (billpwchan/neon-zenith: a

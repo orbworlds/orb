@@ -124,7 +124,8 @@ export function startFake(port = 0) {
       const final = /mockchange/.test(agent.runs[0].prompt)
         ? "This world belongs to someone else, but you can make your own copy and I'll change it there!\nOwn copy: yes\nNext ideas: Find the door | Jump on clouds | Meet the cat"
         : 'Press space to jump, and look for the hidden door!\nNext ideas: Find the door | Jump on clouds | Meet the cat';
-      ev.push({ event: 'assistant', data: { text: final } });
+      // A question's answer may come only with the result (the stream left out the final message).
+      if (/mockchange/.test(agent.runs[0].prompt)) ev.push({ event: 'assistant', data: { text: final } });
       ev.push(...stepDone(0));
       ev.push({ event: 'result', data: { status: 'FINISHED', text: final, durationMs: 3000 } });
     } else {

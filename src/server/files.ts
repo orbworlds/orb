@@ -16,10 +16,10 @@ import type { Db } from './db';
 export const ENTRY = 'index.html';
 
 export const FILE_LIMITS = {
-  /** One file. */
-  file: 8_000_000,
-  /** All files of a world. */
-  total: 80_000_000,
+  /** One file (big ones stream out of /api/tree, past Vercel's 4.5 MB response cap). */
+  file: 10_000_000,
+  /** All files of a world (open-source games with their models, like Long Wind's 130 MB). */
+  total: 200_000_000,
   files: 5000,
   path: 300,
 } as const;
@@ -194,7 +194,9 @@ export async function putBlob(db: Db, data: Uint8Array | string): Promise<{ sha:
   if (bytes.length > FILE_LIMITS.file) throw new FileError(`That file is too big (over ${Math.round(FILE_LIMITS.file / 1e6)} MB).`);
   const sha = sha256(bytes);
   if (!blobCache.get(sha)) {
-    await db.query(`insert into orb_blobs (sha, data, size) values ($1, $2, $3) on conflict (sha) do nothing`, [sha, Buffer.from(bytes), bytes.length]);
+    // A big file already stored (an import tried again) isn't sent to the database again.
+    const stored = bytes.length > 256_000 && (await db.query(`select 1 from orb_blobs where sha = $1`, [sha])).length > 0;
+    if (!stored) await db.query(`insert into orb_blobs (sha, data, size) values ($1, $2, $3) on conflict (sha) do nothing`, [sha, Buffer.from(bytes), bytes.length]);
     blobCache.set(sha, bytes, bytes.length);
   }
   return { sha, size: bytes.length };
@@ -249,10 +251,12 @@ export async function putTree(db: Db, tree: Tree): Promise<string> {
   if (!exists.length) {
     const sizes = await blobSizes(db, Object.values(tree));
     let total = 0;
+    const seen = new Set<string>();
     for (const [p, b] of Object.entries(tree)) {
       const s = sizes.get(b);
       if (s === undefined) throw new Error(`missing blob for ${p}`);
-      total += s;
+      if (!seen.has(b)) total += s; // a file at two paths is stored once
+      seen.add(b);
     }
     if (total > FILE_LIMITS.total) throw new FileError(`This world would be too big (over ${Math.round(FILE_LIMITS.total / 1e6)} MB of files).`);
     await db.query(`insert into orb_trees (sha, files, size, count) values ($1, $2::jsonb, $3, $4) on conflict (sha) do nothing`, [sha, json, total, paths.length]);

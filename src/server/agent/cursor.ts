@@ -221,6 +221,7 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
     let thought = '';
     let lastThought = 0;
     let pending = ''; // narration held back until a line is complete (the ideas line is not shown)
+    let streamed = ''; // everything the agent said as it went
     let spoke = false;
     let afterTools = false; // a message after tool calls is a new one: it starts on its own line
     let writing = 0; // tokens of code the agent is writing (the stream only counts them)
@@ -286,6 +287,7 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
               afterTools = false;
               spoke = true;
               pending += d.text;
+              streamed += d.text;
               flushSay(false);
             } else if (ev.event === 'thinking' && typeof d.text === 'string') {
               thought = (thought + d.text).slice(-600);
@@ -384,6 +386,16 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
     }
     if (done) {
       await settle();
+      // The final message comes with the run's result too: say whatever of it never streamed (a
+      // dropped or expired stream), or the person sees only "Let me look…" and the ideas.
+      const flat = (t: string) => t.replace(/\s+/g, ' ').trim();
+      const unsaid = finalText
+        .replace(/^\s*next ideas:.*$/gim, '')
+        .replace(/^\s*own copy:.*$/gim, '')
+        .split(/\n+/)
+        .filter((l) => flat(l) && !flat(streamed).includes(flat(l)))
+        .join('\n');
+      if (unsaid) out.say(`${spoke ? '\n' : ''}${narration(unsaid)}`);
       const ideas = NEXT_IDEAS.exec(finalText)?.[1];
       if (ideas) c.meta.suggestions = ideas.split('|').map((s) => s.replace(/[<>]/g, '').trim().slice(0, 60)).filter(Boolean).slice(0, 3);
       if (c.job.mode === 'ask' && OWN_COPY.test(finalText)) c.meta.remix = true;

@@ -242,7 +242,7 @@ try {
   check('a guide gets the files but no way to save', guide.runs[0].prompt.includes('# Mode: guide') && !guide.runs[0].prompt.includes('sh .orb/save') && guide.downloads === 1);
   check('…and saving anyway is refused', guide.guideSave?.status === 403, guide.guideSave);
   check('…nor a way to look (looking anyway is refused)', guide.guideLook?.status === 403 && guide.guideLook.script === false, guide.guideLook);
-  check('…its answer reaches the visitor', /Press space to jump/.test(asked.text), asked.text.slice(-300));
+  check('…its answer reaches the visitor, even when only the run’s result carries it', (asked.text.match(/Press space to jump/g) ?? []).length === 1, asked.text.slice(-300));
   check('…and the world is unchanged', (await request('GET', `/api/worlds/${w.id}`, { dev: OWNER })).json.world.version === before.version);
   check('…a question offers no copy', !/<orb:remix\/>/.test(asked.text), asked.text.slice(-200));
   const askedFor = Number(/"t":"credits","used":([\d.]+)/.exec(asked.text)?.[1] ?? 0);

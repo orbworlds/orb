@@ -1,6 +1,7 @@
 // The orb runtime: one classic <script> injected as the first child of <head> of every native
 // world (SPEC §7). It runs inside the sandboxed, opaque-origin iframe before any world code and
-//   - shims localStorage / sessionStorage / document.cookie (the real ones throw there),
+//   - shims localStorage / sessionStorage / document.cookie (the real ones throw there) and lets
+//     workers start from the world's own files,
 //   - forces preserveDrawingBuffer on WebGL contexts (so thumbnails can be captured),
 //   - reports runtime errors, failed resource loads and the first console.error calls,
 //   - posts 'ready' after load + 2 animation frames,
@@ -215,6 +216,24 @@ const RUNTIME_SOURCE = String.raw`
   }
   installGlobal('localStorage', makeStorage('local', P.storage, P.limits && P.limits.storage));
   installGlobal('sessionStorage', makeStorage('session', null, P.limits && P.limits.storage));
+
+  /* A world's own files are another origin than its opaque frame, so new Worker('worker.js') is
+     refused: such a worker starts from a tiny data: script that loads the file instead (a blob:
+     one is refused there too). */
+  (function () {
+    var Real = W.Worker;
+    if (!Real) { return; }
+    function Worker(url, opts) {
+      try { return new Real(url, opts); } catch (e) {
+        if (!e || e.name !== 'SecurityError') { throw e; }
+        var abs = new URL(String(url), D.baseURI).href;
+        var src = opts && opts.type === 'module' ? 'import ' + JSON.stringify(abs) + ';' : 'importScripts(' + JSON.stringify(abs) + ');';
+        return new Real('data:text/javascript,' + encodeURIComponent(src), opts);
+      }
+    }
+    Worker.prototype = Real.prototype;
+    installGlobal('Worker', Worker);
+  })();
 
   /* document.cookie throws in an opaque origin; keep a harmless in-memory jar instead. */
   (function () {

@@ -19,7 +19,7 @@ export interface Seed {
   featured: number;
   thumb_url: string;
   /** Host its code on Orb (imported from source_url); the license was checked by hand. */
-  native?: { license: string };
+  native?: { license?: string };
   /** Kept out of Explore (playable by link, listed on the secret page in src/app/lab). */
   hidden?: boolean;
   /** Where it came from: its maker's post (and that post's views), the prompt they shared. */
@@ -132,6 +132,7 @@ export async function convertSeeds(db: Db, limit = 1, again: string[] = []): Pro
     [want, again],
   );
   const { importRepo, parseRepoUrl } = await import('./importer');
+  const { SEED_PAGES } = await import('@/data/seed-pages');
   const converted: string[] = [];
   const failed: Record<string, string> = {};
   for (const r of rows.slice(0, limit)) {
@@ -139,7 +140,7 @@ export async function convertSeeds(db: Db, limit = 1, again: string[] = []): Pro
     try {
       const ref = parseRepoUrl(r.source_url);
       if (!ref) throw new Error('not a GitHub repository');
-      const imp = await importRepo(db, ref);
+      const imp = await importRepo(db, ref, { page: SEED_PAGES[r.id] });
       await db.query(
         `with u as (
            update orb_worlds set kind = 'native', code = (select convert_from(b.data, 'UTF8') from orb_blobs b where b.sha = ((select files from orb_trees where sha = $2) ->> 'index.html')),
@@ -148,7 +149,7 @@ export async function convertSeeds(db: Db, limit = 1, again: string[] = []): Pro
            returning id, version, code, tree
          )
          insert into orb_world_versions (world_id, version, code, tree, prompt) select id, version, code, tree, $4 from u`,
-        [r.id, imp.tree, seed.native!.license, `Imported from ${r.source_url}`],
+        [r.id, imp.tree, seed.native!.license ?? null, `Imported from ${r.source_url}`],
       );
       converted.push(r.id);
     } catch (e) {

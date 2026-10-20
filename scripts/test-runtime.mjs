@@ -541,6 +541,32 @@ async function testCapture(context) {
 }
 
 /** RGB of the pixel at (fx, fy) (fractions) of an image. */
+async function testWorkers(context) {
+  // A world's files are another origin than its opaque frame (like /api/tree): workers from them.
+  await context.route('https://files.orb.test/**', (route) => {
+    const classic = route.request().url().endsWith('classic.js');
+    route.fulfill({
+      headers: { 'content-type': 'text/javascript', 'access-control-allow-origin': '*' },
+      body: classic ? `postMessage('classic ' + (2 + 2));` : `import { n } from './n.js'; postMessage('module ' + n);`,
+    });
+  });
+  await context.route('https://files.orb.test/n.js', (route) =>
+    route.fulfill({ headers: { 'content-type': 'text/javascript', 'access-control-allow-origin': '*' }, body: 'export const n = 7;' }),
+  );
+  const page = await openHarness(context, { world: 'draft-workers' });
+  const frame = await load(page, doc(`<script>
+window.got = [];
+const w1 = new Worker('https://files.orb.test/module.js', { type: 'module' });
+w1.onmessage = (e) => got.push(e.data);
+const w2 = new Worker('https://files.orb.test/classic.js');
+w2.onmessage = (e) => got.push(e.data);
+</script>`));
+  await frame.waitForFunction(() => window.got.length === 2, null, { timeout: 10_000 }).catch(() => {});
+  const got = await frame.evaluate(() => window.got.slice().sort());
+  check('a world’s workers start from its own files (module, with imports, and classic)', got[0] === 'classic 4' && got[1] === 'module 7', got);
+  await page.close();
+}
+
 async function pixelAt(page, src, fx, fy) {
   return page.evaluate(
     async ([s, x, y]) => {
@@ -1476,6 +1502,7 @@ try {
   await section('world id changes', () => testWorldIdChange(context));
   await section('(b) error reporting', () => testErrors(context));
   await section('(c) capture', () => testCapture(context));
+  await section('(c1) workers', () => testWorkers(context));
   await section('(c2) probe: play the world and look at it', () => testProbe(context));
   await section('(c3) probe on a phone-sized screen', () => testPhoneLook(browser));
   await section('(d) double-buffered swap', () => testSwap(context));

@@ -17,6 +17,18 @@ const BASE_HEADERS = {
   'content-security-policy': SANDBOX_CSP,
 };
 
+/** Vercel buffers a whole response up to 4.5 MB; bigger files (models) go out as a stream. */
+const STREAM_OVER = 4_000_000;
+function chunked(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  let at = 0;
+  return new ReadableStream({
+    pull(c) {
+      c.enqueue(bytes.slice(at, (at += 1_000_000)));
+      if (at >= bytes.length) c.close();
+    },
+  });
+}
+
 function notFound(): Response {
   return new Response('Not found', { status: 404, headers: { ...BASE_HEADERS, 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=60' } });
 }
@@ -37,7 +49,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ sha: string; p
       if (!blobSha) return notFound();
       const bytes = await getBlob(db, blobSha);
       if (!bytes) return notFound();
-      return new Response(new Uint8Array(bytes), {
+      return new Response(bytes.length > STREAM_OVER ? chunked(bytes) : new Uint8Array(bytes), {
         headers: {
           ...BASE_HEADERS,
           'content-type': contentType(p),

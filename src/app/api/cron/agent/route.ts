@@ -11,7 +11,7 @@ import { ready } from '@/server/schema';
 import { idleJobs, kick } from '@/server/agent/runner';
 import { convertSeeds } from '@/server/seed';
 
-export const maxDuration = 120;
+export const maxDuration = 300; // hosting a big open-source world takes a while
 
 export async function GET(req: Request): Promise<Response> {
   const db = await ready();

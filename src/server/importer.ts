@@ -9,7 +9,7 @@ import type { Db } from './db';
 import { cleanPath, ENTRY, FILE_LIMITS, FileError, putBlob, putTree, type Tree } from './files';
 import { SITE } from '../lib/site';
 
-const MAX_DOWNLOAD = 120_000_000; // compressed bytes
+const MAX_DOWNLOAD = 300_000_000; // compressed bytes
 // orb-kit: the Orb kit that open-source worlds' repositories carry to run on localhost
 export const SKIP_DIR = /(^|\/)(\.git|node_modules|\.github|\.vscode|\.idea|__pycache__|orb-kit)(\/|$)/;
 const ENTRY_DIRS = ['', 'public', 'docs', 'dist', 'build', 'www', 'web', 'site', 'app'];
@@ -87,7 +87,7 @@ export async function* untar(stream: AsyncIterable<Buffer>): AsyncGenerator<{ pa
 }
 
 async function download(url: string, headers: Record<string, string> = {}): Promise<AsyncIterable<Buffer>> {
-  const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(60_000), headers: { 'user-agent': `OrbImport/1.0 (+${SITE})`, ...headers } });
+  const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(180_000), headers: { 'user-agent': `OrbImport/1.0 (+${SITE})`, ...headers } });
   if (res.status === 404) throw new FileError("Couldn't find that repository — is it public?");
   if (!res.ok || !res.body) throw new FileError(`GitHub didn't send the files (HTTP ${res.status}). Try again in a moment.`);
   const declared = Number(res.headers.get('content-length'));
@@ -97,7 +97,9 @@ async function download(url: string, headers: Record<string, string> = {}): Prom
     total += c.length;
     if (total > MAX_DOWNLOAD) limited.destroy(new FileError('That repository is too big to import.'));
   });
-  return limited.pipe(createGunzip());
+  const gunzip = createGunzip();
+  limited.on('error', (e) => gunzip.destroy(e)); // a pipe doesn't pass errors on: unhandled, they'd end the process
+  return limited.pipe(gunzip);
 }
 
 export interface Imported {
@@ -204,12 +206,102 @@ function importMapFor(names: readonly string[], pkgJson: string | null | undefin
   return imports;
 }
 
+const join = (dir: string, rel: string) => {
+  const out: string[] = [];
+  for (const s of `${dir}${rel}`.split('/')) {
+    if (s === '..') out.pop();
+    else if (s !== '.' && s !== '') out.push(s);
+  }
+  return out.join('/');
+};
+const dirOf = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '');
+const RELATIVE_IMPORTS = /(?:\bimport|\bexport)\s*(?:[\w$\s{},*]+?\s*from\s*)?(["'])(\.{1,2}\/[^"'\n]+)\1|\bimport\(\s*(["'])(\.{1,2}\/[^"'\n]+)\3\s*\)/g;
+
+/** The modules that run in workers (`new Worker(new URL('./w.js', import.meta.url))`) and everything they import. */
+function workerModules(raw: ReadonlyMap<string, Buffer>, root: string): Set<string> {
+  const todo: string[] = [];
+  for (const [p, data] of raw) {
+    if ((root && !p.startsWith(`${root}/`)) || !/\.m?js$/i.test(p)) continue;
+    for (const m of data.toString('utf8').matchAll(/new\s+(?:Shared)?Worker\(\s*new\s+URL\(\s*(["'])(\.{1,2}\/[^"'\n]+)\1\s*,\s*import\.meta\.url/g)) todo.push(join(dirOf(p), m[2]));
+  }
+  const seen = new Set<string>();
+  while (todo.length) {
+    const p = todo.pop()!;
+    if (seen.has(p) || !raw.has(p)) continue;
+    seen.add(p);
+    for (const m of raw.get(p)!.toString('utf8').matchAll(RELATIVE_IMPORTS)) todo.push(join(dirOf(p), m[2] ?? m[4]));
+  }
+  return seen;
+}
+
+/** The import map of a page (already rewritten for Orb). */
+function pageImports(html: string): Record<string, string> {
+  const body = /<script\b[^>]*\btype\s*=\s*["']importmap["'][^>]*>([\s\S]*?)<\/script>/i.exec(html)?.[1];
+  try {
+    return (body ? (JSON.parse(body) as { imports?: Record<string, string> }).imports : null) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** `from 'three'` → `from 'https://cdn…/three.module.js'`, as the import map would resolve it. */
+function byAddress(js: string, imports: Record<string, string>): string {
+  const resolve = (spec: string) => {
+    if (imports[spec]) return imports[spec];
+    const prefix = Object.keys(imports)
+      .filter((k) => k.endsWith('/') && spec.startsWith(k))
+      .sort((a, b) => b.length - a.length)[0];
+    return prefix ? imports[prefix] + spec.slice(prefix.length) : null;
+  };
+  return js.replace(/(\bimport\s*(?:[\w$\s{},*]+?\s*from\s*)?|\bexport\s*[\w$\s{},*]+?\s*from\s*|\bimport\(\s*)(["'])([^"'.\/][^"'\n]*)\2/g, (all, head: string, q: string, spec: string) => {
+    const at = resolve(spec);
+    return at ? `${head}${q}${at}${q}` : all;
+  });
+}
+
+/** Vite's `import.meta.glob('../world/*.js')` from the module at `path`: the matching files, keyed as written. */
+function globMap(patterns: string[], path: string, files: ReadonlySet<string>): string {
+  const entries = new Map<string, string>();
+  for (const pattern of patterns) {
+    if (pattern.startsWith('!')) continue;
+    const star = pattern.indexOf('*');
+    const cut = pattern.lastIndexOf('/', star < 0 ? pattern.length : star) + 1;
+    const written = pattern.slice(0, cut); // "../world/"
+    const fixed = join(pattern.startsWith('/') ? '' : dirOf(path), written);
+    const rest = pattern.slice(cut).replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*\*\//g, '(?:.*/)?').replace(/\*/g, '[^/]*');
+    const re = new RegExp(`^${fixed ? `${fixed.replace(/[.+?^${}()|[\]\\]/g, '\\$&')}/` : ''}${rest}$`);
+    for (const f of files) if (re.test(f)) entries.set(written + f.slice(fixed ? fixed.length + 1 : 0), '');
+  }
+  return `({ ${[...entries.keys()].sort().map((k) => `${JSON.stringify(k)}: () => import(${JSON.stringify(k)})`).join(', ')} })`;
+}
+
 /**
  * Make a module written for a bundler (Vite) run as it is: a stylesheet it imports becomes a
- * `<link>` it adds, and `import.meta.env` reads as a production build's.
+ * `<link>` it adds, JSON it imports is imported as JSON, `import.meta.glob` lists the matching
+ * files (given the module's path and the tree's files), and `import.meta.env` reads as a
+ * production build's.
  */
-export function rewriteModuleForOrb(js: string): string {
+export function rewriteModuleForOrb(js: string, at?: { path: string; files: ReadonlySet<string> }): string {
+  if (at) {
+    const here = dirOf(at.path);
+    // Bundlers find `./config` as config.js (or config/index.js, or a .ts served as .js): browsers need the file's name.
+    js = js.replace(RELATIVE_IMPORTS, (all, q1: string | undefined, s1: string | undefined, q2: string | undefined, s2: string | undefined) => {
+      const spec = (s1 ?? s2)!;
+      const file = join(here, spec);
+      if (at.files.has(file)) return all;
+      const ext = ['.js', '.mjs', '/index.js'].find((e) => at.files.has(file.replace(/\/$/, '') + e)) ?? (/\.m?ts$/.test(spec) && at.files.has(file.replace(/ts$/, 'js')) ? 'ts' : null);
+      if (!ext) return all;
+      const fixed = ext === 'ts' ? spec.replace(/ts$/, 'js') : spec.replace(/\/$/, '') + ext;
+      return all.replace(`${q1 ?? q2}${spec}${q1 ?? q2}`, `${q1 ?? q2}${fixed}${q1 ?? q2}`);
+    });
+    // '/textures/bark.jpg' meant the site's top, which a world's files are not at: make it relative.
+    js = js.replace(/(["'])\/([\w@~-][^"'\s?#]*)\1/g, (all, q: string, p: string) => (at.files.has(p) ? `${q}${p}${q}` : all));
+    js = js.replace(/\bimport\.meta\.glob\(\s*(\[[^\]]*\]|(["'])[^"'\n]*\2)\s*\)/g, (_all, arg: string) =>
+      globMap([...arg.matchAll(/(["'])([^"'\n]+)\1/g)].map((m) => m[2]), at.path, at.files),
+    );
+  }
   return js
+    .replace(/(\bimport\s+[\w$\s{},*]+?\s+from\s*(["'])[^"'\n]+\.json\2)(?!\s*(?:with|assert)\b)/g, `$1 with { type: 'json' }`)
     .replace(/\bimport\s*(["'])([^"'\n]+\.css)\1\s*;?/g, (_all, _q: string, href: string) =>
       `(() => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = new URL(${JSON.stringify(href)}, import.meta.url).href; document.head.appendChild(l); })();`,
     )
@@ -294,12 +386,41 @@ const CODELOAD = process.env.ORB_GITHUB_CODELOAD || 'https://codeload.github.com
 const GITHUB_API = process.env.ORB_GITHUB_API || 'https://api.github.com';
 
 /** A repository's files as a world. With a token (a private repository, or one of the person's own), through GitHub's API. */
-export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | null } = {}): Promise<Imported> {
+/**
+ * TypeScript modules as a browser runs them: Node strips the types (keeping every line where it
+ * was) and `x.ts` is served as `x.js` (imports of it follow, see rewriteModuleForOrb).
+ */
+async function fromTypeScript(raw: Map<string, Buffer>): Promise<void> {
+  const ts = [...raw.keys()].filter((p) => /\.m?ts$/i.test(p) && !/\.d\.m?ts$/i.test(p) && !raw.has(p.replace(/ts$/i, 'js')));
+  if (!ts.length) return;
+  const { stripTypeScriptTypes: strip } = (await import('node:module')) as unknown as { stripTypeScriptTypes?: (code: string, o?: { mode?: 'strip' | 'transform' }) => string };
+  if (!strip) return;
+  for (const p of ts) {
+    const src = raw.get(p)!.toString('utf8');
+    let js: string;
+    try {
+      js = strip(src);
+    } catch {
+      try {
+        js = strip(src, { mode: 'transform' }); // enums, namespaces…
+      } catch {
+        continue;
+      }
+    }
+    raw.delete(p);
+    raw.set(p.replace(/ts$/i, 'js'), Buffer.from(js));
+  }
+}
+
+/** `page`: an index.html to run the repository's code with (a curated world whose repository has none, src/data/seed-pages.ts). */
+export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | null; page?: string } = {}): Promise<Imported> {
   const at = ref.ref ? encodeURIComponent(ref.ref) : 'HEAD';
   const url = opts.token ? `${GITHUB_API}/repos/${ref.owner}/${ref.repo}/tarball/${at}` : `${CODELOAD}/${ref.owner}/${ref.repo}/tar.gz/${at}`;
   const headers: Record<string, string> = opts.token ? { authorization: `Bearer ${opts.token}`, accept: 'application/vnd.github+json' } : {};
   const { files: raw, skipped } = await readTarball(url, { dir: ref.dir, headers });
   if (!raw.size) throw new FileError('That repository looks empty.');
+  if (opts.page) raw.set(ENTRY, Buffer.from(opts.page));
+  await fromTypeScript(raw);
 
   // The page to run: index.html at the top, else in a usual web folder (which becomes the root).
   const root = ENTRY_DIRS.find((d) => raw.has(d ? `${d}/${ENTRY}` : ENTRY));
@@ -316,14 +437,24 @@ export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | 
   }
   const pkgJson = (root ? raw.get(`${root}/package.json`) : null)?.toString('utf8') ?? raw.get('package.json')?.toString('utf8') ?? null;
   const bare = [...new Set([...raw].flatMap(([p, data]) => ((!root || p.startsWith(`${root}/`)) && /\.(m?js|html?)$/i.test(p) ? bareImports(data.toString('utf8')) : [])))];
+  const pages = new Map<string, string>();
+  for (const [p, data] of raw) {
+    if (root && !p.startsWith(`${root}/`)) continue;
+    if (/\.html?$/i.test(p)) pages.set(p, rewritePageForOrb(stripTrackers(data.toString('utf8')), names, pkgJson, { bare }));
+  }
+  // Workers don't see the page's import map: the modules they load import packages by address.
+  const entryPage = pages.get(root ? `${root}/${ENTRY}` : ENTRY) ?? '';
+  const inWorkers = workerModules(raw, root);
+  const imports = inWorkers.size ? pageImports(entryPage) : {};
   for (const [p, data] of raw) {
     if (root && !p.startsWith(`${root}/`)) continue;
     const rel = root ? p.slice(root.length + 1) : p;
-    const bytes = /\.html?$/i.test(rel)
-      ? Buffer.from(rewritePageForOrb(stripTrackers(data.toString('utf8')), names, pkgJson, { bare }))
-      : /\.m?js$/i.test(rel)
-        ? Buffer.from(rewriteModuleForOrb(data.toString('utf8')))
-        : data;
+    let bytes: Buffer = data;
+    if (pages.has(p)) bytes = Buffer.from(pages.get(p)!);
+    else if (/\.m?js$/i.test(rel)) {
+      const js = rewriteModuleForOrb(data.toString('utf8'), { path: rel, files: names });
+      bytes = Buffer.from(inWorkers.has(p) ? byAddress(js, imports) : js);
+    }
     tree[rel] = (await putBlob(db, bytes)).sha;
   }
   // The license travels with the files (also when the page lives in a subfolder).

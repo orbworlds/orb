@@ -1337,6 +1337,9 @@
       "author_url": "https://github.com/jbang2004",
       "prompt": "用 three.js 参考这个网站的视觉效果，实现一个剑客在草原上战斗的游戏，要求极致的逼真，极致的美学设计",
       "made_with": "Claude Opus 5.5 (Claude Code), three.js, Tripo AI, Mixamo"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {
@@ -1446,7 +1449,7 @@
     "description": "Explore a ruined valley at sunset as a hooded swordswoman: draw your katana, dodge-roll, and face the wraith that hunts you.",
     "kind": "external",
     "external_url": "https://xikhar.github.io/Walden/",
-    "source_url": "https://github.com/xikhar/Walden",
+    "source_url": "https://github.com/xikhar/Walden/tree/main/game",
     "author_name": "xikhar",
     "tags": [
       "game",
@@ -1466,7 +1469,8 @@
       "handle": "@xikhar",
       "author_url": "https://x.com/xikhar",
       "made_with": "Claude Opus 5.5, Tripo AI, Blender, three.js"
-    }
+    },
+    "native": {}
   },
   {
     "id": "ext-sisyphus",
@@ -1558,7 +1562,8 @@
       "author_url": "https://x.com/LexnLin",
       "prompt": "First search for the \"/unlazy\" skill, read it fully, and use it throughout the entire task.\n\nTreat this as a major visual build lasting at least 5 hours. Prefer 8–24 hours of meaningful implementation and iteration if the environment allows it. Do not stop after producing one decent-looking scene.\n\nCreate an extremely detailed real-time 3D forest in the browser. Nothing else. No landing page, cards, story, marketing UI, dashboard, or unnecessary text. The forest itself is the entire experience.\n\nPush density and visual quality extremely hard.\n\nBuild massive amounts of detailed grass, varied trees, branches, leaves, bushes, ferns, moss, flowers, weeds, roots, fallen wood, stones, soil, leaf litter, small plants, terrain variation, and tiny environmental details.\n\nThe forest should feel almost excessively dense. Empty ground should be rare.\n\nFocus obsessively on:\nrealistic tree silhouettes,\ndense grass,\nnatural asset variation,\nrich colors,\nlighting,\ncontact shadows,\nwind,\nfoliage motion,\natmospheric depth,\nfog,\nsun shafts,\nparticles,\nterrain,\nmaterials,\nscale,\ncomposition,\nand detail at both close and far distances.\n\nAvoid obvious repeating assets, billboard-looking foliage, tiled terrain, floating plants, plastic materials, identical trees, sparse procedural placement, excessive bloom, or a generic Three.js demo appearance.\n\nInclude smooth free-camera exploration.\n\nRepeatedly capture and inspect the scene from many positions. Identify weak vegetation, empty areas, bad colors,",
       "made_with": "GPT-6 Astra (xhigh), three.js"
-    }
+    },
+    "native": {}
   },
   {
     "id": "ext-pelagic-ocean",

@@ -76,3 +76,28 @@ test('a module written for Vite: imported stylesheets become links, import.meta.
   assert.match(js, /DEV: false/);
   assert.match(js, /import \{ a \} from '\.\/a\.js'/);
 });
+
+test('a module written for Vite: JSON imports and import.meta.glob run in the browser', () => {
+  const files = new Set(['src/scenes/full.js', 'src/world/sky.js', 'src/world/sea.js', 'src/world/data.json', 'src/fx/rain.js', 'src/meta.json']);
+  const js = rewriteModuleForOrb(
+    `import meta from '../meta.json';\nimport ok from './a.json' with { type: 'json' };\nconst M = import.meta.glob(['../world/*.js', '../fx/*.js']);\nconst T = import.meta.glob('../world/sky.js');`,
+    { path: 'src/scenes/full.js', files },
+  );
+  assert.match(js, /import meta from '\.\.\/meta\.json' with \{ type: 'json' \};/);
+  assert.match(js, /from '\.\/a\.json' with \{ type: 'json' \};/);
+  assert.doesNotMatch(js, /with \{ type: 'json' \} with/);
+  assert.match(js, /const M = \(\{ "\.\.\/fx\/rain\.js": \(\) => import\("\.\.\/fx\/rain\.js"\), "\.\.\/world\/sea\.js": \(\) => import\("\.\.\/world\/sea\.js"\), "\.\.\/world\/sky\.js": \(\) => import\("\.\.\/world\/sky\.js"\) \}\);/);
+  assert.match(js, /const T = \(\{ "\.\.\/world\/sky\.js": \(\) => import\("\.\.\/world\/sky\.js"\) \}\);/);
+});
+
+test('a module written for a bundler: imports without a file name extension, and paths from the site’s top', () => {
+  const files = new Set(['app/forest/engine.js', 'app/forest/config.js', 'app/forest/trees.js', 'app/forest/lib/index.js', 'textures/bark.jpg']);
+  const js = rewriteModuleForOrb(
+    `import {A} from './config';\nimport {t} from './trees.js';\nimport * as L from './lib';\nexport {B} from './config.ts';\nconst m = await import('./config');\nimport x from './missing';\nload('/textures/bark.jpg'); load('/textures/none.jpg'); go('/');`,
+    { path: 'app/forest/engine.js', files },
+  );
+  assert.match(js, /from '\.\/config\.js';\nimport \{t\} from '\.\/trees\.js';\nimport \* as L from '\.\/lib\/index\.js';\nexport \{B\} from '\.\/config\.js';/);
+  assert.match(js, /import\('\.\/config\.js'\)/);
+  assert.match(js, /from '\.\/missing'/);
+  assert.match(js, /load\('textures\/bark\.jpg'\); load\('\/textures\/none\.jpg'\); go\('\/'\)/);
+});

@@ -38,7 +38,10 @@ If you change a contract, update this file in the same change.
 - **External world**: a curated showcase entry that embeds an existing website by URL
   (e.g. Hikari Dream House). `kind: 'external'`. Not editable here; "Remix" links to its source
   repository (if any) or starts a new world inspired by it. Orb can't read its code, so what's
-  typed in its chat starts a new world of one's own from that text.
+  typed in its chat starts a new world of one's own from that text. A curated world whose code is
+  open source (`native` in `seeds.json`) is imported from its repository instead and runs from
+  Orb's copy, remixable (a start page from `src/data/seed-pages.ts` when its repository has none
+  a world can run).
 - **Template**: a hand-crafted starter world — the blank island (`public/templates/blank.html`) and
   Orb Originals (Island, Blocks, Runner, Paint, Room…, `src/lib/templates.ts`), whose code is the
   Original's (`/api/worlds/orb-<id>`). Picking one loads it instantly (no AI call).
@@ -256,7 +259,8 @@ Browser (Next.js client)                              Vercel Functions (Node)   
 - Worlds run in `<iframe sandbox="allow-scripts …" srcdoc=…>` **without** `allow-same-origin`
   → opaque origin, cannot touch Orb's cookies/localStorage. The injected **orb runtime**
   shims `localStorage`/`sessionStorage` (persisted per world per device by the parent, and for
-  signed-in people in their account, `orb_saves`). Websites shown as worlds (`kind: 'external'`)
+  signed-in people in their account, `orb_saves`), and starts a world's workers from a data:
+  script that loads their file (the file's origin isn't the frame's). Websites shown as worlds (`kind: 'external'`)
   keep their own origin (`allow-same-origin`) and their own storage, partitioned by the browser
   under Orb's site; Orb can't see or move it.
 - World code is stored in Postgres (`orb_worlds.code`), versions in `orb_world_versions`,
@@ -561,7 +565,7 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `GET /api/kit/login?poll=` | | `{ token, name }` once allowed (once), 202 `{ status: 'pending' }`, 404 expired (10 minutes) |
 | `POST /api/kit/approve` | `{ code }`, as the browser allowing it | `{ name }` (null without one); 404 expired, 409 already allowed |
 | `POST /api/kit/push?world=&name=&message=` | `Authorization: Bearer <kit token>`, body: the files as a .tar.gz with `index.html` at the top | `{ world: WorldFull, outcome: 'created' \| 'remixed' \| 'updated' \| 'unchanged', skipped, url }` (§2 "The Orb kit"). 400 `push_failed`, 401 `kit_login`, 404 not theirs and not remixable; 120 an hour |
-| `POST /api/worlds/import` | `{ url }` (a GitHub repository, optionally `/tree/<ref>/<dir>`; private ones with the importer's token kept on Orb) | `{ world: WorldFull, files, warning? }`: its files become a new world of the importer's (no `orb-kit/`, `node_modules`, `.git`…), linked to the repository (and, imported from a branch, kept in sync with it: `world.repo`), with its license (remixable only with one). Import maps that load three.js from `node_modules` are rewritten to jsdelivr, code that imports packages by name with no import map gets one (three from jsdelivr, the rest from esm.sh sharing that three), stylesheets a module imports become links and `import.meta.env` reads as a production build's, a Vite project's `public/` is also served at the top, and root-absolute `src`/`href` of files in the tree become relative so they follow the tree `<base>`. An `orb.json` naming a public, remixable world (`world`) makes it a remix of that world (see §2 "Open-source games"). 400 `bad_request` / `import_failed`; 12 an hour |
+| `POST /api/worlds/import` | `{ url }` (a GitHub repository, optionally `/tree/<ref>/<dir>`; private ones with the importer's token kept on Orb) | `{ world: WorldFull, files, warning? }`: its files become a new world of the importer's (no `orb-kit/`, `node_modules`, `.git`…), linked to the repository (and, imported from a branch, kept in sync with it: `world.repo`), with its license (remixable only with one). Import maps that load three.js from `node_modules` are rewritten to jsdelivr, code that imports packages by name with no import map gets one (three from jsdelivr, the rest from esm.sh sharing that three), stylesheets a module imports become links, JSON it imports is imported as JSON, `import.meta.glob` lists the matching files and `import.meta.env` reads as a production build's, TypeScript (`.ts`) has its types stripped and is served as `.js`, imports without a file extension get it, modules that run in workers import packages by their address (workers have no import map), a Vite project's `public/` is also served at the top, and root-absolute `src`/`href` (and, in code, `'/path'` strings) of files in the tree become relative so they follow the tree `<base>`. An `orb.json` naming a public, remixable world (`world`) makes it a remix of that world (see §2 "Open-source games"). 400 `bad_request` / `import_failed`; 12 an hour |
 | `PUT /api/worlds/:id/thumb` | raw `image/webp\|jpeg\|png` body ≤ 500 KB | `{ thumbVersion: number }` |
 | `GET /api/worlds/:id/thumb?v=` | | image bytes, `Cache-Control: public, max-age=31536000, immutable` |
 | `POST /api/worlds/:id/play` | | `{ plays }` (deduped per device/day; shown as "plays") |
