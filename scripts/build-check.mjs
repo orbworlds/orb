@@ -40,7 +40,8 @@ page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
 page.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(`console: ${m.text().slice(0, 300)}`));
 
 await page.goto(`${base}/?prompt=${encodeURIComponent(prompt)}`, { waitUntil: 'domcontentloaded', timeout: 90_000 });
-const box = page.locator('textarea').first();
+// The home page's composer (the Orb's own chat composer is there too, hidden until it opens)
+const box = page.locator('#orb-hero-composer textarea, textarea:visible').first();
 await box.waitFor({ timeout: 90_000 });
 await page.waitForTimeout(2500);
 if (!(await box.inputValue())) await box.fill(prompt);
