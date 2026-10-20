@@ -19,9 +19,9 @@ If you change a contract, update this file in the same change.
 2. **Calm, luminous, minimal.** One always-present element: the **Orb** (a floating, draggable,
    iridescent sphere; on phones, past the start screen, it tucks half behind the screen's edge,
    clear of a world's own controls and Explore's tiles). Everything else (chat, explore, settings,
-   account) lives inside it. The one exception: in a world, a small arrow top-left goes back to
-   Explore in one click (it reads "Explore" for a few seconds as the world opens, then folds to
-   the arrow).
+   account) lives inside it. The one exception: as a world opens, "Explore" top-left goes back
+   to Explore in one click; after a few seconds it fades away, leaving the world the whole screen
+   (the Orb's Explore tab and the browser's back go back from then on).
    No clutter, no chrome, no ads, no badges-everywhere. The world is the hero.
 3. **Live.** Users see their instructions executed: narration streams, each build step lands in
    the world as it completes (cross-faded, no flashes).
@@ -64,7 +64,7 @@ If you change a contract, update this file in the same change.
   scrolling on from there, down to a footer (orbworlds, Plans, the Orb kit on npm, `/llms.txt` (how to
   make worlds, for AI agents), GitHub (the org: `GITHUB_URL`) and Back to top). Sending from the composer, picking a template or remixing hands
   over to the chat on the canvas.
-  There is one Explore, and it is this page: the Orb's Explore tab, a world's back arrow, "See all",
+  There is one Explore, and it is this page: the Orb's Explore tab, a world's "Explore" button, "See all",
   `/explore` and a missing world's Explore button all go home, down at its worlds.
   Tapping the Orb there opens its You tab, not an empty chat (the page's composer is the chat), unless a
   build is running or has news.
@@ -690,7 +690,7 @@ everyone who came, each with a timeline at `/lab/<key>/analytics/person/<public 
 | `history_restore` | an earlier version is brought back | `version` |
 | `world_download` | the world's files are downloaded as a .zip | |
 | `explore_open`, `explore_filter`, `explore_sort`, `explore_search` | Explore opens; a filter is picked; a sort is picked; a search's results arrive | `filter`; `sort` (with the `filter`); `q` (first 100 characters), `results` (null when it failed) |
-| `explore_back` | a world's back arrow (to Explore) | `world_id` |
+| `explore_back` | a world's "Explore" button (to Explore) | `world_id` |
 | `share_open`, `share_copy` | the share sheet opens; the link is copied or shared | `how`: `copy` \| `native`, `where`: `bar` \| `sheet` |
 | `world_import` | a world is imported from a repository | `files` |
 | `payout_setup` | the plan card's Continue with Stripe (or Finish payout setup) | `country` (null: continuing) |

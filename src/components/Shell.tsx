@@ -857,36 +857,36 @@ function BackgroundBuilds({ builds }: { builds: BackgroundBuild[] }) {
 }
 
 /**
- * Top-left in every world: back to Explore in one click. It says "Explore" when a world opens, then
- * folds to an arrow so the world has the screen; hovering or focusing it unfolds it again.
+ * Top-left as a world opens: "Explore", back to it in one click. After a few seconds it fades away
+ * and leaves the world the whole screen (the world's own controls often live there); the Orb's
+ * Explore tab, or the browser's back, go back from then on.
  */
 function ExploreBack({ worldId, show, inset, onClick }: { worldId: string | null; show: boolean; inset: number; onClick(): void }) {
-  const [foldedFor, setFoldedFor] = useState<string | null>(null);
+  const [goneFor, setGoneFor] = useState<string | null>(null);
   useEffect(() => {
     if (!worldId || !show) return;
-    const t = setTimeout(() => setFoldedFor(worldId), 3500);
+    const t = setTimeout(() => setGoneFor(worldId), 4000);
     return () => clearTimeout(t);
   }, [worldId, show]);
   if (!show) return null;
-  const folded = foldedFor === worldId;
+  const gone = goneFor === worldId;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Back to Explore"
-      title="Back to Explore"
-      className="glass group/back animate-pop fixed z-30 flex h-10 items-center rounded-full pr-3.5 pl-2.5 text-[14px] font-medium text-ink transition-[padding,transform,opacity] duration-300 ease-[var(--ease)] hover:pr-3.5 focus-visible:rounded-full active:scale-[.96] data-[folded=true]:pr-2.5 data-[folded=true]:opacity-80 data-[folded=true]:hover:pr-3.5 data-[folded=true]:hover:opacity-100 data-[folded=true]:focus-visible:pr-3.5"
-      data-folded={folded}
+    <div
+      className={`fixed z-30 transition-[opacity,transform] duration-500 ease-[var(--ease)] ${gone ? 'pointer-events-none -translate-y-1 opacity-0' : ''}`}
       style={{ top: 'calc(var(--safe-t) + 12px)', left: `calc(var(--safe-l) + ${12 + inset}px)` }}
+      aria-hidden={gone}
     >
-      <Icon name="arrow-left" size={18} strokeWidth={2} />
-      <span
-        className={`overflow-hidden whitespace-nowrap transition-[max-width,opacity,margin] duration-300 ease-[var(--ease)] ${
-          folded ? 'ml-0 max-w-0 opacity-0 group-hover/back:ml-1.5 group-hover/back:max-w-[80px] group-hover/back:opacity-100 group-focus-visible/back:ml-1.5 group-focus-visible/back:max-w-[80px] group-focus-visible/back:opacity-100' : 'ml-1.5 max-w-[80px] opacity-100'
-        }`}
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Back to Explore"
+        title="Back to Explore"
+        tabIndex={gone ? -1 : 0}
+        className="glass animate-pop flex h-10 items-center gap-1.5 rounded-full pr-3.5 pl-2.5 text-[14px] font-medium text-ink active:scale-[.96]"
       >
+        <Icon name="arrow-left" size={18} strokeWidth={2} />
         Explore
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
