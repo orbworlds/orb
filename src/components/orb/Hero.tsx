@@ -52,7 +52,7 @@ export function HomeIntro({
           Step into a <em className="italic">world</em>
         </h1>
         <p className="animate-rise mx-auto mt-2 max-w-[460px] text-center text-balance text-[15px] leading-snug text-ink-2 [animation-delay:60ms] sm:mt-3 sm:max-w-[600px] sm:text-[17px]">
-          Describe a game or a world and Orb’s AI builds it in moments. Or play and remix one below.
+          Describe a world, and Orb’s AI builds it.
         </p>
         <div className="mx-auto mt-6 w-full max-w-[680px] sm:mt-8">
           <div className="animate-rise [animation-delay:120ms]">

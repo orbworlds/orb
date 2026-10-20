@@ -58,7 +58,7 @@ If you change a contract, update this file in the same change.
   a dropdown switches between chats.
 - **Home** (`/`) is Explore under an invitation to make a world (the start world shows through a
   light veil behind it; the frosted backdrop comes in as the worlds scroll up): Orb's name and the headline ("Step into a
-  world": describe a game or a world and Orb's AI builds it), the big composer and under it "Or remix": two of Orb's worlds to remix (Orbcraft, Foxfire
+  world": describe a world, and Orb's AI builds it), the big composer and under it "Or remix": two of Orb's worlds to remix (Orbcraft, Foxfire
   Fjord: picking one remixes it), three templates (Star Runner, Glow Paint, Dream Room), each a
   different kind of start, and **More to remix** (Explore on Remix), then (for people
   who have some) a row of their friends' worlds and their own, then Explore's header and worlds,
