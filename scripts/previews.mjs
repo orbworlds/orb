@@ -40,7 +40,7 @@ const QUICK = !!process.env.QUICK;
 // ({ seconds, hold: [keys] }) walks that long on the recorder's clock with those keys down before the shot settles, for a world too
 // slow to walk anywhere in real time. `screenshot` captures the page rather than its canvas (a transparent canvas over a CSS backdrop), and
 // `patch` ([find, replace] in the world's code) lets `setup` reach a world's own state. `company` opens that many more players
-// (Orb's own worlds). `scale` draws the page at that many device pixels per CSS pixel
+// (Orb's own worlds). `init` runs in the page before its own scripts (to look on as a world loads). `scale` draws the page at that many device pixels per CSS pixel
 // (default SCALE) and `size` is the video's [width, height] (default the page's at that scale); `viewport` is the page's [width, height] in CSS
 // pixels (default W × H; some sites take a small window for a turned phone); `crf` is [VP9, H.264] quality
 // (higher is smaller). `crop` keeps only [x, y, width, height] (CSS px) of the picture, for a world that draws its own
@@ -145,9 +145,28 @@ const SHOTS = {
     },
   },
   // Walden walks with WASD (not the arrows), and a held mouse button swings the sword: walking down the path to the arch
+  // Tiny Skies: flying in toward the little planet, its islands and airships coming up to meet the plane
+  // (its sky runs a 195 s day and night on the wall clock, offset by the world's seed: `init` reads the seed as the world
+  // joins and `setup` moves its clock to mid-morning)
+  'ext-tiny-skies': {
+    crf: [44, 29], wait: 30000, steps: [{ click: [478, 347], wait: 15000 }], hold: ['w'],
+    init: () => {
+      const f = window.fetch;
+      window.fetch = async (...a) => {
+        const r = await f(...a);
+        if (/auto-join/.test(String(a[0]))) r.clone().json().then((j) => { window.__tsSeed = j.seed ?? 42; }).catch(() => {});
+        return r;
+      };
+    },
+    setup: () => {
+      const seed = window.__tsSeed ?? 42, now = Date.now, cycle = (((now() / 1000 + (seed % 195)) % 195) + 195) % 195;
+      const off = ((10 - cycle + 195) % 195) * 1000;
+      Date.now = () => now() + off;
+    },
+  },
   'ext-walden': { wait: 60000, steps: [{ click: [320, 200], wait: 35000 }], hold: ['w'], crf: [47, 32] },
   'aw-fall-line': { wait: 40000, crf: [50, 32] },
-  'ext-cyber-city-orion': { wait: 60000, steps: [{ click: [320, 276], wait: 60000 }], hold: ['w'], drag: [10, 0] },
+  'ext-cyber-city-orion': { crf: [48, 32], wait: 60000, steps: [{ click: [320, 276], wait: 60000 }], hold: ['w'], drag: [10, 0] },
   // Claybound is a side-on platformer that sets its level up slowly here: running right, jumping up the steps
   'ext-claybound': { wait: 40000, steps: [{ click: [152, 168], wait: 150000 }], crf: [43, 29], hold: ['d'], press: [['w', 1.3, 1.8], ['w', 2.9, 3.3], ['w', 4.3, 4.8]] },
   // King's Gambit: an AI-vs-AI duel, paused (its engines move on real-time timers, many a frame here), the camera
@@ -172,7 +191,7 @@ const SHOTS = {
   },
   // SynthCity: launched from its terminal in free roam, gliding over the neon city at night
   'aw-synthcity': {
-    wait: 20000,
+    crf: [46, 30], wait: 20000,
     setup: async () => {
       const go = document.getElementById('enterBtn');
       if (!go) return;
@@ -352,7 +371,7 @@ const SHOTS = {
     },
   },
   // Kaiju Dokan: the monster wading up a street of the sunset city, its tail toppling towers (a detailed city: smaller files at a higher crf)
-  'aw-kaiju-dokan': { crf: [56, 31], wait: 30000, steps: [{ click: [320, 154], wait: 10000 }], settle: 16, hold: ['w'], press: [['j', 1, 1.3], ['j', 2.5, 2.8], ['k', 3.8, 4.1]] },
+  'aw-kaiju-dokan': { crf: [63, 37], wait: 30000, steps: [{ click: [320, 154], wait: 10000 }], settle: 16, hold: ['w'], press: [['j', 1, 1.3], ['j', 2.5, 2.8], ['k', 3.8, 4.1]] },
   // Last Courier: the delivery robot walking up the moor, the camera in close and low, swinging gently round it and back
   'aw-last-courier': {
     wait: 40000, steps: [{ click: [92, 143], wait: 15000 }], settle: 8, hold: ['w'],
@@ -612,6 +631,7 @@ async function record(browser, id, shot) {
   const [outW, outH] = shot.size ?? (shot.crop ? [W * SCALE, H * SCALE] : [Math.round(W * (shot.scale ?? SCALE)), Math.round(H * (shot.scale ?? SCALE))]);
   try {
     await page.addInitScript(clock, { blank: !!shot.blank });
+    if (shot.init) await page.addInitScript(shot.init);
     // Orb's own worlds: the kit's host, with the world's files from Orb
     if (kit) await context.route(new RegExp(`/api/tree/${TREE}/`), async (route) => {
       const rest = new URL(route.request().url()).pathname.split(`/api/tree/${TREE}/`)[1] || 'index.html';
