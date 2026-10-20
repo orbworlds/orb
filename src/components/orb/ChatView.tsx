@@ -24,6 +24,7 @@ export function ChatView({
   onOpenKeys,
   onOpenWorld,
   onMakeLikeThis,
+  onMakeOwn,
   onRemix,
   onStartFrom,
 }: {
@@ -31,6 +32,8 @@ export function ChatView({
   onOpenKeys(): void;
   onOpenWorld(worldId: string, threadId: string): void;
   onMakeLikeThis(): void;
+  /** In a world on its maker's site: start a world of one's own from this text. */
+  onMakeOwn(text: string): void;
   /** Make the viewer's own copy of the world on screen, then build `request` there (if given). */
   onRemix(request?: string): void;
   /** Start a new world as a remix of this one. */
@@ -86,6 +89,10 @@ export function ChatView({
   const send = (text: string, where: 'chat' | 'suggestion' = 'chat') => {
     const t = text.trim();
     if (!t || isBuilding || confirming) return;
+    if (isExternal) {
+      setDraft('');
+      return onMakeOwn(t);
+    }
     trackPrompt(where, t);
     setDraft('');
     stick.current = true;
@@ -114,7 +121,7 @@ export function ChatView({
 
   const visitor = !!world && !canEdit;
   const forkable = !!world?.forkable && !isExternal;
-  const placeholder = !world ? 'Describe your world…' : isExternal ? 'Ask about this world…' : canEdit ? 'Describe a change…' : forkable ? 'Ask, or describe a change…' : 'Ask about this world…';
+  const placeholder = !world ? 'Describe your world…' : isExternal ? 'Describe your own world…' : canEdit ? 'Describe a change…' : forkable ? 'Ask, or describe a change…' : 'Ask about this world…';
 
   const lastIndex = messages.length - 1;
   const showIntro = !!intro && intro.chatKey === chatKey;
@@ -266,9 +273,7 @@ function EmptyState({
     return (
       <OrbLine
         text={
-          visitor
-            ? `You're visiting ${world.name} by ${world.authorName}. This one can't be changed — but ask me anything about it, or let's make your own world like it.`
-            : `${world.name} lives on its own site, so I can't change it here — but ask me anything about it, or let's make a new world like it.`
+          `${world.name} by ${world.authorName} runs on its maker's site, so I can't look inside it. Describe a world of your own and I'll make it.`
         }
         onPick={onPick}
       >

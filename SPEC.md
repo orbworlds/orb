@@ -37,7 +37,8 @@ If you change a contract, update this file in the same change.
   run inside a sandboxed iframe. `kind: 'native'`.
 - **External world**: a curated showcase entry that embeds an existing website by URL
   (e.g. Hikari Dream House). `kind: 'external'`. Not editable here; "Remix" links to its source
-  repository (if any) or starts a new world inspired by it.
+  repository (if any) or starts a new world inspired by it. Orb can't read its code, so what's
+  typed in its chat starts a new world of one's own from that text.
 - **Template**: a hand-crafted starter world — the blank island (`public/templates/blank.html`) and
   Orb Originals (Island, Blocks, Runner, Paint, Room…, `src/lib/templates.ts`), whose code is the
   Original's (`/api/worlds/orb-<id>`). Picking one loads it instantly (no AI call).

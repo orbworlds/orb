@@ -434,6 +434,24 @@ export default function Shell({
     void useWorld.getState().goStart({ prompt });
   }, []);
 
+  // In a world that runs on its maker's site (embedded), Orb can't see inside it: what the chat's
+  // composer says starts a world of one's own, built from it on the start canvas.
+  const newWorldFrom = useRef<string | null>(null);
+  const makeOwn = useCallback((text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    trackPrompt('chat', t);
+    newWorldFrom.current = t;
+    useUi.getState().setExplore(false);
+    void useWorld.getState().goStart({ chat: true });
+  }, []);
+  useEffect(() => {
+    const t = newWorldFrom.current;
+    if (!t || world || chatKey !== 'new' || status !== 'ready') return;
+    newWorldFrom.current = null;
+    void build.send(t);
+  });
+
   // "Make my own copy" in someone else's world: remix it, then (when they had asked for a change)
   // send that request again in the copy, once it's the world on screen and the chat is its chat.
   const afterRemix = useRef<{ worldId: string; text: string } | null>(null);
@@ -566,6 +584,7 @@ export default function Shell({
             onOpenKeys={openKeys}
             onOpenWorld={(id) => openWorld(id)}
             onMakeLikeThis={makeLikeThis}
+            onMakeOwn={makeOwn}
             onRemix={(request) => void remixWith(request)}
             onStartFrom={(id) => {
               useUi.getState().setHeroDone(true);
