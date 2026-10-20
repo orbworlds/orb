@@ -1,7 +1,7 @@
 // The orb runtime: one classic <script> injected as the first child of <head> of every native
 // world (SPEC §7). It runs inside the sandboxed, opaque-origin iframe before any world code and
-//   - shims localStorage / sessionStorage / document.cookie (the real ones throw there) and lets
-//     workers start from the world's own files,
+//   - shims localStorage / sessionStorage / document.cookie (the real ones throw there), lets
+//     workers start from the world's own files and history keep its state without an address,
 //   - forces preserveDrawingBuffer on WebGL contexts (so thumbnails can be captured),
 //   - reports runtime errors, failed resource loads and the first console.error calls,
 //   - posts 'ready' after load + 2 animation frames,
@@ -234,6 +234,19 @@ const RUNTIME_SOURCE = String.raw`
     Worker.prototype = Real.prototype;
     installGlobal('Worker', Worker);
   })();
+
+  /* history.replaceState / pushState with a URL throw in a srcdoc frame (its address can't change):
+     keep the state, leave the address. */
+  ['replaceState', 'pushState'].forEach(function (name) {
+    var real = W.history && W.history[name];
+    if (typeof real !== 'function') { return; }
+    W.history[name] = function (state, title) {
+      try { return real.apply(this, arguments); } catch (e) {
+        if (!e || e.name !== 'SecurityError') { throw e; }
+        return real.call(this, state, title);
+      }
+    };
+  });
 
   /* document.cookie throws in an opaque origin; keep a harmless in-memory jar instead. */
   (function () {

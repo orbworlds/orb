@@ -178,14 +178,16 @@ function depVersion(pkgJson: string | null | undefined, name: string): string | 
   try {
     const pkg = JSON.parse(pkgJson) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
     const raw = pkg.dependencies?.[name] || pkg.devDependencies?.[name] || '';
-    return String(raw).match(/(\d+\.\d+\.\d+)/)?.[1] ?? null;
+    // A range stays a range: "^1.9.9" may name a version that was never published (esm.sh takes ranges).
+    const m = String(raw).match(/([\^~]?)(\d+\.\d+\.\d+)/);
+    return m ? m[1] + m[2] : null;
   } catch {
     return null;
   }
 }
 
 function threeVersion(pkgJson: string | null | undefined): string {
-  return depVersion(pkgJson, 'three') ?? THREE_DEFAULT;
+  return depVersion(pkgJson, 'three')?.replace(/^[\^~]/, '') ?? THREE_DEFAULT;
 }
 
 /**
@@ -196,7 +198,10 @@ function importMapFor(names: readonly string[], pkgJson: string | null | undefin
   const cdn = threeCdn(threeVersion(pkgJson));
   const imports: Record<string, string> = {};
   for (const name of names) {
-    if (name === 'three') Object.assign(imports, { three: cdn.three, 'three/addons/': cdn.addons, 'three/examples/jsm/': cdn.addons });
+    if (name === 'three') {
+      const build = cdn.three.replace(/three\.module\.js$/, '');
+      Object.assign(imports, { three: cdn.three, 'three/webgpu': `${build}three.webgpu.js`, 'three/tsl': `${build}three.tsl.js`, 'three/addons/': cdn.addons, 'three/examples/jsm/': cdn.addons });
+    }
     else {
       const at = `https://esm.sh/${name}${depVersion(pkgJson, name) ? `@${depVersion(pkgJson, name)}` : ''}`;
       imports[name] = `${at}?external=three`;
@@ -222,7 +227,10 @@ function workerModules(raw: ReadonlyMap<string, Buffer>, root: string): Set<stri
   const todo: string[] = [];
   for (const [p, data] of raw) {
     if ((root && !p.startsWith(`${root}/`)) || !/\.m?js$/i.test(p)) continue;
-    for (const m of data.toString('utf8').matchAll(/new\s+(?:Shared)?Worker\(\s*new\s+URL\(\s*(["'])(\.{1,2}\/[^"'\n]+)\1\s*,\s*import\.meta\.url/g)) todo.push(join(dirOf(p), m[2]));
+    for (const m of data.toString('utf8').matchAll(/new\s+(?:Shared)?Worker\(\s*new\s+URL\(\s*(["'])(\.{1,2}\/[^"'\n]+)\1\s*,\s*import\.meta\.url|\bimport\s+[\w$]+\s+from\s*(["'])(\.{1,2}\/[^"'?\n]+)\?worker/g)) {
+      const w = join(dirOf(p), m[2] ?? m[4]);
+      todo.push(raw.has(w) ? w : w.replace(/ts$/, 'js')); // a .ts worker is served as .js
+    }
   }
   const seen = new Set<string>();
   while (todo.length) {
@@ -259,8 +267,16 @@ function byAddress(js: string, imports: Record<string, string>): string {
   });
 }
 
-/** Vite's `import.meta.glob('../world/*.js')` from the module at `path`: the matching files, keyed as written. */
-function globMap(patterns: string[], path: string, files: ReadonlySet<string>): string {
+/** url(/fonts/a.woff2) in a stylesheet meant the site's top: a file of the world's becomes relative to the sheet. */
+export function rewriteCssForOrb(css: string, path: string, files: ReadonlySet<string>): string {
+  const up = '../'.repeat(path.split('/').length - 1);
+  return css.replace(/url\(\s*(["']?)\/(?!\/)([^"')?#\s]+)([^"')]*)\1\s*\)/g, (all, q: string, p: string, rest: string) =>
+    files.has(p) ? `url(${q}${up}${p}${rest}${q})` : all,
+  );
+}
+
+/** Vite's `import.meta.glob('../world/*.js')` from the module at `path`: the matching files, as written. */
+function globFiles(patterns: string[], path: string, files: ReadonlySet<string>): string[] {
   const entries = new Map<string, string>();
   for (const pattern of patterns) {
     if (pattern.startsWith('!')) continue;
@@ -272,7 +288,7 @@ function globMap(patterns: string[], path: string, files: ReadonlySet<string>): 
     const re = new RegExp(`^${fixed ? `${fixed.replace(/[.+?^${}()|[\]\\]/g, '\\$&')}/` : ''}${rest}$`);
     for (const f of files) if (re.test(f)) entries.set(written + f.slice(fixed ? fixed.length + 1 : 0), '');
   }
-  return `({ ${[...entries.keys()].sort().map((k) => `${JSON.stringify(k)}: () => import(${JSON.stringify(k)})`).join(', ')} })`;
+  return [...entries.keys()].sort();
 }
 
 /**
@@ -284,6 +300,10 @@ function globMap(patterns: string[], path: string, files: ReadonlySet<string>): 
 export function rewriteModuleForOrb(js: string, at?: { path: string; files: ReadonlySet<string> }): string {
   if (at) {
     const here = dirOf(at.path);
+    // Vite's `import W from './w.js?worker'`: W makes a worker of that module.
+    js = js.replace(/\bimport\s+([\w$]+)\s+from\s*(["'])(\.{1,2}\/[^"'?\n]+)\?worker(?:&inline)?\2\s*;?/g, (_all, name: string, _q: string, file: string) =>
+      `const ${name} = function (o) { return new Worker(new URL(${JSON.stringify(file)}, import.meta.url), { type: 'module', ...o }); };`,
+    );
     // Bundlers find `./config` as config.js (or config/index.js, or a .ts served as .js): browsers need the file's name.
     js = js.replace(RELATIVE_IMPORTS, (all, q1: string | undefined, s1: string | undefined, q2: string | undefined, s2: string | undefined) => {
       const spec = (s1 ?? s2)!;
@@ -294,11 +314,32 @@ export function rewriteModuleForOrb(js: string, at?: { path: string; files: Read
       const fixed = ext === 'ts' ? spec.replace(/ts$/, 'js') : spec.replace(/\/$/, '') + ext;
       return all.replace(`${q1 ?? q2}${spec}${q1 ?? q2}`, `${q1 ?? q2}${fixed}${q1 ?? q2}`);
     });
-    // '/textures/bark.jpg' meant the site's top, which a world's files are not at: make it relative.
-    js = js.replace(/(["'])\/([\w@~-][^"'\s?#]*)\1/g, (all, q: string, p: string) => (at.files.has(p) ? `${q}${p}${q}` : all));
-    js = js.replace(/\bimport\.meta\.glob\(\s*(\[[^\]]*\]|(["'])[^"'\n]*\2)\s*\)/g, (_all, arg: string) =>
-      globMap([...arg.matchAll(/(["'])([^"'\n]+)\1/g)].map((m) => m[2]), at.path, at.files),
+    // './worker.ts' (new URL(…, import.meta.url)) is served as .js.
+    js = js.replace(/(["'])(\.{1,2}\/[^"'\s]+)\.(m?)ts\1/g, (all, q: string, p: string, m: string) =>
+      at.files.has(join(here, `${p}.${m}js`)) && !at.files.has(join(here, `${p}.${m}ts`)) ? `${q}${p}.${m}js${q}` : all,
     );
+    // '/textures/bark.jpg' (or '/assets/' + name) meant the site's top, which a world's files are
+    // not at: a file or a top folder of the world's becomes relative.
+    const tops = new Set([...at.files].filter((f) => f.includes('/')).map((f) => f.slice(0, f.indexOf('/') + 1)));
+    js = js.replace(/(["'`])\/([\w@~-][^"'`\s?#$]*)/g, (all, q: string, p: string) =>
+      at.files.has(p) || [...tops].some((t) => p.startsWith(t)) ? `${q}${p}` : all,
+    );
+    // import.meta.glob(patterns) → { file: () => import(file) }; with { eager: true }, the modules
+    // themselves (imported at the top), or one export of each ({ import: 'default' }).
+    const hoisted: string[] = [];
+    js = js.replace(/\bimport\.meta\.glob\(\s*(\[[^\]]*\]|(["'])[^"'\n]*\2)\s*(?:,\s*(\{[^}]*\})\s*)?\)/g, (_all, arg: string, _q: string, opts: string | undefined) => {
+      const list = globFiles([...arg.matchAll(/(["'])([^"'\n]+)\1/g)].map((m) => m[2]), at.path, at.files);
+      const eager = !!opts && /\beager\s*:\s*true\b/.test(opts);
+      const pick = opts ? /\bimport\s*:\s*(["'])([\w$]+)\1/.exec(opts)?.[2] : undefined;
+      const value = (k: string) => {
+        if (!eager) return pick ? `() => import(${JSON.stringify(k)}).then((m) => m[${JSON.stringify(pick)}])` : `() => import(${JSON.stringify(k)})`;
+        const name = `__orbGlob${hoisted.length}`;
+        hoisted.push(`import * as ${name} from ${JSON.stringify(k)};`);
+        return pick ? `${name}[${JSON.stringify(pick)}]` : name;
+      };
+      return `({ ${list.map((k) => `${JSON.stringify(k)}: ${value(k)}`).join(', ')} })`;
+    });
+    if (hoisted.length) js = `${hoisted.join(' ')}\n${js}`;
   }
   return js
     .replace(/(\bimport\s+[\w$\s{},*]+?\s+from\s*(["'])[^"'\n]+\.json\2)(?!\s*(?:with|assert)\b)/g, `$1 with { type: 'json' }`)
@@ -334,7 +375,15 @@ export function rewritePageForOrb(html: string, files: ReadonlySet<string>, pkgJ
       const imports = { ...(map.imports ?? {}) };
       let changed = false;
       for (const [key, value] of Object.entries(imports)) {
-        if (typeof value !== 'string' || !/node_modules\/three\//i.test(value)) continue;
+        if (typeof value !== 'string') continue;
+        // '/vendor/three.module.js' meant the site's top: relative, it follows the tree <base>.
+        const rel = value.replace(/^\/(?!\/)/, '');
+        if (rel !== value && (files.has(rel) || (rel.endsWith('/') && [...files].some((f) => f.startsWith(rel))))) {
+          imports[key] = `./${rel}`; // an import map's addresses start with / ./ ../ or a scheme
+          changed = true;
+          continue;
+        }
+        if (!/node_modules\/three\//i.test(value)) continue;
         if (key === 'three' || key.endsWith('/three')) imports[key] = cdn.three;
         else if (key.includes('addons')) imports[key] = cdn.addons;
         else continue;
@@ -350,6 +399,8 @@ export function rewritePageForOrb(html: string, files: ReadonlySet<string>, pkgJ
     const rel = path.replace(/^\.\//, '');
     return files.has(rel) ? `${attr}="${rel}"` : all;
   });
+  // A TypeScript entry (<script type="module" src="/src/main.ts">) is served as .js.
+  out = out.replace(/\bsrc=["'](?:\.?\/)?([^"':]+?)\.(m?)ts["']/gi, (all, path: string, m: string) => (files.has(`${path}.${m}js`) ? `src="${path}.${m}js"` : all));
   return out;
 }
 
@@ -451,6 +502,7 @@ export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | 
     const rel = root ? p.slice(root.length + 1) : p;
     let bytes: Buffer = data;
     if (pages.has(p)) bytes = Buffer.from(pages.get(p)!);
+    else if (/\.css$/i.test(rel)) bytes = Buffer.from(rewriteCssForOrb(data.toString('utf8'), rel, names));
     else if (/\.m?js$/i.test(rel)) {
       const js = rewriteModuleForOrb(data.toString('utf8'), { path: rel, files: names });
       bytes = Buffer.from(inWorkers.has(p) ? byAddress(js, imports) : js);

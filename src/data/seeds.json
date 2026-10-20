@@ -68,7 +68,7 @@
     "description": "Carve fresh powder down a vast snowy mountain in a breezy freeride ski run.",
     "kind": "external",
     "external_url": "https://nipale-ai.github.io/opus-5-5-overnight-builds/fall-line/",
-    "source_url": "https://github.com/Nipale-ai/opus-5-5-overnight-builds",
+    "source_url": "https://github.com/Nipale-ai/opus-5-5-overnight-builds/tree/main/fall-line",
     "author_name": "Nipale-ai",
     "tags": [
       "game"
@@ -82,7 +82,8 @@
       "author_url": "https://github.com/Nipale-ai",
       "prompt": "BRIEF: FREERIDE MOUNTAIN - LONG AUTONOMOUS BUILD\n\nYou are a senior game developer and technical artist, working alone and\nfully autonomously for a long session in this workspace. Nobody will answer\nquestions: make every decision yourself and write it down. This brief is a\nbenchmark. Your result will be shown on video side by side with other runs\nof exactly this brief, and a human will play it. The goal is the most\nimpressive game you are capable of building, not \"something that runs\nwithout errors\". Everything below is a floor, not a ceiling: wherever you\ncan go further, go further, and add whatever else makes it feel like the\nfull game. Never cut scope to play it safe.\n\n====================================================================\n1. THE MISSION\n====================================================================\nRecreate the gameplay of Ubisoft's Steep (2016) as a browser game, as\nfaithfully and as ultra-accurately as you can: one huge alpine mountain,\ndrop in wherever you want, ride any line on skis or on a snowboard, throw\ntricks off anything, and get judged on every run. Real physics, real snow,\nthe complete trick vocabulary and a deep scoring system. It must feel like\na shipped game from a professional studio, not a tech demo.\n\nIf you know the original, match its feel: how speed builds on the\nmountain, how carving and powder feel, how tricks are controlled, the\ncameras, the event and medal structure. Where your memory is unsure,\ndesign it yourself to the same sta",
       "made_with": "Claude Opus 5.5 (Claude Code, xhigh), three.js"
-    }
+    },
+    "native": {}
   },
   {
     "id": "aw-citymaker",
@@ -195,7 +196,8 @@
       "author_url": "https://cahlik.net/",
       "prompt": "Build a \"vibe driving\" javascript browser game - I drive around a tropical coastal city, beautiful sunset atmosphere, street lights/lamps hanging around. Map can be small - focus on quality. No oponents, just free roam. Car must be fast convertible. Graphics should be nice, slightly retro/pixelated.",
       "made_with": "Claude Opus 5.5 (Claude Code, medium effort)"
-    }
+    },
+    "native": {}
   },
   {
     "id": "aw-kaiju-dokan",
@@ -216,6 +218,9 @@
       "handle": "@tank__ai",
       "author_url": "https://x.com/tank__ai",
       "made_with": "Claude Opus 5.5 Max (Claude Code), three.js"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {
@@ -238,7 +243,8 @@
       "author_url": "https://x.com/danmana",
       "prompt": "I want you to build an incremental idle-clicker game at the level of the most recent HoYoverse (Genshin Impact, Honkai: Star Rail, Zenless Zone Zero) games.\nIt should be utterly perfect, visually beautiful, with every single thing done at AAA quality—from textures to physics to anything you could think of.\nThe theme is Sakura trees, collecting petals and cherry blossoms.\nThe art should be anime style, visually striking.\n\nFan out sub-agents and have sub-agents tackle each one individually so that the game is utterly perfect. You should /loop on each item and have a separate sub-agent check it visually to ensure it looks triple A. That separate sub-agent should be a really harsh critic, and if it doesn't look triple A, it should keep going.\n\nDon't stop until each sub-agent is utterly wowed with the quality when compared with the actual Genshin Impact game. It should literally compare them side by side blind and say which one looks better. Do this in ThreeJS. /loop until it's utterly perfect. Fan out sub-agents and ultracode.",
       "made_with": "Claude Opus 5 (Claude Code subagents), three.js"
-    }
+    },
+    "native": {}
   },
   {
     "id": "aw-lumenrift",
@@ -276,7 +282,8 @@
       "author_url": "https://github.com/KyleBuildsAI",
       "prompt": "Build a complete, self-contained browser game in a SINGLE index.html file. No build step, no external assets, libraries only via CDN importmap. Use three.js (latest) with WebGPURenderer and automatic WebGL fallback.\nTHE GAME: \"DRIFTWING\", an ambient infinite-flight exploration game. You pilot a low-poly glider over an endless procedural world. No fail state, no fuel, no enemies. The fantasy: a golden-hour flight that never has to end, with an AI copilot riding shotgun.\nFLIGHT MODEL (arcade with soul):\n- Mouse steers pitch and roll (WASD/arrows also work), scroll or W/S for throttle, space for a gentle boost on cooldown\n- Banking turns: rolling into a turn induces natural yaw; speed bleeds in climbs and builds in dives\n- Soft stall: below minimum speed the nose eases down, never a tumble\n- Chase cam with smooth lag that banks with the plane, FOV stretches with speed, subtle shake at max velocity\n- Touch support: virtual joystick plus throttle slider\n- Double-tap A or D triggers a smooth canned barrel roll\nINFINITE TERRAIN (the engineering core):\n- Chunked heightmap terrain from seeded simplex noise, multiple octaves, fully deterministic from a seed shown in the UI so worlds are shareable\n- Biomes blended by temperature/moisture noise: snow peaks, pine valleys, dunes, archipelago ocean, flower meadows; vertex-colored, flat-shaded low-poly\n- Chunk generation in a Web Worker with transferable buffers, ring LOD (high detail near, low far), pooled and recycled chunk meshes, zero fr",
       "made_with": "Claude Opus 5.5 (Claude Code), three.js r184 WebGPU"
-    }
+    },
+    "native": {}
   },
   {
     "id": "aw-mangoidiots-solitaire",
@@ -1043,6 +1050,9 @@
       "handle": "@petergostev",
       "author_url": "https://x.com/petergostev",
       "made_with": "GPT-6 Astra (Ultra), Blender, three.js"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {
@@ -1491,7 +1501,8 @@
       "handle": "@xikhar",
       "author_url": "https://x.com/xikhar",
       "made_with": "three.js, ImageGen"
-    }
+    },
+    "native": {}
   },
   {
     "id": "ext-verdant",
@@ -1513,7 +1524,8 @@
       "handle": "@xikhar",
       "author_url": "https://x.com/xikhar",
       "made_with": "three.js, Blender, imagegen"
-    }
+    },
+    "native": {}
   },
   {
     "id": "ext-beyond-fable",
@@ -1534,6 +1546,9 @@
       "stars": 32,
       "handle": "@xikhar",
       "author_url": "https://x.com/xikhar"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {
@@ -1621,6 +1636,9 @@
       "stars": 23,
       "handle": "@LexnLin",
       "author_url": "https://x.com/LexnLin"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {
@@ -1679,7 +1697,8 @@
       "handle": "@LexnLin",
       "author_url": "https://x.com/LexnLin",
       "made_with": "Claude Opus 5.5, three.js"
-    }
+    },
+    "native": {}
   },
   {
     "id": "aw-claude-of-duty",
@@ -1996,6 +2015,9 @@
       "handle": "jeffbeene",
       "author_url": "https://jeff-beene.com",
       "made_with": "three.js"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {
@@ -2018,6 +2040,9 @@
       "handle": "jason-c-dev",
       "author_url": "https://github.com/jason-c-dev",
       "made_with": "Claude Opus 5.5 (Claude Code), three.js, Rapier"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {
@@ -2370,6 +2395,9 @@
       "handle": "@21nemus",
       "author_url": "https://x.com/21nemus",
       "made_with": "three.js"
+    },
+    "native": {
+      "license": "MIT"
     }
   },
   {

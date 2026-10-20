@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 register('./resolve-hooks.mjs', import.meta.url);
 
-const { rewritePageForOrb, rewriteModuleForOrb, bareImports, stripTrackers } = await import('../../../server/importer.ts');
+const { rewritePageForOrb, rewriteModuleForOrb, rewriteCssForOrb, bareImports, stripTrackers } = await import('../../../server/importer.ts');
 
 const PAGE = `<!doctype html>
 <html><head>
@@ -64,7 +64,7 @@ test('packages imported by name: found in the code, mapped to esm.sh sharing thr
   assert.deepEqual(bareImports(js).sort(), ['@scope/pkg', 'lil-gui', 'n8ao', 'postprocessing', 'three']);
   const html = rewritePageForOrb('<html><head></head></html>', new Set(), JSON.stringify({ dependencies: { postprocessing: '^6.36.0' } }), { bare: ['three', 'postprocessing'] });
   const map = JSON.parse(/<script type="importmap">([^<]+)<\/script>/.exec(html)[1]).imports;
-  assert.equal(map.postprocessing, 'https://esm.sh/postprocessing@6.36.0?external=three');
+  assert.equal(map.postprocessing, 'https://esm.sh/postprocessing@^6.36.0?external=three');
   assert.match(map.three, /cdn\.jsdelivr\.net\/npm\/three@/);
 });
 
@@ -93,11 +93,40 @@ test('a module written for Vite: JSON imports and import.meta.glob run in the br
 test('a module written for a bundler: imports without a file name extension, and paths from the site’s top', () => {
   const files = new Set(['app/forest/engine.js', 'app/forest/config.js', 'app/forest/trees.js', 'app/forest/lib/index.js', 'textures/bark.jpg']);
   const js = rewriteModuleForOrb(
-    `import {A} from './config';\nimport {t} from './trees.js';\nimport * as L from './lib';\nexport {B} from './config.ts';\nconst m = await import('./config');\nimport x from './missing';\nload('/textures/bark.jpg'); load('/textures/none.jpg'); go('/');`,
+    `import {A} from './config';\nimport {t} from './trees.js';\nimport * as L from './lib';\nexport {B} from './config.ts';\nconst m = await import('./config');\nimport x from './missing';\nload('/textures/bark.jpg'); load('/elsewhere/none.jpg'); go('/'); glb('/textures/' + name); tpl(\`/textures/\${name}.jpg\`); new Worker(new URL('./config.ts', import.meta.url));`,
     { path: 'app/forest/engine.js', files },
   );
   assert.match(js, /from '\.\/config\.js';\nimport \{t\} from '\.\/trees\.js';\nimport \* as L from '\.\/lib\/index\.js';\nexport \{B\} from '\.\/config\.js';/);
   assert.match(js, /import\('\.\/config\.js'\)/);
   assert.match(js, /from '\.\/missing'/);
-  assert.match(js, /load\('textures\/bark\.jpg'\); load\('\/textures\/none\.jpg'\); go\('\/'\)/);
+  assert.match(js, /load\('textures\/bark\.jpg'\); load\('\/elsewhere\/none\.jpg'\); go\('\/'\); glb\('textures\/' \+ name\); tpl\(`textures\/\$\{name\}\.jpg`\)/);
+  assert.match(js, /new URL\('\.\/config\.js', import\.meta\.url\)/);
+});
+
+test('an import map of files at the site’s top becomes relative', () => {
+  const html = rewritePageForOrb(`<script type="importmap">{"imports":{"three":"/vendor/three.module.js","three/addons/":"/vendor/addons/","x":"/nope.js"}}</script>`, new Set(['vendor/three.module.js', 'vendor/addons/utils/a.js']));
+  assert.match(html, /"three":"\.\/vendor\/three\.module\.js","three\/addons\/":"\.\/vendor\/addons\/","x":"\/nope\.js"/);
+});
+
+test('eager import.meta.glob, a TypeScript entry and package ranges', () => {
+  const files = new Set(['src/main.js', 'src/modules/a.js', 'src/modules/b.js']);
+  const js = rewriteModuleForOrb(`const found = import.meta.glob('./modules/*.js', { eager: true });\nconst d = import.meta.glob('./modules/*.js', { import: 'default', eager: true });`, { path: 'src/main.js', files });
+  assert.match(js, /^import \* as __orbGlob0 from "\.\/modules\/a\.js"; import \* as __orbGlob1 from "\.\/modules\/b\.js"; import \* as __orbGlob2/);
+  assert.match(js, /const found = \(\{ "\.\/modules\/a\.js": __orbGlob0, "\.\/modules\/b\.js": __orbGlob1 \}\);/);
+  assert.match(js, /const d = \(\{ "\.\/modules\/a\.js": __orbGlob2\["default"\], "\.\/modules\/b\.js": __orbGlob3\["default"\] \}\);/);
+  const html = rewritePageForOrb('<script type="module" src="/src/main.ts"></script><script src="./other.ts"></script>', files, JSON.stringify({ dependencies: { n8ao: '^1.9.9', three: '^0.180.0' } }), { bare: ['three', 'n8ao'] });
+  assert.match(html, /src="src\/main\.js"/);
+  assert.match(html, /src="\.\/other\.ts"/);
+  assert.match(html, /esm\.sh\/n8ao@\^1\.9\.9\?external=three/);
+  assert.match(html, /three@0\.180\.0\/build/);
+});
+
+test('a Vite worker import', () => {
+  const js = rewriteModuleForOrb(`import TerrainWorker from './terrain.worker.js?worker&inline';\nconst w = new TerrainWorker();`, { path: 'src/a.js', files: new Set(['src/terrain.worker.js']) });
+  assert.match(js, /const TerrainWorker = function \(o\) \{ return new Worker\(new URL\("\.\/terrain\.worker\.js", import\.meta\.url\), \{ type: 'module', \.\.\.o \}\); \};/);
+});
+
+test('a stylesheet’s files from the site’s top', () => {
+  const css = rewriteCssForOrb(`@font-face { src: url('/fonts/a.woff2') format('woff2'), url(/fonts/b.woff?v=2); } x { background: url(/nope.png); }`, 'src/styles/main.css', new Set(['fonts/a.woff2', 'fonts/b.woff']));
+  assert.equal(css, `@font-face { src: url('../../fonts/a.woff2') format('woff2'), url(../../fonts/b.woff?v=2); } x { background: url(/nope.png); }`);
 });

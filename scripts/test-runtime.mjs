@@ -564,6 +564,10 @@ w2.onmessage = (e) => got.push(e.data);
   await frame.waitForFunction(() => window.got.length === 2, null, { timeout: 10_000 }).catch(() => {});
   const got = await frame.evaluate(() => window.got.slice().sort());
   check('a world’s workers start from its own files (module, with imports, and classic)', got[0] === 'classic 4' && got[1] === 'module 7', got);
+  const hist = await frame.evaluate(() => {
+    try { history.replaceState({ a: 1 }, '', '?level=2'); history.pushState({ b: 2 }, '', '#x'); return JSON.stringify(history.state); } catch (e) { return 'threw ' + e.name; }
+  });
+  check('history.replaceState / pushState with an address keep their state instead of throwing', hist === '{"b":2}', hist);
   await page.close();
 }
 
@@ -1502,7 +1506,7 @@ try {
   await section('world id changes', () => testWorldIdChange(context));
   await section('(b) error reporting', () => testErrors(context));
   await section('(c) capture', () => testCapture(context));
-  await section('(c1) workers', () => testWorkers(context));
+  await section('(c1) workers and history', () => testWorkers(context));
   await section('(c2) probe: play the world and look at it', () => testProbe(context));
   await section('(c3) probe on a phone-sized screen', () => testPhoneLook(browser));
   await section('(d) double-buffered swap', () => testSwap(context));
