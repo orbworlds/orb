@@ -19,8 +19,7 @@ If you change a contract, update this file in the same change.
 2. **Calm, luminous, minimal.** One always-present element: the **Orb** (a floating, draggable,
    iridescent sphere; on phones, past the start screen, it tucks half behind the screen's edge,
    clear of a world's own controls and Explore's tiles). Everything else (chat, explore, settings,
-   account) lives inside it; on a computer its panel docks beside the world, which shrinks to the rest
-   of the screen rather than playing under it. The one exception: as a world opens, "Explore" top-left goes back
+   account) lives inside it. The one exception: as a world opens, "Explore" top-left goes back
    to Explore in one click; after a few seconds it fades away, leaving the world the whole screen
    (the Orb's Explore tab and the browser's back go back from then on).
    No clutter, no chrome, no ads, no badges-everywhere. The world is the hero.

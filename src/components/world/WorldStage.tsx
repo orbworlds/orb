@@ -89,11 +89,7 @@ function useFirstPaint(): boolean {
   return painted;
 }
 
-/**
- * `beside`: the Orb's panel docked on that side (desktop), taking `px` of the screen: the world
- * shrinks to the rest instead of playing under it.
- */
-export function WorldStage({ onReady, onError, beside }: { onReady(): void; onError(e: WorldRuntimeError): void; beside?: { side: 'left' | 'right'; px: number } | null }) {
+export function WorldStage({ onReady, onError }: { onReady(): void; onError(e: WorldRuntimeError): void }) {
   const { previewCode, world, isExternal, frameId, me, frameReady, worldCaptured } = useWorld();
   const painted = useFirstPaint();
   const frame = useRef<WorldFrameHandle | null>(null);
@@ -149,11 +145,7 @@ export function WorldStage({ onReady, onError, beside }: { onReady(): void; onEr
   const html = isExternal ? null : withTree(previewCode ?? '', world?.tree);
 
   return (
-    <div
-      className="sky fixed inset-0 z-0 overflow-hidden"
-      style={beside ? { [beside.side]: `calc(var(--safe-${beside.side === 'left' ? 'l' : 'r'}) + ${beside.px}px)` } : undefined}
-      aria-label={worldName ? `World: ${worldName}` : 'World'}
-    >
+    <div className="sky fixed inset-0 z-0 overflow-hidden" aria-label={worldName ? `World: ${worldName}` : 'World'}>
       {opening === openingId && worldName && <Opening worldId={frameId} name={worldName} />}
       {painted && ctx && (html || externalUrl) && (
         <WorldFrame
