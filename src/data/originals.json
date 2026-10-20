@@ -25,7 +25,7 @@
         "survival",
         "minecraft-like"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-bedwars",
