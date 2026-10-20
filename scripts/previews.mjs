@@ -509,9 +509,19 @@ const SHOTS = {
       const vz = window.__vz;
       vz.start(true);
       while (vz.game.state !== 'play') await new Promise((r) => setTimeout(r, 300));
-      vz.auto = true;
       vz.skip(vz.CONFIG.graceSeconds + 20);   // past the grace: the vampires are out
-      await new Promise((r) => setTimeout(r, 15000));
+      // Walk a ring round the plaza's fire, where the survivors gather (left to the bots' own play,
+      // the player stood still by a stall or the fire): the camera, behind the player, turns with it.
+      const S = vz.SPAWN.survivor, cx = S.reduce((a, s) => a + s.x, 0) / S.length, cz = S.reduce((a, s) => a + s.z, 0) / S.length;
+      const steer = () => {
+        const P = vz.player, a = Math.atan2(P.z - cz, P.x - cx) + 0.5;
+        vz.cam.yaw = Math.atan2(P.x - (cx + 6.5 * Math.cos(a)), P.z - (cz + 6.5 * Math.sin(a)));
+        vz.input.stick.y = -1;
+      };
+      const walking = setInterval(steer, 50);
+      await new Promise((r) => setTimeout(r, 10000));
+      clearInterval(walking);
+      window.__shot = steer;
       for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
     },
   },
