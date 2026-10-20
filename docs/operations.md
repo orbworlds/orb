@@ -316,6 +316,41 @@ history and the pull requests: on every push to its `main`, [`public.yml`](../.g
 make the files one commit in the public repository, by the org's bot, with the change's title.
 `ORB_PUBLIC_REPO` names where it publishes.
 
+## Scouting new worlds
+
+A scheduled agent does this every day; anyone can do it by hand the same way. The bar is high:
+add only worlds people would love to step into, beautiful and finished, that play in a browser
+(no install, no sign-up, no ads, no tokens, no fan games of someone else's characters). Adding
+none on a quiet day is fine; five good ones beat twenty.
+
+1. **Scout** what was made and shared lately: X posts of three.js, WebGL and WebGPU worlds and
+   games (many say what AI made them), Hacker News "Show HN", r/threejs and r/webgl, and GitHub
+   repositories of browser games and worlds pushed this week. Skip what
+   [`src/data/seeds.json`](../src/data/seeds.json) already has (match the site and the repository)
+   and what [WORLD_WISHLIST.md](WORLD_WISHLIST.md) "Scouted for Explore" and "Embeds we would add"
+   already record as left out.
+2. **Prefer hosting.** A world whose code is on GitHub and runs without a build server is added
+   with `native` (its `license` when it has one, `{}` when it has none): Orb imports it and runs it
+   from its own copy, remixable, and it stays when its site goes away. Check it the way the
+   minute cron will: run Orb locally, `POST /api/admin/seeds` with `{ "again": ["<id>"] }`, and
+   open `/w/<id>` (most hosting fixes needed so far are in `src/server/importer.ts`). A world that
+   needs a React or webpack build, or is over 200 MB, is embedded by its address instead.
+3. **Check that it plays in Orb's frame**: `node scripts/check-embeds.mjs` for embedded ones, and
+   for every world a look at it inside Orb (`/w/<id>`): it draws, nothing important is cut off,
+   no errors that matter. Worlds the test machine's software GPU can't start (WebGPU) wait in the
+   wishlist for a check on a real GPU.
+4. **Add it** to `seeds.json` like the others: an `ext-` or `aw-` id, its name, one plain sentence
+   of Explore copy (what you do there, no hype), tags, `featured` near similar worlds, the maker's
+   name as they give it, and `origin` from the post that shared it (link, views, likes, date,
+   handle, what it was made with). A thumbnail from inside the world goes in
+   `public/seeds/<id>.webp` (1280 × 800, webp); a preview clip when it can be made well
+   (`scripts/previews.mjs` with a shot for it, or `scripts/previews-from-post.mjs` from the maker's
+   video), redeploying after.
+5. **Record the rest** in WORLD_WISHLIST.md "Scouted for Explore": what was found and why it is not
+   in (refuses a frame, needs a real GPU, not good enough), so tomorrow's scout doesn't look again.
+6. **Ship** as always (AGENTS.md): `npx tsc --noEmit`, `npm run lint`, `npm run test:engine`, push
+   to `main`, `npm run deploy`, then open each new world on orbworlds.com.
+
 ## Moving to a new domain
 
 Orb can move to a new address (say `https://orb.example`) and everyone keeps their account, worlds,
