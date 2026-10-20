@@ -75,8 +75,9 @@ const SHOTS = {
       window.__shot = () => window.__cap.frame();
     },
   },
-  // Backroad Rally drives itself with ?autopilot: the Finnish gravel stage at 90 km/h, through the forest
-  'aw-backroad-rally': { query: 'mode=quick&stage=finland&autopilot=90', wait: 150000, settle: 2 },
+  // Backroad Rally drives itself with ?autopilot: the Finnish gravel stage at 90 km/h, through the forest (past the
+  // meadow at its start: it drives in real time while it loads, and gets less far when drawn at 2×)
+  'aw-backroad-rally': { query: 'mode=quick&stage=finland&autopilot=90', wait: 150000, settle: 6, crf: [48, 32] },
   // Molazone: the rider in the desert, and the world turning beneath the wheels as it scrolls on to the next
   'ext-molazone': { viewport: [1024, 640], wait: 45000, steps: [{ click: [512, 573], wait: 20000 }], scroll: 200, crf: [46, 30] },
   // Odyssey: Enter sets sail and the wind carries the ship on (its autopilot's camera ends up in the rigging here)
@@ -350,7 +351,16 @@ const SHOTS = {
     },
   },
   // Nova Lancer: its mission intro runs in game time, so the clip starts after it, firing and weaving low over the sea
-  'aw-nova-lancer': { wait: 30000, steps: [{ key: 'Enter', wait: 10000 }], settle: 16, hold: ['Space'], press: [['ArrowLeft', 0.8, 1.8], ['ArrowRight', 2.8, 3.8]] },
+  'aw-nova-lancer': { crf: [48, 32], wait: 30000, steps: [{ key: 'Enter', wait: 10000 }], settle: 16, hold: ['Space'], press: [['ArrowLeft', 0.8, 1.8], ['ArrowRight', 2.8, 3.8]] },
+  // Villa Marea: its tour's opening shot, gliding in over the bay toward the villa at golden hour (T out of the tour and
+  // back in starts that shot again, just before the clock is taken over; `settle` is well into it, nearer the villa)
+  'ext-villa-marea': {
+    ready: () => document.getElementById('loader')?.classList.contains('done'), readyTimeout: 1800000, wait: 5000, settle: 6,
+    setup: () => {
+      if (!document.getElementById('loader')) return;
+      for (let k = 0; k < 2; k++) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT', key: 't' }));
+    },
+  },
   // Palmera Bay: cruising the coast boulevard at sunset, kept on the road as it bends (the game's own curve for it)
   'aw-palmera-bay': {
     wait: 30000, steps: [{ key: 'Enter', wait: 10000 }], settle: 3, hold: ['w'], crf: [55, 36],
@@ -387,7 +397,7 @@ const SHOTS = {
   'orb-foxfire': {
     // past its first 15 s, when it checks its frame rate and may switch quality (a switch empties the canvas); it runs
     // at 30 frames a second here, and its aurora's reflections and light refresh only every second (each refresh draws the sky six times)
-    ready: () => !!window.foxfire?.ctx?.controls && !!window.__SCENE_READY__, readyTimeout: 900000, wait: 20000, sub: 1,
+    ready: () => !!window.foxfire?.ctx?.controls && !!window.__SCENE_READY__, readyTimeout: 900000, wait: 20000, sub: 1, settle: 2, crf: [46, 31],
     setup: () => {
       const c = window.foxfire?.ctx?.controls;
       if (!c) return;
@@ -399,9 +409,9 @@ const SHOTS = {
       c.goToViewpoint('cabin', { instant: true });
       const a = [cam.position.clone(), look(cam.position)];
       for (const el of document.querySelectorAll('canvas')) if (el !== c.engine.renderer?.domElement && el !== cam.userData?.canvas && !el.__orbGL) el.remove();
-      // out and back over the clip's five seconds, so its end dissolves into the same glide at its start
+      // out and back over the clip's four seconds (SECONDS: this runs in the page), so its end dissolves into the same glide at its start
       window.__shot = (t) => {
-        const e = (1 - Math.cos((2 * Math.PI * t) / 5)) / 2;
+        const e = (1 - Math.cos((2 * Math.PI * t) / 4)) / 2;
         c.teleport(a[0].clone().lerp(b[0], e), a[1].clone().lerp(b[1], e));
       };
     },
@@ -685,7 +695,7 @@ async function record(browser, id, shot) {
     for (let i = 0; i < Math.round((shot.settle ?? 0.5) * FPS * sub); i++) await frames(page, (ms) => window.__orbClock?.step(ms), step);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), `${id}-frames-`));
     const n = QUICK ? 48 : Math.round((SECONDS + FADE) * FPS);
-    let down = false, last = null;
+    let down = false, last = null, lastMean = 0, dimRun = 0;
     for (let i = 0; i < n; i++) {
       await frames(page, (t) => window.__shot?.(t), i / FPS);
       if (shot.mouse) {
@@ -705,8 +715,9 @@ async function record(browser, id, shot) {
         await frames(page, () => window.__orbClock?.frame());
       }
       // every frame the same size (some worlds change their canvas's resolution as they go); a canvas caught empty
-      // (or black) is drawn again without the clock moving, or the frame before it kept
-      let frame = null;
+      // (or black) is drawn again without the clock moving, or the frame before it kept. So is one much darker than the
+      // frame before (a black block over part of it: some worlds draw one now and then); dark three frames running, it's a cut
+      let frame = null, dim = null, mean = 0;
       for (let tries = 0; tries < 4; tries++) {
         if (tries) await frames(page, () => window.__orbClock?.step(0));
         const pic = shot.screenshot ? await page.screenshot({ timeout: 300000, type: 'jpeg', quality: 92 }) : await capture(page);
@@ -718,12 +729,17 @@ async function record(browser, id, shot) {
         }
         frame = await img.resize(outW, outH, { fit: 'cover' }).jpeg({ quality: 92 }).toBuffer();
         const { channels } = await sharp(frame).stats();
-        if (!last || channels.slice(0, 3).some((c) => c.mean > 6)) break;
+        mean = (channels[0].mean + channels[1].mean + channels[2].mean) / 3;
+        if (!last || (channels.slice(0, 3).some((c) => c.mean > 6) && mean > lastMean / 2)) break;
+        if (channels.slice(0, 3).some((c) => c.mean > 6)) dim = [frame, mean];
         frame = null;
       }
-      frame ??= last;
+      dimRun = !frame && dim ? dimRun + 1 : 0;
+      if (!frame && dim && dimRun >= 3) [frame, mean] = dim;
+      if (!frame) [frame, mean] = [last, lastMean];
       if (!frame) throw new Error('no picture from the world');
       last = frame;
+      lastMean = mean;
       fs.writeFileSync(path.join(dir, `${String(QUICK ? i / 6 : i).padStart(4, '0')}.jpg`), frame);
     }
     return dir;
