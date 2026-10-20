@@ -103,6 +103,8 @@ export interface UseBuild {
   /** Builds still running for other worlds. */
   background: BackgroundBuild[];
   send(text: string): Promise<void>;
+  /** A request that failed (the newest answer is an error): ask it again, in its place. */
+  retry(messageId: string): Promise<void>;
   stop(): void;
   undo(messageId: string): Promise<void>;
   newThread(): void;
@@ -1184,6 +1186,18 @@ export class BuildEngine {
 
   // -- undo ---------------------------------------------------------------------------------------
 
+  retry = async (messageId: string): Promise<void> => {
+    if (this.job || this.sending) return;
+    const threadId = this.threadId;
+    const list = this.getMessages(threadId);
+    const i = list.findIndex((m) => m.id === messageId);
+    const asked = list[i - 1];
+    if (i !== list.length - 1 || list[i].build?.status !== 'error' || asked?.role !== 'user') return;
+    this.setMessages(threadId, list.slice(0, i - 1), 'now');
+    this.emit();
+    await this.send(asked.text);
+  };
+
   undo = async (messageId: string): Promise<void> => {
     const host = this.host;
     if (!host || this.job) return;
@@ -1234,6 +1248,7 @@ export function useBuild(host: BuildHost): UseBuild {
     () => ({
       ...snap,
       send: engine.send,
+      retry: engine.retry,
       stop: engine.stop,
       undo: engine.undo,
       newThread: engine.newThread,

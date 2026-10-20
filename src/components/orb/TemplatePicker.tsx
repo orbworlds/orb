@@ -55,7 +55,7 @@ export function TemplatePicker({
     </span>
   );
   return (
-    <div className={`scroll-none -mx-4 flex items-center gap-2 overflow-x-auto px-4 pt-1 pb-1.5 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 ${className}`} role="group" aria-label="Remix a world">
+    <div className={`scroll-none -mx-4 flex items-center gap-2 overflow-x-auto px-4 pt-1 pb-1.5 [mask-image:linear-gradient(90deg,#000_88%,transparent)] sm:mx-0 sm:[mask-image:none] sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 ${className}`} role="group" aria-label="Remix a world">
       <span aria-hidden="true" className="text-halo shrink-0 pr-0.5 text-[13px] text-ink-2">
         Or remix
       </span>

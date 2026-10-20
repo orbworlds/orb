@@ -34,6 +34,8 @@ export interface MessageViewProps {
   onOpenKeys(): void;
   /** Someone else's world: make their own copy and build what this answer couldn't change here. */
   onRemix?(): void;
+  /** This answer failed: ask the same again. */
+  onRetry?(): void;
 }
 
 export const MessageView = memo(function MessageView(props: MessageViewProps) {
@@ -50,7 +52,7 @@ export const MessageView = memo(function MessageView(props: MessageViewProps) {
   return <AssistantMessage {...props} />;
 });
 
-function AssistantMessage({ message, isLast, building, canUndo, retryAfter, onUndo, onSuggest, onOpenKeys, onRemix }: MessageViewProps) {
+function AssistantMessage({ message, isLast, building, canUndo, retryAfter, onUndo, onSuggest, onOpenKeys, onRemix, onRetry }: MessageViewProps) {
   const b = message.build;
   const streaming = b?.status === 'streaming';
   if (streaming) liveIds.add(message.id);
@@ -76,7 +78,7 @@ function AssistantMessage({ message, isLast, building, canUndo, retryAfter, onUn
             <Icon name="wand" size={13} /> Polishing a few things…
           </p>
         )}
-        {b && <Status build={b} isLast={isLast} retryAfter={retryAfter} onOpenKeys={onOpenKeys} />}
+        {b && <Status build={b} isLast={isLast} retryAfter={retryAfter} onOpenKeys={onOpenKeys} onRetry={isLast && !building ? onRetry : undefined} />}
         {b && <Footer build={b} id={message.id} canUndo={canUndo && !building} onUndo={onUndo} />}
         {isLast && !building && b?.status !== 'streaming' && b?.remix && onRemix && (
           <button
@@ -176,7 +178,7 @@ function Tick({ animate }: { animate: boolean }) {
 
 const KEY_HINT = /you → model|own (ai )?key/i;
 
-function Status({ build, isLast, retryAfter, onOpenKeys }: { build: BuildInfo; isLast: boolean; retryAfter: number | null; onOpenKeys(): void }) {
+function Status({ build, isLast, retryAfter, onOpenKeys, onRetry }: { build: BuildInfo; isLast: boolean; retryAfter: number | null; onOpenKeys(): void; onRetry?(): void }) {
   if (build.status === 'stopped') {
     return <p className="mt-2 text-[12.5px] text-ink-3">Stopped{build.steps.some((s) => s.status === 'done') ? ' — kept what was finished' : ''}.</p>;
   }
@@ -188,6 +190,11 @@ function Status({ build, isLast, retryAfter, onOpenKeys }: { build: BuildInfo; i
   return (
     <div className="mt-2.5 rounded-[14px] bg-[var(--warn-bg)] px-3.5 py-2.5 text-[13.5px] leading-[1.45] text-ink" role="status">
       <p>{message}</p>
+      {onRetry && !countdown && (
+        <button type="button" onClick={onRetry} className="mt-1.5 inline-flex h-7 items-center gap-1 text-[13px] font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-ink">
+          <Icon name="refresh" size={13} /> Try again
+        </button>
+      )}
       {(countdown || KEY_HINT.test(build.error)) && (
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
           {countdown && (

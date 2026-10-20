@@ -516,6 +516,7 @@ export default function Shell({
       <div aria-hidden className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #b9c6f2 0%, #e7d6ef 55%, #fde3cf 100%)' }} />
 
       <WorldStage
+        beside={panelDocked ? { side: ui.orb.side, px: PANEL_W + PANEL_GAP } : null}
         onReady={() => buildRef.current.reportReady()}
         onError={(e) => {
           buildRef.current.reportRuntimeError(e);

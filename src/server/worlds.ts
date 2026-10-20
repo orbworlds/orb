@@ -251,6 +251,7 @@ interface FullRow extends CardRow {
   owner_user: string | null;
   liked?: boolean;
   remixes?: number;
+  tree_size?: number | string | null;
 }
 
 /** Public remixes of `w` that their makers changed (an untouched copy isn't one yet). */
@@ -374,6 +375,7 @@ export function toFull(r: FullRow, viewerCanEdit: boolean, liked: boolean): Worl
     canEdit: viewerCanEdit,
     liked,
     remixes: Number(r.remixes) || 0,
+    size: card.kind === 'native' && r.tree_size != null ? Number(r.tree_size) || null : null,
   };
 }
 
@@ -383,6 +385,7 @@ export function toFull(r: FullRow, viewerCanEdit: boolean, liked: boolean): Worl
 async function loadFull(db: Db, id: string, deviceHash: string | null = null): Promise<FullRow | null> {
   const rows = await db.query<FullRow>(
     `select ${CARD_COLS}, w.code, w.tree, w.version, w.owner_device, w.owner_user,
+       (select t.size from orb_trees t where t.sha = w.tree) as tree_size,
        ($2::text is not null and exists (select 1 from orb_likes l where l.world_id = w.id and l.device_hash = $2::text)) as liked,
        (select count(*) from orb_worlds r where ${REMIXED})::int as remixes
      from ${CARD_FROM} where w.id = $1`,

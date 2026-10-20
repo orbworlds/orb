@@ -170,6 +170,7 @@ export function ChatView({
                 onSuggest={suggest}
                 onOpenKeys={onOpenKeys}
                 onRemix={visitor && forkable && i === lastIndex ? () => onRemix(messages[i - 1]?.role === 'user' ? messages[i - 1].text : undefined) : undefined}
+                onRetry={() => void build.retry(m.id)}
               />
             ))}
           </div>

@@ -2,17 +2,19 @@
 // The home page's invitation to make a world, at the top of Explore (the home page is Explore:
 // worlds to get inspired by, right under a composer to make your own).
 import { useUi } from '@/state/ui';
+import { OrbSphere } from './Orb';
 import { Composer } from './Composer';
 import { TemplatePicker } from './TemplatePicker';
 import { WorldStrip } from './WorldStrip';
 
+// Short enough to fit a phone's composer.
 const IDEAS = [
-  'a castle on a cloud with friendly dragons',
-  'a racing game on rainbow roads',
-  'an underwater city with glowing jellyfish',
-  'a cozy cabin in a snowy forest at night',
-  'a garden where flowers sing when you touch them',
-  'a tiny planet you can walk all the way around',
+  'a castle on a cloud with dragons',
+  'a race on rainbow roads',
+  'an underwater city of jellyfish',
+  'a cozy cabin on a snowy night',
+  'a garden where flowers sing',
+  'a tiny planet to walk around',
 ];
 
 export const HERO_COMPOSER_ID = 'orb-hero-composer';
@@ -43,11 +45,14 @@ export function HomeIntro({
   return (
     <section aria-label="Make a world" className="relative px-4 pt-[max(40px,calc(env(safe-area-inset-top)+28px))] pb-8 sm:px-6 sm:pt-[9vh] sm:pb-12">
       <div className="mx-auto w-full max-w-[760px]">
+        <p className="animate-rise font-display mb-3 flex items-center justify-center gap-2 text-[22px] leading-none text-ink sm:mb-4 sm:text-[26px]">
+          <OrbSphere size={26} glow={false} /> Orb
+        </p>
         <h1 className="font-display animate-rise text-center text-[40px] leading-[1.02] tracking-[-0.015em] text-ink sm:text-[64px]">
           Step into a <em className="italic">world</em>
         </h1>
-        <p className="animate-rise mx-auto mt-2 max-w-[460px] text-center text-[15px] leading-snug text-ink-2 [animation-delay:60ms] sm:mt-3 sm:max-w-[600px] sm:text-[17px]">
-          Play, remix, or describe your own & watch it come alive.
+        <p className="animate-rise mx-auto mt-2 max-w-[460px] text-center text-balance text-[15px] leading-snug text-ink-2 [animation-delay:60ms] sm:mt-3 sm:max-w-[600px] sm:text-[17px]">
+          Describe a game or a world and Orb’s AI builds it in moments. Or play and remix one below.
         </p>
         <div className="mx-auto mt-6 w-full max-w-[680px] sm:mt-8">
           <div className="animate-rise [animation-delay:120ms]">

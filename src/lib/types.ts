@@ -76,6 +76,8 @@ export interface WorldFull extends WorldCard {
    * index.html). Null for single-file worlds.
    */
   tree: string | null;
+  /** Bytes of the world's files (multi-file worlds), to say a big one takes a while to load. */
+  size?: number | null;
   thumbVersion: number;
   /** Whether the current viewer may edit this world. */
   canEdit: boolean;

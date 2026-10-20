@@ -21,5 +21,5 @@ export async function botCheck(): Promise<Response | null> {
     console.error('[orb] BotID check failed', e);
     return null;
   }
-  return bot ? error(403, 'bot_detected', "Orb couldn't tell that a person sent this and not a bot. Reload the page and try again.") : null;
+  return bot ? error(403, 'bot_detected', "Orb couldn't tell that a person sent this and not a bot. Try again in a moment.") : null;
 }

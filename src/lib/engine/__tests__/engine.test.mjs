@@ -350,6 +350,22 @@ describe('BuildEngine — stop, errors, undo', () => {
     assert.equal(local.loadChatMessages(snap.threadId)[0].text, 'build a castle');
   });
 
+  test('retry: a failed request is asked again in its place', async () => {
+    const run = jobs([new BuildError('bot_detected', "Orb couldn't tell that a person sent this."), saves('A castle!', 2)]);
+    const e = engineWith(run);
+    e.setHost(makeHost().host);
+    await e.send('build a castle');
+    const failed = lastAssistant(e);
+    assert.equal(failed.build.status, 'error');
+    await e.retry(failed.id);
+    const msgs = e.getSnapshot().messages;
+    assert.deepEqual(msgs.map((m) => m.role), ['user', 'assistant']);
+    assert.equal(msgs[0].text, 'build a castle');
+    assert.notEqual(msgs[1].build.status, 'error');
+    assert.equal(run.requests.length, 2);
+    assert.equal(run.requests[1].messages.length, 1); // the failed exchange isn't history
+  });
+
   test('ai_unavailable suggests adding a key', async () => {
     const run = jobs([new BuildError('ai_unavailable', 'customer_verification_required')]);
     const e = engineWith(run);

@@ -19,11 +19,12 @@ If you change a contract, update this file in the same change.
 2. **Calm, luminous, minimal.** One always-present element: the **Orb** (a floating, draggable,
    iridescent sphere; on phones, past the start screen, it tucks half behind the screen's edge,
    clear of a world's own controls and Explore's tiles). Everything else (chat, explore, settings,
-   account) lives inside it. The one exception: as a world opens, "Explore" top-left goes back
+   account) lives inside it; on a computer its panel docks beside the world, which shrinks to the rest
+   of the screen rather than playing under it. The one exception: as a world opens, "Explore" top-left goes back
    to Explore in one click; after a few seconds it fades away, leaving the world the whole screen
    (the Orb's Explore tab and the browser's back go back from then on).
    No clutter, no chrome, no ads, no badges-everywhere. The world is the hero.
-3. **Live.** Users see their instructions executed: narration streams, each build step lands in
+3. **Live.** Users see their instructions executed (a request that fails can be tried again, in its place): narration streams, each build step lands in
    the world as it completes (cross-faded, no flashes).
 4. **Forgiving.** Every build is a version: one tap undo. Runtime errors are auto-fixed once.
 5. **Open by default.** Public worlds are remixable (forkable) unless the owner turns it off.
@@ -56,8 +57,8 @@ If you change a contract, update this file in the same change.
 - **Chat**: per-world conversations stored locally (localStorage). A new chat starts per world;
   a dropdown switches between chats.
 - **Home** (`/`) is Explore under an invitation to make a world (the start world shows through a
-  light veil behind it; the frosted backdrop comes in as the worlds scroll up): the headline ("Step into a
-  world"), the big composer and under it "Or remix": two of Orb's worlds to remix (Orbcraft, Foxfire
+  light veil behind it; the frosted backdrop comes in as the worlds scroll up): Orb's name and the headline ("Step into a
+  world": describe a game or a world and Orb's AI builds it), the big composer and under it "Or remix": two of Orb's worlds to remix (Orbcraft, Foxfire
   Fjord: picking one remixes it), three templates (Star Runner, Glow Paint, Dream Room), each a
   different kind of start, and **More to remix** (Explore on Remix), then (for people
   who have some) a row of their friends' worlds and their own, then Explore's header and worlds,
@@ -549,7 +550,7 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `PATCH /api/me` | `{ name }` | `MeResponse` |
 | `GET /api/worlds` | `?sort=trending\|featured\|popular\|played\|liked\|views\|new&q=&tag=&verified=1&limit=&cursor=&mine=1` (tag matches tags, kind, or a category (above); `remixable=1`: only Orb worlds anyone may remix; `mine` includes private + untitled) | `{ worlds: WorldCard[], nextCursor?: string }` |
 | `POST /api/worlds` | `CreateWorldInput` | `{ world: WorldFull }` |
-| `GET /api/worlds/:id` | | `{ world: WorldFull }` (404 if private & not owner; `remixes`: its changed public remixes) |
+| `GET /api/worlds/:id` | | `{ world: WorldFull }` (404 if private & not owner; `remixes`: its changed public remixes; `size`: bytes of its files, for a multi-file world: over 25 MB, the world says while it opens that it can take a minute, its preview playing behind its name) |
 | `GET /api/worlds/:id/remixes` | | `{ worlds: WorldCard[] }`: its public remixes their makers changed (version > 1), newest first, ≤ 24 |
 | `PATCH /api/worlds/:id` | `UpdateWorldInput` | `{ world: WorldFull }` (owner only) |
 | `DELETE /api/worlds/:id` | | `{ ok: true }` |
