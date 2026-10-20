@@ -3,7 +3,7 @@
   "site": "https://orbworlds.com",
   "license": "MIT",
   "profile": {
-    "public": false
+    "public": true
   },
   "worlds": [
     {
@@ -46,7 +46,7 @@
         "voxel",
         "minecraft-like"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-wildbrush",
@@ -67,7 +67,7 @@
         "painting",
         "rapier"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-foxfire",
@@ -88,7 +88,7 @@
         "exploration",
         "cozy"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-vampirez",
@@ -109,7 +109,7 @@
         "survival",
         "voxel"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-lanterns",
@@ -129,7 +129,7 @@
         "shared",
         "lanterns"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-garden",
@@ -149,7 +149,7 @@
         "shared",
         "garden"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-hangout",
@@ -169,7 +169,7 @@
         "presence",
         "starter"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-island",
@@ -189,7 +189,7 @@
         "cozy",
         "starter"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-blocks",
@@ -209,7 +209,7 @@
         "sandbox",
         "building"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-runner",
@@ -229,7 +229,7 @@
         "arcade",
         "leaderboard"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-paint",
@@ -250,7 +250,7 @@
         "painting",
         "creative"
       ],
-      "public": false
+      "public": true
     },
     {
       "id": "orb-room",
@@ -270,7 +270,7 @@
         "cozy",
         "creative"
       ],
-      "public": false
+      "public": true
     }
   ]
 }
