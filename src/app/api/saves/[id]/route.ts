@@ -3,12 +3,12 @@
 // 0 for none). PUT /api/saves/:worldId { data, at } — keep this copy, unless the account's is newer.
 
 import { getViewer } from '@/server/auth';
-import { json, readJson } from '@/server/http';
+import { fail, handle, json, readJson } from '@/server/http';
 import { cleanSave, getSave, MAX_SAVE_CHARS, putSave } from '@/server/saves';
 import { ready } from '@/server/schema';
-import { fail, limitOrThrow, route, sessionUser, worldIdParam, type IdContext } from '@/server/worlds';
+import { limitOrThrow, sessionUser, worldIdParam, type IdContext } from '@/server/worlds';
 
-export const GET = route(async (req: Request, ctx: IdContext) => {
+export const GET = handle(async (req: Request, ctx: IdContext) => {
   const viewer = getViewer(req);
   if (!viewer.userId) fail(401, 'account_required', 'Sign in to keep your progress on every device.');
   const id = await worldIdParam(ctx);
@@ -18,7 +18,7 @@ export const GET = route(async (req: Request, ctx: IdContext) => {
   return new Response(null, { status: 204, headers: { 'x-orb-save-at': String(save?.at ?? 0), 'cache-control': 'no-store' } });
 });
 
-export const PUT = route(async (req: Request, ctx: IdContext) => {
+export const PUT = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const body = await readJson<{ data?: unknown; at?: unknown }>(req, MAX_SAVE_CHARS + 10_000);
   const data = cleanSave(body?.data);

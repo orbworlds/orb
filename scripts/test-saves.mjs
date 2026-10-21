@@ -7,40 +7,17 @@
 //
 // Starts `next dev` on :3107 (ORB_TEST_PORT) with the mock AI and a fresh database
 // (.data/pglite-saves). Exit code 0 = all checks passed.
-import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { launch } from './pw.mjs';
+import { launch } from '../kit/lib/browser.mjs';
+import { check, client, device, finish, root, startNext, stopNext } from './harness.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = process.env.ORB_TEST_PORT || '3107';
 const BASE = `http://localhost:${PORT}`;
 const DATA_DIR = '.data/pglite-saves';
-
-const results = [];
-function check(name, ok, detail) {
-  results.push(!!ok);
-  console.log(`  ${ok ? '✓' : '✗'} ${name}${ok || detail === undefined ? '' : ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`}`);
-}
-const device = (label) => `test-${label}-${crypto.randomBytes(8).toString('hex')}`;
+const { request } = client(BASE);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-async function request(method, urlPath, { dev, body, cookie } = {}) {
-  const res = await fetch(BASE + urlPath, {
-    method,
-    headers: { ...(dev ? { 'x-orb-device': dev } : {}), ...(body ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}) },
-    body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(60_000),
-  });
-  const text = await res.text();
-  let json = null;
-  try {
-    json = JSON.parse(text);
-  } catch {}
-  return { status: res.status, json, headers: res.headers, cookie: /orb_session=[^;]+/.exec(res.headers.get('set-cookie') || '')?.[0] ?? null };
-}
 
 /** A world that is a game with one save: each start is the next level. */
 const GAME = `<!doctype html><html><head><title>Level up</title></head><body><h1 id="lvl">…</h1><script>
@@ -49,36 +26,9 @@ localStorage.setItem('level', String(n));
 document.getElementById('lvl').textContent = 'level ' + n;
 </script></body></html>`;
 
-async function startServer() {
-  fs.rmSync(path.join(root, DATA_DIR), { recursive: true, force: true });
-  const env = { ...process.env, ORB_MOCK_AI: '1', ORB_PGLITE_DIR: DATA_DIR, ORB_SECRET: 'orb-test-secret', NEXT_TELEMETRY_DISABLED: '1' };
-  for (const k of ['POSTGRES_URL', 'DATABASE_URL']) delete env[k];
-  console.log(`Starting next dev on :${PORT} (PGlite: ${DATA_DIR}) …`);
-  const child = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '-p', PORT], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
-  let log = '';
-  child.stdout.on('data', (d) => (log += d));
-  child.stderr.on('data', (d) => (log += d));
-  const deadline = Date.now() + 180_000;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`next dev exited early:\n${log.slice(-2000)}`);
-    try {
-      if ((await fetch(`${BASE}/api/config`, { signal: AbortSignal.timeout(90_000) })).ok) return { child, log: () => log };
-    } catch {}
-    await sleep(1000);
-  }
-  throw new Error(`next dev did not become ready:\n${log.slice(-2000)}`);
-}
-
-async function stopServer({ child }) {
-  if (child.exitCode !== null || child.signalCode !== null) return;
-  const exited = new Promise((resolve) => child.once('exit', resolve));
-  try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {}
-  await Promise.race([exited, sleep(15_000)]);
-}
-
-const server = await startServer();
+fs.rmSync(path.join(root, DATA_DIR), { recursive: true, force: true });
+console.log(`Starting next dev on :${PORT} (PGlite: ${DATA_DIR}) …`);
+const server = await startNext({ port: PORT, env: { ORB_MOCK_AI: '1', ORB_PGLITE_DIR: DATA_DIR, ORB_SECRET: 'orb-test-secret' } });
 const browser = await launch();
 
 /** A browser on a device (its own device key), signed in with `cookie` if given. */
@@ -169,10 +119,7 @@ try {
   check('unexpected exception', false, e?.stack?.split('\n').slice(0, 4).join(' | ') ?? String(e));
 } finally {
   await browser.close();
-  await stopServer(server);
+  await stopNext(server);
 }
 
-const failed = results.filter((ok) => !ok).length;
-console.log(`\n${results.length - failed}/${results.length} checks passed`);
-if (failed) console.log(server.log().slice(-3000));
-process.exit(failed ? 1 : 0);
+finish({ onFail: () => console.log(server.log().slice(-3000)) });

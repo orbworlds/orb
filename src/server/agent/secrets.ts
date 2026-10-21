@@ -2,8 +2,8 @@
 // browser needs the person's key on the server, so it is kept encrypted (AES-256-GCM, key derived
 // from ORB_SECRET) in the job row only while the job runs, and wiped when it ends.
 
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { secret } from '../auth';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
+import { sameString, secret } from '../auth';
 
 const key = () => createHash('sha256').update(`orb-agent-key:${secret()}`).digest();
 
@@ -26,14 +26,14 @@ export function openKey(sealed: string | null | undefined): string | null {
   }
 }
 
-/** Token that lets Orb's own tick requests run a job (an outsider can't drive the runner). */
-export function tickToken(id: string): string {
-  return createHmac('sha256', secret()).update(`orb-agent-tick:${id}`).digest('base64url');
+/**
+ * A job's tokens: 'tick' lets Orb's own tick requests run it (an outsider can't drive the runner),
+ * 'files' is its files link for a Cursor agent (./sync.ts).
+ */
+export function jobToken(purpose: 'tick' | 'files', id: string): string {
+  return createHmac('sha256', secret()).update(`orb-agent-${purpose}:${id}`).digest('base64url');
 }
 
-export function checkTickToken(id: string, token: string | null): boolean {
-  if (!token) return false;
-  const a = Buffer.from(tickToken(id));
-  const b = Buffer.from(token);
-  return a.length === b.length && timingSafeEqual(a, b);
+export function checkJobToken(purpose: 'tick' | 'files', id: string, token: string | null): boolean {
+  return !!token && sameString(jobToken(purpose, id), token);
 }

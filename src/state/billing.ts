@@ -8,7 +8,7 @@ import { track } from '@/lib/analytics';
 import { api, ApiError } from '@/lib/api';
 import type { BillingInfo } from '@/lib/types';
 import { useSession } from '@/components/orb/AccountCard';
-import { toast } from './toast';
+import { apiMessage, toast } from './toast';
 import { useUi } from './ui';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
@@ -20,8 +20,6 @@ interface BillingState {
   going: string | null;
   /** Fetch the plan and credits (deduped; `force` fetches again). */
   load(force?: boolean): Promise<BillingInfo | null>;
-  /** A build used credits: show them gone until the next load. */
-  spent(credits: number): void;
   /** Go to Stripe's checkout for Pro or a credit pack. */
   checkout(item: string, where: string): Promise<void>;
   /** Go to Stripe's portal (cancel Pro, card, invoices). */
@@ -63,18 +61,6 @@ export const useBilling = create<BillingState>((set, get) => ({
     pending = p;
     return p;
   },
-  spent(credits) {
-    const info = get().info;
-    if (!info || !(credits > 0)) return;
-    const fromPlan = Math.min(credits, Math.max(0, info.credits.monthly - info.credits.used));
-    const fromBonus = Math.min(credits - fromPlan, Math.max(0, info.credits.bonus ?? 0));
-    set({
-      info: {
-        ...info,
-        credits: { ...info.credits, left: info.credits.left - credits, used: info.credits.used + fromPlan, bonus: info.credits.bonus - fromBonus, topup: info.credits.topup - (credits - fromPlan - fromBonus) },
-      },
-    });
-  },
   async checkout(item, where) {
     if (get().going) return;
     set({ going: item });
@@ -90,45 +76,21 @@ export const useBilling = create<BillingState>((set, get) => ({
         toast('Create your free account first — then go Pro.');
         return;
       }
-      toast(e instanceof ApiError && e.status < 500 ? e.message : 'Couldn’t open the checkout. Try again in a moment.', 'error');
+      toast(apiMessage(e, 'Couldn’t open the checkout. Try again in a moment.'), 'error');
       if (e instanceof ApiError && e.status === 409) void get().load(true);
     }
   },
-  async portal() {
-    if (get().going) return;
-    set({ going: 'portal' });
-    track('billing_portal');
-    try {
-      const { url } = await api.portal(here());
-      window.location.assign(url);
-    } catch (e) {
-      set({ going: null });
-      toast(e instanceof ApiError && e.status < 500 ? e.message : 'Couldn’t open your billing. Try again in a moment.', 'error');
-    }
-  },
-  async payoutSetup(country) {
-    if (get().going) return;
-    set({ going: 'payout-setup' });
-    track('payout_setup', { country });
-    try {
-      const { url } = await api.payoutSetup(country, here());
-      window.location.assign(url);
-    } catch (e) {
-      set({ going: null });
-      toast(e instanceof ApiError && e.status < 500 ? e.message : 'Couldn’t open Stripe. Try again in a moment.', 'error');
-    }
-  },
-  async payoutDashboard() {
-    if (get().going) return;
-    set({ going: 'payout-dashboard' });
-    try {
-      const { url } = await api.payoutDashboard(here());
-      window.location.assign(url);
-    } catch (e) {
-      set({ going: null });
-      toast(e instanceof ApiError && e.status < 500 ? e.message : 'Couldn’t open your payouts. Try again in a moment.', 'error');
-    }
-  },
+  portal: () =>
+    toStripe('portal', 'Couldn’t open your billing. Try again in a moment.', () => {
+      track('billing_portal');
+      return api.portal(here());
+    }),
+  payoutSetup: (country) =>
+    toStripe('payout-setup', 'Couldn’t open Stripe. Try again in a moment.', () => {
+      track('payout_setup', { country });
+      return api.payoutSetup(country, here());
+    }),
+  payoutDashboard: () => toStripe('payout-dashboard', 'Couldn’t open your payouts. Try again in a moment.', () => api.payoutDashboard(here())),
   async cashOut() {
     if (get().going) return;
     set({ going: 'payout' });
@@ -161,10 +123,22 @@ export const useBilling = create<BillingState>((set, get) => ({
       toast(`${formatCredits(before)} credits are yours to build with ✨`, 'success');
     } catch (e) {
       set({ going: null });
-      toast(e instanceof ApiError && e.status < 500 ? e.message : 'Couldn’t do that just now. Try again in a moment.', 'error');
+      toast(apiMessage(e, 'Couldn’t do that just now. Try again in a moment.'), 'error');
     }
   },
 }));
+
+/** Off to a Stripe page (`going` names it): once at a time; if it can't open, say why and stay. */
+async function toStripe(going: string, fallback: string, open: () => Promise<{ url: string }>): Promise<void> {
+  if (useBilling.getState().going) return;
+  useBilling.setState({ going });
+  try {
+    window.location.assign((await open()).url);
+  } catch (e) {
+    useBilling.setState({ going: null });
+    toast(apiMessage(e, fallback), 'error');
+  }
+}
 
 /** An amount of a currency: "€56.00". */
 export function money(amount: number, currency: string): string {

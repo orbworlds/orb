@@ -2,12 +2,12 @@
 // worlds as them (this device, and their account if signed in). See src/server/kit.ts.
 
 import { getViewer } from '@/server/auth';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, fail, handle, json, readJson } from '@/server/http';
 import { approveLogin } from '@/server/kit';
 import { ready } from '@/server/schema';
-import { actorKey, fail, limitOrThrow, route } from '@/server/worlds';
+import { actorKey, limitOrThrow } from '@/server/worlds';
 
-export const POST = route(async (req: Request) => {
+export const POST = handle(async (req: Request) => {
   const body = await readJson<{ code?: unknown }>(req, 1000);
   if (typeof body?.code !== 'string') fail(400, 'bad_request', 'Expected { code }.');
   const viewer = getViewer(req);

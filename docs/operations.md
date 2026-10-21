@@ -396,7 +396,6 @@ The passkey prompt names `orbworld.vercel.app` everywhere, since that's where th
 
 ## Scripts
 
-`node scripts/gen-template-cards.mjs` regenerates the small start-screen card thumbnails after changing a template thumbnail.
 `node scripts/thumb-vampirez.mjs` renders VampireZ's thumbnail (Orb's picture of it, `public/templates/vampirez.webp`) in the game itself, as Orb plays it now or from a checkout (`--game <index.html>`) (the Count on a rooftop in
 Hollowmere under a blood moon, staged through the game's `?debug` hooks, with the game's title in its own font)
 after changing how Hollowmere, its vampires or its logo look; `node scripts/thumb-bedwars.mjs` does the same for

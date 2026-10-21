@@ -11,59 +11,35 @@
 // (.data/pglite-billing), the free builder on Orb's Cursor key and small plans (guests 24 credits,
 // Free 20, Pro 60), so a few builds use them up. Then once more with a free builder budget that
 // one build spends, to see Pro go on. Exit code 0 = all checks passed.
-import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { startFake } from './fake-cursor-github.mjs';
 import { startFakeStripe } from './fake-stripe.mjs';
+import { check, client, device, finish, newest, root, startNext, stopNext } from './harness.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = process.env.ORB_TEST_PORT || '3105';
 const BASE = `http://localhost:${PORT}`;
 const WEBHOOK = `${BASE}/api/billing/webhook`;
 const ADMIN_TOKEN = 'orb-test-admin';
 const DATA_DIR = '.data/pglite-billing';
 
-const results = [];
-function check(name, ok, detail) {
-  results.push(!!ok);
-  console.log(`  ${ok ? '✓' : '✗'} ${name}${ok || detail === undefined ? '' : ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`}`);
-}
+const { request, build, newWorld } = client(BASE);
 const near = (a, b, eps = 0.02) => typeof a === 'number' && Math.abs(a - b) <= eps;
 
-const device = (label) => `test-${label}-${crypto.randomBytes(8).toString('hex')}`;
-
-async function request(method, urlPath, { dev, body, cookie, headers: extra, raw } = {}) {
-  const headers = { ...(dev ? { 'x-orb-device': dev } : {}), ...(body && !raw ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...extra };
-  const res = await fetch(BASE + urlPath, { method, headers, body: raw ?? (body ? JSON.stringify(body) : undefined), redirect: 'manual', signal: AbortSignal.timeout(120_000) });
-  const text = await res.text();
-  let json = null;
-  try {
-    json = JSON.parse(text);
-  } catch {}
-  return { status: res.status, text, json, headers: res.headers, cookie: /orb_session=[^;]+/.exec(res.headers.get('set-cookie') || '')?.[0] ?? null };
-}
-
-const BLANK = '<!doctype html><html><head><title>world</title></head><body>hi</body></html>';
-const newWorld = async (dev, cookie) => (await request('POST', '/api/worlds', { dev, cookie, body: { name: 'Untitled world', code: BLANK } })).json.world;
-const build = (dev, worldId, content, opts = {}) => request('POST', '/api/agent/jobs', { dev, ...opts, body: { worldId, messages: [{ role: 'user', content }], mode: 'build', code: '' } });
 const billing = async (dev, cookie) => (await request('GET', '/api/billing', { dev, cookie })).json;
 /** What a build used in all: its last credits frame (the ones before say what it used so far). */
 const usedBy = (r) => Number([...r.text.matchAll(/"t":"credits","used":([\d.]+)/g)].at(-1)?.[1] ?? NaN);
-const newest = (fake) => [...fake.agents.values()].at(-1);
 const signUp = async (dev) => {
   const username = `maker-${crypto.randomBytes(3).toString('hex')}`;
   const r = await request('POST', '/api/auth/signup', { dev, body: { username, password: 'correct horse battery' } });
   return { cookie: r.cookie, id: r.json?.user?.id, username };
 };
 
-async function startServer(extraEnv = {}) {
+function startServer(extraEnv = {}) {
   fs.rmSync(path.join(root, DATA_DIR), { recursive: true, force: true });
-  const env = { ...process.env };
-  for (const k of ['ORB_MOCK_AI', 'ANTHROPIC_API_KEY', 'AI_GATEWAY_API_KEY', 'POSTGRES_URL', 'DATABASE_URL', 'CURSOR_API_KEY', 'ORB_BOTID_TEST', 'STRIPE_WEBHOOK_SECRET', 'ORB_FREE_DAILY_USD', 'ORB_FREE_DAILY_USD_ANON', 'ORB_TOPUPS']) delete env[k];
-  Object.assign(env, {
+  console.log(`Starting next dev on :${PORT} (PGlite: ${DATA_DIR}${extraEnv.ORB_FREE_DAILY_USD ? `, $${extraEnv.ORB_FREE_DAILY_USD} a day` : ''}) …`);
+  const env = {
     ORB_CURSOR_KEY: 'crsr_test_billing',
     ORB_CURSOR_API: `http://localhost:${fakeCursor.port}`,
     STRIPE_SECRET_KEY: 'sk_test_orb',
@@ -80,32 +56,9 @@ async function startServer(extraEnv = {}) {
     ORB_PAYOUT_BUYERS: '2',
     ORB_PAYOUT_SETTLE_S: '1',
     ORB_USD_PER_EUR: '1.25',
-    NEXT_TELEMETRY_DISABLED: '1',
     ...extraEnv,
-  });
-  console.log(`Starting next dev on :${PORT} (PGlite: ${DATA_DIR}${extraEnv.ORB_FREE_DAILY_USD ? `, $${extraEnv.ORB_FREE_DAILY_USD} a day` : ''}) …`);
-  const child = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '-p', PORT], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
-  let log = '';
-  child.stdout.on('data', (d) => (log += d));
-  child.stderr.on('data', (d) => (log += d));
-  const deadline = Date.now() + 180_000;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`next dev exited early:\n${log.slice(-2000)}`);
-    try {
-      if ((await fetch(`${BASE}/api/config`, { signal: AbortSignal.timeout(90_000) })).ok) return { child, log: () => log };
-    } catch {}
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  throw new Error(`next dev did not become ready:\n${log.slice(-2000)}`);
-}
-
-async function stopServer({ child }) {
-  if (child.exitCode !== null || child.signalCode !== null) return;
-  const exited = new Promise((resolve) => child.once('exit', resolve));
-  try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {}
-  await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 15_000))]);
+  };
+  return startNext({ port: PORT, unset: ['ORB_MOCK_AI', 'ANTHROPIC_API_KEY', 'AI_GATEWAY_API_KEY', 'CURSOR_API_KEY', 'ORB_BOTID_TEST', 'STRIPE_WEBHOOK_SECRET', 'ORB_FREE_DAILY_USD', 'ORB_FREE_DAILY_USD_ANON', 'ORB_TOPUPS'], env });
 }
 
 const fakeCursor = await startFake();
@@ -405,7 +358,7 @@ try {
   check('the portal with a customer Stripe doesn’t know → no billing to manage (404), and Orb forgets it', gone.status === 404 && gone.json?.error === 'not_found' && (await billing(FAN, fan.cookie)).manage === false, gone.json);
 
   console.log('\nPro goes on when the free builder’s budget is spent');
-  await stopServer(server);
+  await stopNext(server);
   const oldEndpoints = [...stripe.endpoints.keys()];
   server = await startServer({ ORB_FREE_DAILY_USD: '0.0001', ORB_FREE_DAILY_PER_ACCOUNT: '1' });
   const D3 = device('busy');
@@ -427,12 +380,9 @@ try {
 } catch (e) {
   check('unexpected exception', false, e?.stack?.split('\n').slice(0, 4).join(' | ') ?? String(e));
 } finally {
-  await stopServer(server);
+  await stopNext(server);
   fakeCursor.close();
   stripe.close();
 }
 
-const failed = results.filter((ok) => !ok).length;
-console.log(`\n${results.length - failed}/${results.length} checks passed`);
-if (failed) console.log(server.log().slice(-4000));
-process.exit(failed ? 1 : 0);
+finish({ onFail: () => console.log(server.log().slice(-4000)) });

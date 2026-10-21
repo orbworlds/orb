@@ -3,11 +3,11 @@
 
 import { getViewer } from '@/server/auth';
 import { profile } from '@/server/friends';
-import { clientIp, json } from '@/server/http';
+import { clientIp, handle, json } from '@/server/http';
 import { ready } from '@/server/schema';
-import { actorKey, limitOrThrow, route } from '@/server/worlds';
+import { actorKey, limitOrThrow } from '@/server/worlds';
 
-export const GET = route(async (req: Request, ctx: { params: Promise<{ handle: string }> }) => {
+export const GET = handle(async (req: Request, ctx: { params: Promise<{ handle: string }> }) => {
   const { handle } = await ctx.params;
   const viewer = getViewer(req);
   const db = await ready();

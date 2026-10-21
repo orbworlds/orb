@@ -2,8 +2,8 @@
 // plus a little HTTP glue shared by the /api/worlds/* route handlers.
 //
 // Conventions
-// - Parameterized SQL only. Arrays and JSON travel as JSON text (`$n::jsonb`) so the exact same
-//   statements work on postgres.js (Supabase) and PGlite (local).
+// - Parameterized SQL only. JSON goes as JSON text (`$n::jsonb`), lists as arrays (`$n::text[]`);
+//   ./literals makes both work the same on postgres.js (Supabase) and PGlite (local).
 // - Multi-step writes that must be atomic are single statements with data-modifying CTEs
 //   (the pooled connection runs in transaction mode, so there are no multi-statement transactions).
 // - Owner hashes (owner_device / owner_user) never leave this module: mappers only emit the
@@ -15,12 +15,12 @@ import { KEYBOARD_TAG } from '@/lib/keyboard';
 import { TEMPLATES } from '@/lib/templates';
 import type { CreateWorldInput, StoreRequest, UpdateWorldInput, Visibility, WorldCard, WorldFull, WorldKind, WorldOrigin, WorldRepo, WorldVersionInfo } from '@/lib/types';
 import { canEdit, randomId, touchDevice, type Viewer } from './auth';
-import type { Db } from './db';
-import { handle, json } from './http';
+import { isUniqueViolation, type Db } from './db';
+import { fail, HttpError } from './http';
 import { rateLimit } from './ratelimit';
 import { assignPath } from './paths';
 import { originsConfig } from './origins';
-import { ENTRY, entryOf, FileError, getTree, isSha, putBlob, putTree, type Tree } from './files';
+import { ENTRY, entryOf, FileError, getTree, isSha, putBlob, putTree, treeFromCode, type Tree } from './files';
 import { ready } from './schema';
 
 // ---------------------------------------------------------------------------------------------
@@ -57,41 +57,10 @@ export const LIMITS = {
 export const UNTITLED = 'Untitled world';
 const UNTITLED_RE = /^(untitled( world)?|new world)?$/i;
 const THUMB_TYPES = ['image/webp', 'image/jpeg', 'image/png'] as const;
-export type ThumbType = (typeof THUMB_TYPES)[number];
+type ThumbType = (typeof THUMB_TYPES)[number];
 
 // ---------------------------------------------------------------------------------------------
-// HTTP glue
-
-/** An expected failure that maps to a JSON error response (`{ error, message, ...extra }`). */
-export class HttpError extends Error {
-  constructor(
-    public status: number,
-    public code: string,
-    message?: string,
-    public extra: Record<string, unknown> = {},
-    public headers: Record<string, string> = {},
-  ) {
-    super(message ?? code);
-  }
-}
-
-export function fail(status: number, code: string, message?: string, extra?: Record<string, unknown>): never {
-  throw new HttpError(status, code, message, extra);
-}
-
-/** `handle()` plus HttpError → JSON error response. Wrap every route handler with this. */
-export function route<A extends unknown[]>(fn: (...args: A) => Promise<Response>) {
-  return handle(async (...args: A): Promise<Response> => {
-    try {
-      return await fn(...args);
-    } catch (e) {
-      if (e instanceof HttpError) {
-        return json({ error: e.code, message: e.message, ...e.extra }, { status: e.status, headers: e.headers });
-      }
-      throw e;
-    }
-  });
-}
+// HTTP glue (route handlers are wrapped in ./http's handle(), which answers fail()'s HttpError)
 
 export interface IdContext {
   params: Promise<{ id: string }>;
@@ -141,11 +110,9 @@ export async function sessionUser(db: Db, viewer: Viewer): Promise<string | null
 // Input cleaning
 
 // C0/C1 control characters except tab/newline (bidi overrides are stripped from single-line text).
-// eslint-disable-next-line no-control-regex
 const CONTROL_RE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
 const BIDI_RE = /[‪-‮⁦-⁩]/g;
 /** Non-global (stateless) test for any control character, used for store keys. */
-// eslint-disable-next-line no-control-regex
 const HAS_CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 
 function sliceChars(s: string, max: number): string {
@@ -269,7 +236,7 @@ interface MetaRow {
 }
 
 /** How recent a heartbeat (orb_here) still counts someone as in a world. */
-export const LIVE_SECONDS = 90;
+const LIVE_SECONDS = 90;
 /** Days a person's newly built world (changed at least once since it began) is "New": in the ranked lists, with a badge. */
 export const FRESH_DAYS = 2;
 const FRESH = `((w.owner_user is not null or w.owner_device is not null) and w.version > 1 and w.created_at > now() - interval '${FRESH_DAYS} days')`;
@@ -281,17 +248,17 @@ const CARD_COLS = `w.id, w.name, w.description, w.kind, w.external_url, w.source
 const CARD_FROM = `orb_worlds w left join orb_worlds f on f.id = w.forked_from`;
 const META_COLS = `id, name, kind, visibility, forkable, owner_device, owner_user`;
 
-function iso(v: Date | string): string {
+export function iso(v: Date | string): string {
   const d = v instanceof Date ? v : new Date(String(v));
   return Number.isNaN(d.getTime()) ? String(v) : d.toISOString();
 }
 
 /** Root-relative URL of a native world's thumbnail (mirrors `thumbPath` in lib/api.ts). */
-export function thumbPath(id: string, version: number): string {
+function thumbPath(id: string, version: number): string {
   return `/api/worlds/${encodeURIComponent(id)}/thumb?v=${version}`;
 }
 
-export function toCard(r: CardRow): WorldCard {
+function toCard(r: CardRow): WorldCard {
   const kind: WorldKind = r.kind === 'external' ? 'external' : 'native';
   const thumbVersion = Number(r.thumb_version) || 0;
   return {
@@ -363,7 +330,7 @@ function toOrigin(v: unknown): WorldOrigin | null {
   return Object.values(origin).some((x) => x !== null) ? origin : null;
 }
 
-export function toFull(r: FullRow, viewerCanEdit: boolean, liked: boolean): WorldFull {
+function toFull(r: FullRow, viewerCanEdit: boolean, liked: boolean): WorldFull {
   const card = toCard(r);
   return {
     ...card,
@@ -434,8 +401,7 @@ async function repoOf(db: Db, id: string, ownerUser: string | null, ownerDevice:
   const r = rows[0];
   if (!r) return null;
   const state = r.state === 'readonly' || r.state === 'error' ? r.state : 'ok';
-  const iso = (d: Date | string | null) => (d ? new Date(d).toISOString() : null);
-  return { repo: r.repo, branch: r.branch, state, note: r.note, pulledAt: iso(r.pulled_at), pushedAt: iso(r.pushed_at), push: r.token && state !== 'readonly' };
+  return { repo: r.repo, branch: r.branch, state, note: r.note, pulledAt: r.pulled_at ? iso(r.pulled_at) : null, pushedAt: r.pushed_at ? iso(r.pushed_at) : null, push: r.token && state !== 'readonly' };
 }
 
 async function viewWorld(db: Db, viewer: Viewer, id: string): Promise<WorldFull> {
@@ -459,20 +425,18 @@ export const getPublicWorld = cache(async (id: string): Promise<WorldFull | null
 // ---------------------------------------------------------------------------------------------
 // Listing (Explore, "my worlds")
 
-export type ListSort = 'trending' | 'featured' | 'popular' | 'played' | 'liked' | 'views' | 'new';
-export const LIST_SORTS: readonly ListSort[] = ['trending', 'featured', 'popular', 'played', 'liked', 'views', 'new'];
+type ListSort = 'trending' | 'featured' | 'popular' | 'played' | 'liked' | 'views' | 'new';
+const LIST_SORTS: readonly ListSort[] = ['trending', 'featured', 'popular', 'played', 'liked', 'views', 'new'];
 
 /** Explore's categories, as tags: a world is in the first one its tags name (art and toy are one category), else in its template's. */
 export const CATEGORY_TAGS = ['game', 'world', 'art', 'toy'] as const;
-export type CategoryTag = (typeof CATEGORY_TAGS)[number];
+type CategoryTag = (typeof CATEGORY_TAGS)[number];
 
-export interface ListParams {
+interface ListParams {
   sort: ListSort;
   q?: string;
   tag?: string;
   verified?: boolean;
-  /** Only Orb-made worlds ('native') or only embedded websites ('external'). */
-  kind?: 'native' | 'external';
   mine?: boolean;
   /** Worlds the viewer liked (♥), on this device or any device of their account. */
   liked?: boolean;
@@ -499,7 +463,7 @@ const SHOWABLE = [
 /** What Explore lists: showable, not kept out by curation, and still loading. */
 const LISTED = [...SHOWABLE, `not w.hidden`, `w.broken_at is null`];
 /** Plays that earn a person's world its place in Explore's ranked lists (or one like, or Orb's pick). */
-export const EARNED_PLAYS = 10;
+const EARNED_PLAYS = 10;
 /**
  * Explore's ranked lists (Trending, Most played, liked, viewed) show the curated worlds, people's
  * worlds that earned it, and for their first days the ones just built; every listed world is under
@@ -515,12 +479,12 @@ const heatBump = (by: number) =>
 
 /**
  * Trending, as seen at snapshot time $t (epoch seconds; fixed per browsing session so pages don't
- * reshuffle). For now Orb's own order ($order: a JSON array of ids, src/lib/curation.ts) comes
- * first; after it: Orb's curation weight, what people are playing right now (decayed heat) and
+ * reshuffle). For now Orb's own order ($order: an array of ids, curatedOrder()) comes first;
+ * after it: Orb's curation weight, what people are playing right now (decayed heat) and
  * all-time popularity — those two only once a world has PLAYS_THAT_COUNT plays — and a boost for
  * brand-new worlds so they get seen.
  */
-const trendExpr = (t: string, order: string) => `coalesce(1000000 - array_position(array(select jsonb_array_elements_text(${order}::jsonb)), w.id), (
+const trendExpr = (t: string, order: string) => `coalesce(1000000 - array_position(${order}::text[], w.id), (
   3 * ln(1 + greatest(w.featured, 0))
   + case when w.plays >= ${PLAYS_THAT_COUNT} then
       3 * ln(1 + w.heat * exp(-greatest(0, ${t} - extract(epoch from w.heat_at)) / ${HEAT_TAU}))
@@ -580,9 +544,7 @@ export function parseListParams(sp: URLSearchParams): ListParams {
   const limit = Number.isFinite(limitRaw) ? Math.min(LIMITS.listMax, Math.max(1, limitRaw)) : LIMITS.listDefault;
   const q = (sp.get('q') ?? '').replace(CONTROL_RE, '').trim().slice(0, LIMITS.query) || undefined;
   const tag = (sp.get('tag') ?? '').split(',').map(normalizeTag).filter(Boolean).slice(0, 6).join(',') || undefined;
-  const kindRaw = sp.get('kind');
-  const kind = kindRaw === 'native' || kindRaw === 'external' ? kindRaw : undefined;
-  return { sort, q, tag, verified: flag(sp.get('verified')), kind, mine, liked, remixable: flag(sp.get('remixable')), limit, cursor: sp.get('cursor') || undefined };
+  return { sort, q, tag, verified: flag(sp.get('verified')), mine, liked, remixable: flag(sp.get('remixable')), limit, cursor: sp.get('cursor') || undefined };
 }
 
 const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}(:?\d{2})?)?$/;
@@ -612,36 +574,97 @@ function decodeCursor(sort: ListSort, cursor: string): { keys: Array<string | nu
   fail(400, 'bad_cursor', 'Invalid cursor.');
 }
 
+/** A statement's parameters, and `$(value)` → its placeholder ($1, $2…), numbered after `first`. */
+function sqlParams(first: unknown[] = []) {
+  const params = [...first];
+  const $ = (v: unknown) => {
+    params.push(v);
+    return `$${params.length}`;
+  };
+  return { params, $ };
+}
+
+/** Same rule as canEdit(): owned by the session user, by this device, or by the device's linked user. */
+const ownedBy = (dev: string, user: string) =>
+  `(w.owner_device = ${dev}::text or w.owner_user = ${user}::text
+      or w.owner_user = (select d.user_id from orb_devices d where d.hash = ${dev}::text))`;
+
 /** Escape LIKE wildcards so user input matches literally. */
 function likePattern(q: string): string {
   return `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
+/**
+ * A search as a Postgres regular expression: the words from the start of a word, and with `whole`
+ * up to its end too (or a plural's). Word edges only count next to Latin letters and digits, so
+ * words in other scripts (which needn't have spaces between them) match anywhere.
+ */
+function searchPattern(q: string, whole: boolean): string {
+  const words = q.split(/\s+/).map((w) => w.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')).join('\\s+');
+  return `${/^[a-z0-9]/i.test(q) ? '\\m' : ''}${words}${whole && /[a-z0-9]$/i.test(q) ? '(e?s)?\\M' : ''}`;
+}
+
+/**
+ * Worlds in any of these tags (separated by commas): their tags, kind or category. A category tag
+ * only counts as the world's first one, and its template only when its tags name none.
+ */
+function inTags(tag: string, $: (v: unknown) => string): string {
+  const list = tag.split(',').filter(Boolean);
+  const tags = `${$(list)}::text[]`;
+  const templates = `${$(TEMPLATES.filter((t) => list.includes(t.tag)).map((t) => t.id))}::text[]`;
+  const categories = `${$(CATEGORY_TAGS)}::text[]`;
+  return `(exists (select 1 from unnest(w.tags) as t(tag) where lower(t.tag) = any(${tags}) and lower(t.tag) <> all(${categories}))
+    or (select lower(t.tag) from unnest(w.tags) with ordinality as t(tag, i) where lower(t.tag) = any(${categories}) order by t.i limit 1) = any(${tags})
+    or w.kind = any(${tags})
+    or (not exists (select 1 from unnest(w.tags) as t(tag) where lower(t.tag) = any(${categories}))
+      and (w.template = any(${tags}) or w.template = any(${templates}))))`;
+}
+
+/** Orb's order (src/lib/curation.ts) as Trending shows it, per tag: read again now and then. */
+const spread = new Map<string, { at: number; ids: string[] }>();
+
+/**
+ * Orb's order of the listed worlds (in `tag`) with no maker twice among four neighbours (while
+ * others are left to go between), so a row of Trending is never one maker's (Orb's own games
+ * included): a world waits only as long as it has to. Makers rarely change: kept for ten minutes.
+ */
+async function curatedOrder(db: Db, tag: string): Promise<string[]> {
+  const known = spread.get(tag);
+  if (known && Date.now() - known.at < 10 * 60_000) return known.ids;
+  const { params, $ } = sqlParams([CURATED_ORDER]);
+  const rows = await db.query<{ id: string; maker: string }>(
+    `select w.id, lower(btrim(w.author_name)) as maker from orb_worlds w where w.id = any($1::text[]) and ${[...LISTED, ...(tag ? [inTags(tag, $)] : [])].join(' and ')}`,
+    params,
+  );
+  const makerOf = new Map(rows.map((r) => [r.id, r.maker]));
+  const left = CURATED_ORDER.filter((id) => makerOf.has(id));
+  const ids: string[] = [];
+  while (left.length) {
+    const recent = ids.slice(-3).map((id) => makerOf.get(id));
+    const next = left.findIndex((id) => !recent.includes(makerOf.get(id)));
+    ids.push(...left.splice(Math.max(0, next), 1));
+  }
+  if (spread.size >= 20) spread.delete(spread.keys().next().value!);
+  spread.set(tag, { at: Date.now(), ids });
+  return ids;
+}
+
 export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise<{ worlds: WorldCard[]; nextCursor?: string }> {
-  const params: unknown[] = [];
-  const $ = (v: unknown) => {
-    params.push(v);
-    return `$${params.length}`;
-  };
+  const { params, $ } = sqlParams();
   const where: string[] = [];
 
-  if (p.mine) {
+  if (p.mine || p.liked) {
     if (!viewer.deviceHash && !viewer.userId) return { worlds: [] };
     const dev = $(viewer.deviceHash);
     const user = $(viewer.userId);
-    // Same rule as canEdit(): owned by the session user, by this device, or by the device's linked user.
-    where.push(`(w.owner_device = ${dev}::text or w.owner_user = ${user}::text
-      or w.owner_user = (select d.user_id from orb_devices d where d.hash = ${dev}::text))`);
-  } else if (p.liked) {
-    if (!viewer.deviceHash && !viewer.userId) return { worlds: [] };
-    const dev = $(viewer.deviceHash);
-    const user = $(viewer.userId);
-    // Likes are stored per device; a signed-in person sees the likes of all their devices.
-    where.push(`exists (select 1 from orb_likes l where l.world_id = w.id and (l.device_hash = ${dev}::text
-      or l.device_hash in (select d.hash from orb_devices d
-        where d.user_id = coalesce(${user}::text, (select d2.user_id from orb_devices d2 where d2.hash = ${dev}::text)))))`);
-    where.push(`w.visibility = 'public'`);
-    where.push(`w.broken_at is null`);
+    if (p.mine) where.push(ownedBy(dev, user));
+    else {
+      // Likes are stored per device; a signed-in person sees the likes of all their devices.
+      where.push(`exists (select 1 from orb_likes l where l.world_id = w.id and (l.device_hash = ${dev}::text
+        or l.device_hash in (select d.hash from orb_devices d
+          where d.user_id = coalesce(${user}::text, (select d2.user_id from orb_devices d2 where d2.hash = ${dev}::text)))))`);
+      where.push(`w.visibility = 'public'`, `w.broken_at is null`);
+    }
   } else if (p.hidden) {
     where.push(...SHOWABLE, `w.hidden`);
   } else {
@@ -650,30 +673,21 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
     if (!p.q) where.push(p.sort === 'new' ? `(w.owner_user is not null or w.owner_device is not null)` : EARNED);
   }
   if (p.q) {
-    const q = $(likePattern(p.q));
-    where.push(`(w.name ilike ${q} or w.description ilike ${q} or w.author_name ilike ${q})`);
+    // A search looks through every listed world (not only the ranked ones): names and makers from the
+    // start of a word, as they're typed; descriptions and tags by whole words ("car" isn't "carpet").
+    const start = $(searchPattern(p.q, false));
+    const whole = $(searchPattern(p.q, true));
+    where.push(`(w.name ~* ${start} or w.author_name ~* ${start} or w.description ~* ${whole} or exists (select 1 from unnest(w.tags) as t(tag) where t.tag ~* ${whole}))`);
   }
-  if (p.tag) {
-    // One tag, or several separated by commas (any of them).
-    const list = p.tag.split(',').filter(Boolean);
-    const tags = $(JSON.stringify(list));
-    const templates = $(JSON.stringify(TEMPLATES.filter((t) => list.includes(t.tag)).map((t) => t.id)));
-    const categories = $(JSON.stringify(CATEGORY_TAGS));
-    // A category tag only counts as the world's first one, and its template only when its tags name none.
-    where.push(`(exists (select 1 from unnest(w.tags) as t(tag) where lower(t.tag) in (select jsonb_array_elements_text(${tags}::jsonb)) and lower(t.tag) not in (select jsonb_array_elements_text(${categories}::jsonb)))
-      or (select lower(t.tag) from unnest(w.tags) with ordinality as t(tag, i) where lower(t.tag) in (select jsonb_array_elements_text(${categories}::jsonb)) order by t.i limit 1) in (select jsonb_array_elements_text(${tags}::jsonb))
-      or w.kind in (select jsonb_array_elements_text(${tags}::jsonb))
-      or (not exists (select 1 from unnest(w.tags) as t(tag) where lower(t.tag) in (select jsonb_array_elements_text(${categories}::jsonb)))
-        and (w.template in (select jsonb_array_elements_text(${tags}::jsonb)) or w.template in (select jsonb_array_elements_text(${templates}::jsonb)))))`);
-  }
+  const tag = p.tag ?? '';
+  if (tag) where.push(inTags(tag, $));
   if (p.verified) where.push(`w.verified`);
   if (p.remixable) where.push(`w.forkable and w.kind = 'native'`);
-  if (p.kind) where.push(`w.kind = ${$(p.kind)}`);
 
   const cursor = p.cursor ? decodeCursor(p.sort, p.cursor) : null;
   // Trending is scored as of one moment for a whole browsing session (carried in the cursor).
   const snapshot = cursor?.t ?? Math.floor(Date.now() / 1000);
-  const trend = p.sort === 'trending' ? trendExpr(`${$(snapshot)}::float8`, $(JSON.stringify(CURATED_ORDER))) : '';
+  const trend = p.sort === 'trending' ? trendExpr(`${$(snapshot)}::float8`, $(await curatedOrder(db, tag))) : '';
   const keys = SORT_KEYS[p.sort].map(([expr, type]) => [expr === 'TREND' ? trend : expr, type] as [string, string]);
   if (cursor) {
     const values = cursor.keys;
@@ -775,8 +789,15 @@ async function resolveAuthorName(db: Db, viewer: Viewer, given: string | undefin
   return rows[0]?.account || given || rows[0]?.device || 'Someone';
 }
 
-function isUniqueViolation(e: unknown): boolean {
-  return !!e && typeof e === 'object' && (e as { code?: unknown }).code === '23505';
+/**
+ * The owner and author of a new world (a creation, import or remix): the session's account if it
+ * still exists, and this device, which must be known if there's no account.
+ */
+async function newOwner(db: Db, viewer: Viewer, given?: string): Promise<{ ownerUser: string | null; authorName: string }> {
+  const ownerUser = await sessionUser(db, viewer);
+  if (!viewer.deviceHash && !ownerUser) fail(400, 'device_required', 'Missing device key.');
+  await touchDevice(db, viewer, viewer.userId ? undefined : given);
+  return { ownerUser, authorName: await resolveAuthorName(db, viewer, given) };
 }
 
 /** Insert a world with a fresh random id (retrying on the astronomically unlikely collision). */
@@ -800,11 +821,7 @@ export async function createWorld(db: Db, viewer: Viewer, body: unknown): Promis
   const template = cleanTemplate(input.template);
   const prompt = cleanText(input.prompt, LIMITS.prompt, 'prompt') || null;
   const given = cleanLine(input.authorName, LIMITS.authorName, 'authorName') || undefined;
-
-  const ownerUser = await sessionUser(db, viewer);
-  if (!viewer.deviceHash && !ownerUser) fail(400, 'device_required', 'Missing device key.');
-  await touchDevice(db, viewer, viewer.userId ? undefined : given);
-  const authorName = await resolveAuthorName(db, viewer, given);
+  const { ownerUser, authorName } = await newOwner(db, viewer, given);
 
   const id = await insertWithFreshId(async (newId) => {
     const rows = await db.query<{ id: string }>(
@@ -833,11 +850,7 @@ export async function updateWorld(db: Db, viewer: Viewer, id: string, body: unkn
     fail(400, 'not_editable', 'This world lives on another site and cannot be edited here.');
   }
 
-  const params: unknown[] = [id];
-  const $ = (v: unknown) => {
-    params.push(v);
-    return `$${params.length}`;
-  };
+  const { params, $ } = sqlParams([id]);
   const sets: string[] = [];
 
   if (input.name !== undefined) sets.push(`name = ${$(cleanLine(input.name, LIMITS.name, 'name') || UNTITLED)}`);
@@ -847,7 +860,7 @@ export async function updateWorld(db: Db, viewer: Viewer, id: string, body: unkn
     sets.push(`forkable = ${$(input.forkable)}::boolean`);
   }
   if (input.tags !== undefined) {
-    sets.push(`tags = array(select jsonb_array_elements_text(${$(JSON.stringify(cleanTags(input.tags)))}::jsonb))`);
+    sets.push(`tags = ${$(cleanTags(input.tags))}::text[]`);
   }
   if (input.visibility !== undefined) {
     const vis = input.visibility as Visibility;
@@ -937,7 +950,7 @@ export async function getVersion(db: Db, viewer: Viewer, id: string, version: nu
 // Multi-file worlds (see ./files.ts)
 
 /** The tree with its index.html replaced by `code`. */
-export async function withEntry(db: Db, treeSha: string, code: string): Promise<string> {
+async function withEntry(db: Db, treeSha: string, code: string): Promise<string> {
   const files = (await getTree(db, treeSha)) ?? {};
   const { sha } = await putBlob(db, code);
   return putTree(db, { ...files, [ENTRY]: sha });
@@ -963,11 +976,11 @@ export async function commitTree(
   const code = await entryOf(db, files);
   const name = opts.name ? cleanLine(opts.name, LIMITS.name, 'name') : undefined;
   const rename = !!name && UNTITLED_RE.test(row.name.trim());
-  const params: unknown[] = [id, code, tree, (opts.prompt ?? '').slice(0, LIMITS.prompt) || null, LIMITS.versionsKept, rename ? name : null, !!opts.expect, opts.expect?.tree ?? null, opts.category && CATEGORY_TAGS.includes(opts.category) ? opts.category : null, JSON.stringify(CATEGORY_TAGS)];
+  const params: unknown[] = [id, code, tree, (opts.prompt ?? '').slice(0, LIMITS.prompt) || null, LIMITS.versionsKept, rename ? name : null, !!opts.expect, opts.expect?.tree ?? null, opts.category && CATEGORY_TAGS.includes(opts.category) ? opts.category : null, CATEGORY_TAGS];
   const rows = await db.query<{ version: number; name: string }>(
     `with u as (
        update orb_worlds set code = $2, tree = $3, version = version + 1, updated_at = now(), name = coalesce($6::text, name),
-         tags = case when $9::text is not null and not exists (select 1 from unnest(tags) as t(tag) where lower(t.tag) in (select jsonb_array_elements_text($10::jsonb)))
+         tags = case when $9::text is not null and not exists (select 1 from unnest(tags) as t(tag) where lower(t.tag) = any($10::text[]))
            then array_prepend($9::text, tags) else tags end
        where id = $1 and (not $7::boolean or tree is not distinct from $8::text)
        returning id, version, code, tree, name
@@ -986,19 +999,15 @@ export async function commitTree(
 }
 
 /** The world's current tree (single-file worlds get a one-file tree from their code). */
-export async function worldTree(db: Db, id: string): Promise<{ tree: string; stored: string | null; files: Tree; code: string; version: number; name: string } | null> {
+export async function worldTree(db: Db, id: string): Promise<{ tree: string; stored: string | null; files: Tree; version: number; name: string } | null> {
   const rows = await db.query<{ tree: string | null; code: string | null; version: number; name: string; kind: string }>(
     `select tree, code, version, name, kind from orb_worlds where id = $1`,
     [id],
   );
   const r = rows[0];
   if (!r || r.kind !== 'native') return null;
-  let tree = r.tree;
-  if (!tree) {
-    const { sha } = await putBlob(db, r.code ?? '');
-    tree = await putTree(db, { [ENTRY]: sha });
-  }
-  return { tree, stored: r.tree, files: (await getTree(db, tree)) ?? {}, code: r.code ?? '', version: Number(r.version) || 0, name: r.name };
+  const tree = r.tree || (await treeFromCode(db, r.code ?? ''));
+  return { tree, stored: r.tree, files: (await getTree(db, tree)) ?? {}, version: Number(r.version) || 0, name: r.name };
 }
 
 /** Create a world from a file tree (imports). */
@@ -1012,10 +1021,7 @@ export async function createWorldFromTree(
   const files = await getTree(db, tree);
   if (!files) throw new FileError('Unknown file tree.');
   const code = await entryOf(db, files);
-  const ownerUser = await sessionUser(db, viewer);
-  if (!viewer.deviceHash && !ownerUser) fail(400, 'device_required', 'Missing device key.');
-  await touchDevice(db, viewer);
-  const authorName = await resolveAuthorName(db, viewer, undefined);
+  const { ownerUser, authorName } = await newOwner(db, viewer);
   const id = await insertWithFreshId(async (newId) => {
     const rows = await db.query<{ id: string }>(
       `with w as (
@@ -1058,10 +1064,7 @@ export async function createRemixFromTree(
   )[0];
   if (!src) return createWorldFromTree(db, viewer, tree, opts);
   const changed = (src.code ?? '') !== code;
-  const ownerUser = await sessionUser(db, viewer);
-  if (!viewer.deviceHash && !ownerUser) fail(400, 'device_required', 'Missing device key.');
-  await touchDevice(db, viewer);
-  const authorName = await resolveAuthorName(db, viewer, undefined);
+  const { ownerUser, authorName } = await newOwner(db, viewer);
   const id = await insertWithFreshId(async (newId) => {
     const rows = await db.query<{ id: string }>(
       `with src as (
@@ -1148,12 +1151,11 @@ export async function forkWorld(db: Db, viewer: Viewer, id: string, body: unknow
   if (!src.forkable && !owner) fail(403, 'not_forkable', 'The creator turned off remixing for this world.');
 
   const given = cleanLine(input.authorName, LIMITS.authorName, 'authorName') || undefined;
-  await touchDevice(db, viewer, viewer.userId ? undefined : given);
-  const authorName = await resolveAuthorName(db, viewer, given);
+  const remixer = await newOwner(db, viewer, given);
+  const authorName = remixer.authorName;
   // A remix of your own private world stays private (and keeps its account owner).
   const isPrivate = src.visibility === 'private';
-  const ownerUser = (await sessionUser(db, viewer)) ?? (isPrivate ? src.owner_user : null);
-  if (!viewer.deviceHash && !ownerUser) fail(400, 'device_required', 'Missing device key.');
+  const ownerUser = remixer.ownerUser ?? (isPrivate ? src.owner_user : null);
 
   const forkId = await insertWithFreshId(async (newId) => {
     const rows = await db.query<{ id: string }>(
@@ -1215,18 +1217,15 @@ export async function putThumb(db: Db, viewer: Viewer, id: string, bytes: Uint8A
   return Number(rows[0].thumb_version);
 }
 
-export type ThumbResult =
+type ThumbResult =
   | { kind: 'redirect'; url: string }
   | { kind: 'image'; bytes: Uint8Array<ArrayBuffer>; type: string; version: number; isPublic: boolean };
 
-function toBytes(v: unknown): Uint8Array<ArrayBuffer> | null {
-  if (v instanceof Uint8Array) return new Uint8Array(v); // copy → plain ArrayBuffer-backed view
-  if (typeof v === 'string' && v.startsWith('\\x')) return new Uint8Array(Buffer.from(v.slice(2), 'hex'));
-  return null;
-}
+/** A bytea column as a plain ArrayBuffer-backed copy (null when empty). */
+const toBytes = (v: unknown): Uint8Array<ArrayBuffer> | null => (v instanceof Uint8Array ? new Uint8Array(v) : null);
 
 /** http(s) URLs and root-relative paths only — never `javascript:` or protocol-relative URLs. */
-export function safeImageUrl(url: string | null | undefined): string | null {
+function safeImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   if (url.startsWith('/') && !url.startsWith('//')) return url;
   try {
@@ -1238,7 +1237,7 @@ export function safeImageUrl(url: string | null | undefined): string | null {
 }
 
 /** Absolute http(s) URLs only (links, embeds): no `javascript:`/`data:`, no relative paths. */
-export function safeWebUrl(url: string | null | undefined): string | null {
+function safeWebUrl(url: string | null | undefined): string | null {
   if (!url || url.startsWith('/')) return null;
   return safeImageUrl(url);
 }
@@ -1247,7 +1246,7 @@ export function safeWebUrl(url: string | null | undefined): string | null {
  * An embedded world's address: a web address that isn't one of Orb's own. Embeds run with their
  * own origin (allow-same-origin), so one of Orb's pages in there would be Orb itself, unsandboxed.
  */
-export function safeEmbedUrl(url: string | null | undefined): string | null {
+function safeEmbedUrl(url: string | null | undefined): string | null {
   const safe = safeWebUrl(url);
   if (!safe) return null;
   const host = new URL(safe).hostname.toLowerCase();
@@ -1270,13 +1269,9 @@ export async function getThumb(db: Db, viewer: Viewer, id: string): Promise<Thum
     [id],
   );
   const { row } = await access(db, viewer, rows[0] ?? null);
-  if (row.kind === 'external') {
-    const url = safeImageUrl(row.thumb_url);
-    return url ? { kind: 'redirect', url } : null;
-  }
-  const bytes = toBytes(row.thumb);
+  const bytes = row.kind === 'external' ? null : toBytes(row.thumb);
   if (!bytes || !row.thumb_type) {
-    // Native worlds seeded with a static thumbnail (Orb Originals) until they capture their own.
+    // Embeds, and native worlds seeded with a static thumbnail (Orb Originals) until they capture their own.
     const url = safeImageUrl(row.thumb_url);
     return url ? { kind: 'redirect', url } : null;
   }
@@ -1494,46 +1489,39 @@ export async function storeOp(db: Db, viewer: Viewer, id: string, body: unknown,
 export async function adminSetFlags(db: Db, id: string, body: unknown): Promise<void> {
   const input = asObject(body);
   const sets: string[] = [];
-  const params: unknown[] = [id];
+  const { params, $ } = sqlParams([id]);
   if (input.verified !== undefined) {
     if (typeof input.verified !== 'boolean') fail(400, 'bad_request', 'verified must be a boolean.');
-    params.push(input.verified);
-    sets.push(`verified = $${params.length}::boolean`);
+    sets.push(`verified = ${$(input.verified)}::boolean`);
   }
   if (input.featured !== undefined) {
     if (typeof input.featured !== 'number' || !Number.isInteger(input.featured) || Math.abs(input.featured) > 1_000_000) {
       fail(400, 'bad_request', 'featured must be an integer.');
     }
-    params.push(input.featured);
-    sets.push(`featured = $${params.length}::int`);
+    sets.push(`featured = ${$(input.featured)}::int`);
   }
   // Hand a world to an account (e.g. a curated world that becomes someone's own).
   if (input.ownerUser !== undefined) {
     if (typeof input.ownerUser !== 'string') fail(400, 'bad_request', 'ownerUser must be a user id.');
     const user = await db.query<{ id: string }>(`select id from orb_users where id = $1`, [input.ownerUser]);
     if (!user[0]) fail(404, 'not_found', 'No such user.');
-    params.push(input.ownerUser);
-    sets.push(`owner_user = $${params.length}::text`, `owner_device = null`);
+    sets.push(`owner_user = ${$(input.ownerUser)}::text`, `owner_device = null`);
   }
   if (input.visibility !== undefined) {
     if (input.visibility !== 'public' && input.visibility !== 'private') fail(400, 'bad_request', "visibility must be 'public' or 'private'.");
-    params.push(input.visibility);
-    sets.push(`visibility = $${params.length}`);
+    sets.push(`visibility = ${$(input.visibility)}`);
   }
   if (input.authorName !== undefined) {
-    params.push(cleanLine(input.authorName, LIMITS.authorName, 'authorName') || 'Someone');
-    sets.push(`author_name = $${params.length}`);
+    sets.push(`author_name = ${$(cleanLine(input.authorName, LIMITS.authorName, 'authorName') || 'Someone')}`);
   }
   if (input.sourceUrl !== undefined) {
     if (input.sourceUrl !== null && (typeof input.sourceUrl !== 'string' || !safeWebUrl(input.sourceUrl))) fail(400, 'bad_request', 'sourceUrl must be an http(s) URL or null.');
-    params.push(input.sourceUrl);
-    sets.push(`source_url = $${params.length}`);
+    sets.push(`source_url = ${$(input.sourceUrl)}`);
   }
   // E.g. "keyboard" on a curated world someone owns now. (An unowned curated world gets its tags
   // from seeds.json again on the next cold start.)
   if (input.tags !== undefined) {
-    params.push(JSON.stringify(cleanTags(input.tags)));
-    sets.push(`tags = array(select jsonb_array_elements_text($${params.length}::jsonb))`);
+    sets.push(`tags = ${$(cleanTags(input.tags))}::text[]`);
   }
   if (!sets.length) fail(400, 'bad_request', 'Nothing to update (verified, featured, ownerUser, visibility, authorName, sourceUrl, tags).');
   const rows = await db.query<{ id: string }>(`update orb_worlds set ${sets.join(', ')}, updated_at = now() where id = $1 returning id`, params);
@@ -1559,9 +1547,7 @@ export async function renameAuthor(db: Db, viewer: Viewer, name: string): Promis
   if (!viewer.deviceHash && !viewer.userId) return;
   await db.query(
     `update orb_worlds w set author_name = $3
-     where (w.owner_device = $1::text or w.owner_user = $2::text
-            or w.owner_user = (select d.user_id from orb_devices d where d.hash = $1::text))
-       and w.author_name is distinct from $3`,
+     where ${ownedBy('$1', '$2')} and w.author_name is distinct from $3`,
     [viewer.deviceHash, viewer.userId, name],
   );
 }

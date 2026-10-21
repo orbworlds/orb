@@ -45,7 +45,7 @@ export function deviceHeaders(extra: Record<string, string> = {}): Record<string
 
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = deviceHeaders(init.body && typeof init.body === 'string' ? { 'content-type': 'application/json' } : {});
-  const res = await fetch(path, { ...init, headers: { ...headers, ...(init.headers as Record<string, string> | undefined) }, credentials: 'same-origin' });
+  const res = await fetch(path, { ...init, headers: { ...headers, ...(init.headers as Record<string, string> | undefined) } });
   if (!res.ok) {
     let body: { error?: string; message?: string; retryAfter?: number } = {};
     try {
@@ -93,7 +93,7 @@ export const api = {
   version: (id: string, v: number) => call<{ version: number; code: string; tree?: string | null }>(`/api/worlds/${enc(id)}/versions/${v}`),
   /** The world's files as a zip (for its owner, or a world that can be remixed). */
   worldZip: async (id: string) => {
-    const res = await fetch(`/api/worlds/${enc(id)}/zip`, { headers: deviceHeaders(), credentials: 'same-origin' });
+    const res = await fetch(`/api/worlds/${enc(id)}/zip`, { headers: deviceHeaders() });
     if (!res.ok) throw new ApiError(res.status, 'http_error', 'Couldn’t download this world.');
     return res.blob();
   },
@@ -111,7 +111,6 @@ export const api = {
   setPassword: (password: string) => call<MeResponse>('/api/auth/password', { method: 'POST', body: JSON.stringify({ password }) }),
   logout: () => call<{ ok: true }>('/api/auth/logout', { method: 'POST', body: '{}' }),
 
-  friends: () => call<FriendsData>('/api/friends'),
   /** "I'm in this world" while it's on screen (null: not any more), for Explore's playing-now. */
   here: (worldId: string | null) => call<{ ok: true }>('/api/here', { method: 'POST', body: JSON.stringify({ worldId }) }),
   syncFriends: (worldId: string | null, rooms: FriendRoom[] = []) => call<FriendsData>('/api/friends/sync', { method: 'POST', body: JSON.stringify({ worldId, rooms }) }),

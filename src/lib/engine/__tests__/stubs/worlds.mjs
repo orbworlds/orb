@@ -1,19 +1,5 @@
-// Stand-in for src/server/worlds.ts (type stripping can't load its parameter properties, and it pulls
-// in the database and React): the helpers other server modules take from it, as they behave there.
-export class HttpError extends Error {
-  constructor(status, code, message, extra = {}, headers = {}) {
-    super(message ?? code);
-    this.status = status;
-    this.code = code;
-    this.extra = extra;
-    this.headers = headers;
-  }
-}
-
-export function fail(status, code, message, extra) {
-  throw new HttpError(status, code, message, extra);
-}
-
+// Stand-in for src/server/worlds.ts (it pulls in the database and React): the helpers other server
+// modules take from it, as they behave there.
 const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 export const isWorldId = (id) => typeof id === 'string' && ID_RE.test(id);
 

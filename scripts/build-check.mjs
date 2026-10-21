@@ -11,7 +11,7 @@
 // world in it (its look tool), just like in a person's browser.
 import fs from 'node:fs';
 import path from 'node:path';
-import { launch } from './pw.mjs';
+import { launch } from '../kit/lib/browser.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, fallback) => {

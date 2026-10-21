@@ -13,7 +13,8 @@ import { Menu } from '@/components/ui/Menu';
 import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import { joinWorld, roomOf, useFriends } from '@/state/friends';
-import { toast } from '@/state/toast';
+import { copyLink } from '@/state/share';
+import { apiMessage, toast } from '@/state/toast';
 import { AccountCard, useMe } from './AccountCard';
 import { PersonAvatar, whereIs } from './People';
 import { formatCount, Skeleton, Thumb, WorldCard, WorldCardSkeleton } from './WorldCard';
@@ -155,14 +156,14 @@ function FriendBar({ profile: p, onChange }: { profile: Profile; onChange(friend
   const { signedIn, status } = useMe();
   const [busy, setBusy] = useState(false);
   const [signUp, setSignUp] = useState(false);
-  const link = typeof location === 'undefined' ? profileHref(p.handle) : `${location.origin}${profileHref(p.handle)}`;
+  const link = `${location.origin}${profileHref(p.handle)}`;
 
   const run = async (fn: () => Promise<FriendState>) => {
     setBusy(true);
     try {
       onChange(await fn());
     } catch (e) {
-      toast(e instanceof ApiError && e.status < 500 && e.message ? e.message : 'Couldn’t do that just now. Try again in a moment.', 'error');
+      toast(apiMessage(e, 'Couldn’t do that just now. Try again in a moment.'), 'error');
     } finally {
       setBusy(false);
     }
@@ -184,14 +185,7 @@ function FriendBar({ profile: p, onChange }: { profile: Profile; onChange(friend
       await useFriends.getState().remove(p.id!);
       return 'none';
     });
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(link);
-      toast('Profile link copied. Send it to friends so they can add you', 'success');
-    } catch {
-      toast(link);
-    }
-  };
+  const copy = () => copyLink(link, 'Profile link copied. Send it to friends so they can add you');
 
   if (p.friend === 'you') {
     return (

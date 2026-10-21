@@ -1,8 +1,8 @@
 // Plans and credits: what building with Orb's AI costs people (docs/operations.md "Plans and credits").
 //
 // A credit is a cent of what the AI costs Orb at the model's list price, the same cost the free
-// builder's daily budget counts (./budget.ts): a typical build uses about 15. Everyone who builds
-// on Orb's AI has a wallet (orb_wallets), in millionths of a US dollar:
+// builder's daily budget counts (./budget.ts): a typical build uses about 30 (TYPICAL_BUILD_CREDITS).
+// Everyone who builds on Orb's AI has a wallet (orb_wallets), in millionths of a US dollar:
 // - without an account, a device gets the guest credits each month (ORB_GUEST_CREDITS);
 // - an account gets the Free plan's (ORB_FREE_CREDITS), or Pro's (ORB_PRO_CREDITS) while it pays
 //   for Pro (./billing.ts keeps those periods in step with Stripe).
@@ -13,15 +13,8 @@
 // Plain SQL, one statement per change (the database is a transaction pooler); unit-tested in
 // src/lib/engine/__tests__/credits.test.mjs.
 
+import type { CreditPack, Plan } from '@/lib/types';
 import type { Db } from './db';
-
-export type Plan = 'guest' | 'free' | 'pro';
-
-export interface TopUp {
-  id: string;
-  usd: number;
-  credits: number;
-}
 
 export interface PlansConfig {
   /** Credits a month per device without an account (ORB_GUEST_CREDITS). */
@@ -31,7 +24,7 @@ export interface PlansConfig {
   /** Pro: credits a month (ORB_PRO_CREDITS) for US$ a month (ORB_PRO_USD). */
   pro: { credits: number; usd: number };
   /** Credit packs any account can buy (ORB_TOPUPS, "usd:credits,…"). */
-  topups: TopUp[];
+  topups: CreditPack[];
 }
 
 /**
@@ -61,14 +54,15 @@ export const MICROS_PER_CREDIT = 10_000;
 export const toCredits = (micros: number) => micros / MICROS_PER_CREDIT;
 export const toMicros = (credits: number) => Math.round(credits * MICROS_PER_CREDIT);
 
-function numberEnv(env: Record<string, string | undefined>, key: string, fallback: number, max: number): number {
+/** A number setting: env[key] when it is a number in [min, max], else the fallback. */
+export function numberEnv(env: Record<string, string | undefined>, key: string, fallback: number, min = 0, max = Infinity): number {
   const raw = (env[key] ?? '').trim();
   const n = Number(raw);
-  return raw && Number.isFinite(n) && n >= 0 ? Math.min(max, n) : fallback;
+  return raw && Number.isFinite(n) && n >= min && n <= max ? n : fallback;
 }
 
-function topupsEnv(raw: string | undefined): TopUp[] | null {
-  const packs: TopUp[] = [];
+function topupsEnv(raw: string | undefined): CreditPack[] | null {
+  const packs: CreditPack[] = [];
   for (const part of (raw ?? '').split(/[\s,]+/).filter(Boolean)) {
     const m = /^(\d+(?:\.\d{1,2})?):(\d+)$/.exec(part);
     if (!m) return null;
@@ -82,9 +76,12 @@ function topupsEnv(raw: string | undefined): TopUp[] | null {
 
 export function plansConfig(env: Record<string, string | undefined> = process.env): PlansConfig {
   return {
-    guest: numberEnv(env, 'ORB_GUEST_CREDITS', PLAN_DEFAULTS.guest, 1_000_000),
-    free: numberEnv(env, 'ORB_FREE_CREDITS', PLAN_DEFAULTS.free, 1_000_000),
-    pro: { credits: numberEnv(env, 'ORB_PRO_CREDITS', PLAN_DEFAULTS.pro.credits, 1_000_000), usd: Math.max(1, numberEnv(env, 'ORB_PRO_USD', PLAN_DEFAULTS.pro.usd, 10_000)) },
+    guest: Math.min(1_000_000, numberEnv(env, 'ORB_GUEST_CREDITS', PLAN_DEFAULTS.guest)),
+    free: Math.min(1_000_000, numberEnv(env, 'ORB_FREE_CREDITS', PLAN_DEFAULTS.free)),
+    pro: {
+      credits: Math.min(1_000_000, numberEnv(env, 'ORB_PRO_CREDITS', PLAN_DEFAULTS.pro.credits)),
+      usd: Math.max(1, Math.min(10_000, numberEnv(env, 'ORB_PRO_USD', PLAN_DEFAULTS.pro.usd))),
+    },
     topups: topupsEnv(env.ORB_TOPUPS) ?? PLAN_DEFAULTS.topups,
   };
 }
@@ -278,41 +275,35 @@ export async function refundCredits(db: Db, payer: string, micros: number, ref: 
   return rows[0] ? toWallet(rows[0]) : null;
 }
 
-/** Add a bought pack of credits — once per `ref` (the Stripe checkout). Null if it already was. */
-export async function grantTopup(db: Db, payer: string, credits: number, ref: string, cfg: PlansConfig = plansConfig(), now: Date = new Date()): Promise<Wallet | null> {
+/** Add credits to top-ups or bonus credits — once per `ref` (its kind's). Null if it already was. */
+async function grantOnce(db: Db, payer: string, kind: 'topup' | 'gift', credits: number, ref: string, cfg: PlansConfig, now: Date): Promise<Wallet | null> {
   await ensureWallet(db, payer, cfg, now);
+  const add = kind === 'topup' ? 'topup_micros = topup_micros' : 'bonus_micros = greatest(0, bonus_micros)';
   const rows = await db.query<WalletRow>(
     `with logged as (
-       insert into orb_credit_log (payer, kind, micros, ref) values ($1, 'topup', $2::bigint, $3)
+       insert into orb_credit_log (payer, kind, micros, ref) values ($1, $4, $2::bigint, $3)
        on conflict (kind, ref) where ref is not null do nothing
        returning micros
      )
-     update orb_wallets set topup_micros = topup_micros + (select micros from logged), updated_at = now()
+     update orb_wallets set ${add} + (select micros from logged), updated_at = now()
      where payer = $1 and exists (select 1 from logged)
      returning *`,
-    [payer, toMicros(credits), ref],
+    [payer, toMicros(credits), ref, kind],
   );
   return rows[0] ? toWallet(rows[0]) : null;
+}
+
+/** Add a bought pack of credits — once per `ref` (the Stripe checkout). Null if it already was. */
+export function grantTopup(db: Db, payer: string, credits: number, ref: string, cfg: PlansConfig = plansConfig(), now: Date = new Date()): Promise<Wallet | null> {
+  return grantOnce(db, payer, 'topup', credits, ref, cfg, now);
 }
 
 /**
  * Gift credits from Orb (an admin): bonus credits, which build like any others but earn nobody
  * anything when spent in worlds, so they can't be cashed out. Once per `ref`; null if it already was.
  */
-export async function grantGift(db: Db, payer: string, credits: number, ref: string, cfg: PlansConfig = plansConfig(), now: Date = new Date()): Promise<Wallet | null> {
-  await ensureWallet(db, payer, cfg, now);
-  const rows = await db.query<WalletRow>(
-    `with logged as (
-       insert into orb_credit_log (payer, kind, micros, ref) values ($1, 'gift', $2::bigint, $3)
-       on conflict (kind, ref) where ref is not null do nothing
-       returning micros
-     )
-     update orb_wallets set bonus_micros = greatest(0, bonus_micros) + (select micros from logged), updated_at = now()
-     where payer = $1 and exists (select 1 from logged)
-     returning *`,
-    [payer, toMicros(credits), ref],
-  );
-  return rows[0] ? toWallet(rows[0]) : null;
+export function grantGift(db: Db, payer: string, credits: number, ref: string, cfg: PlansConfig = plansConfig(), now: Date = new Date()): Promise<Wallet | null> {
+  return grantOnce(db, payer, 'gift', credits, ref, cfg, now);
 }
 
 /** Note what a finished build cost its maker (once per job). */
@@ -393,12 +384,14 @@ export function outOfCredits(w: Wallet, cfg: PlansConfig, payments: boolean, pau
     const offer = `free account (You → Account) to keep going — it comes with ${fmt(cfg.free)} credits a month!`;
     return pause ? `That's all the building without an account for now, so I'll pause here — what I made so far is saved. Create a ${offer}` : `To keep building, create a ${offer}`;
   }
-  const lead = pause ? "You're out of credits, so I'll pause here — what I made so far is saved." : '';
-  const join = (rest: string) => (lead ? `${lead} ${rest}` : rest);
-  const back = `They're back on ${day(w.periodEnd)}`;
+  // What happened (a build that pauses says so instead), then what to do.
+  const say = (used: string, rest: string) => `${pause ? "You're out of credits, so I'll pause here — what I made so far is saved." : used} ${rest}`;
   if (w.plan === 'pro') {
-    if (w.cancelAt) return join(`${lead ? '' : "You've used this month's credits. "}${payments ? 'Top up in You → Plan to keep building' : 'Add your own AI key in You → Model to keep building'}.`);
-    return join(`${lead ? '' : "You've used this month's credits. "}${payments ? 'Top up in You → Plan to keep building now' : 'Add your own AI key in You → Model to keep building now'} — or wait for ${day(w.periodEnd)}, when they refresh.`);
+    const keep = payments ? 'Top up in You → Plan to keep building' : 'Add your own AI key in You → Model to keep building';
+    return say("You've used this month's credits.", w.cancelAt ? `${keep}.` : `${keep} now — or wait for ${day(w.periodEnd)}, when they refresh.`);
   }
-  return join(`${lead ? '' : `You've used this month's ${fmt(w.monthly)} free credits. `}${back}${payments ? ` — or go Pro for ${fmt(cfg.pro.credits)} a month` : ''}. Or add your own AI key in You → Model to keep building now.`);
+  return say(
+    `You've used this month's ${fmt(w.monthly)} free credits.`,
+    `They're back on ${day(w.periodEnd)}${payments ? ` — or go Pro for ${fmt(cfg.pro.credits)} a month` : ''}. Or add your own AI key in You → Model to keep building now.`,
+  );
 }

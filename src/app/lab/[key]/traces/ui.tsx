@@ -4,17 +4,9 @@ import { blobSha, type Tokens, type TraceKind, type TraceStatus } from '@/server
 // What the trace pages share: the card, numbers read at a glance, a status, folds for long text,
 // and any JSON value laid out to read (stored screenshots shown, other stored blobs as links).
 
-export const CARD = 'rounded-[18px] bg-[var(--glass-bg-strong)] p-5 shadow-[0_1px_2px_rgba(16,16,40,.05),0_8px_24px_-12px_rgba(16,16,40,.22),inset_0_0_0_1px_var(--glass-hairline)]';
+export { ago, CARD } from '../pulse/ui';
 
 export const KINDS: Record<TraceKind, string> = { agent: 'Agent', cursor: 'Cursor', build: 'Build', direct: 'Own key' };
-
-export function ago(now: number, iso: string): string {
-  const s = Math.max(0, (now - Date.parse(iso)) / 1000);
-  if (s < 90) return 'just now';
-  if (s < 5400) return `${Math.round(s / 60)} min ago`;
-  if (s < 129600) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} days ago`;
-}
 
 export const when = (iso: string) => `${iso.slice(0, 19).replace('T', ' ')} UTC`;
 export const num = (n: number) => Math.round(n).toLocaleString('en-US');
@@ -98,7 +90,7 @@ export function Fold({ summary, open, children }: { summary: ReactNode; open?: b
   );
 }
 
-export const blobUrl = (lab: string, sha: string) => `${lab}/blob/${sha}`;
+const blobUrl = (lab: string, sha: string) => `${lab}/blob/${sha}`;
 
 export function BlobLink({ lab, sha, children }: { lab: string; sha: string; children?: ReactNode }) {
   return (
@@ -121,7 +113,7 @@ export function Shot({ lab, sha, label, small }: { lab: string; sha: string; lab
 }
 
 /** A value laid out to read: short ones inline, long text folded with its own lines, stored blobs as links. */
-export function Value({ v, lab, name }: { v: unknown; lab: string; name?: string }) {
+function Value({ v, lab, name }: { v: unknown; lab: string; name?: string }) {
   if (typeof v === 'string') {
     const sha = blobSha(v);
     if (sha) return <BlobLink lab={lab} sha={sha} />;

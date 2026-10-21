@@ -14,14 +14,13 @@
 // address's Host header. A server already answering there with these settings is used as is.
 // Chromium refuses the RP ID "localhost" on new.localhost, so passkeys on the new address take the
 // round trip that browsers without Related Origin Requests take. Exit code 0 = all checks passed.
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { launch } from './pw.mjs';
+import { launch } from '../kit/lib/browser.mjs';
+import { addAuthenticator, check, finish, inPage, root, section, startNext, stopNext } from './harness.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = process.env.ORB_TEST_PORT || '3333';
 const OLD = `http://localhost:${PORT}`;
 const NEW = `http://new.localhost:${PORT}`;
@@ -29,25 +28,6 @@ const FROM = `localhost%3A${PORT}`;
 const DATA_DIR = '.data/pglite-move';
 const SETTINGS = { NEXT_PUBLIC_SITE_URL: NEW, ORB_FORMER_ORIGINS: OLD, ORB_PASSKEY_RP_ID: 'localhost' };
 const ORIGINS = [NEW, 'https://localhost', OLD];
-
-// ------------------------------------------------------------------------------------------
-// Tiny test framework
-
-const results = [];
-function check(name, ok, detail) {
-  results.push({ name, ok: !!ok });
-  console.log(`  ${ok ? '✓' : '✗'} ${name}${!ok && detail !== undefined ? ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}` : ''}`);
-}
-const ONLY = (process.env.ORB_TEST_ONLY || '').toLowerCase();
-async function section(title, fn) {
-  if (ONLY && !title.toLowerCase().includes(ONLY)) return;
-  console.log(`\n${title}`);
-  try {
-    await fn();
-  } catch (e) {
-    check(`${title}: unexpected exception`, false, e && e.stack ? e.stack.split('\n').slice(0, 4).join(' | ') : String(e));
-  }
-}
 
 // ------------------------------------------------------------------------------------------
 // Dev server
@@ -82,26 +62,7 @@ async function ensureServer() {
   if (state === 'other') throw new Error(`Something without the move settings is answering on :${PORT}. Stop it first.`);
   fs.rmSync(path.join(root, DATA_DIR), { recursive: true, force: true });
   console.log(`Starting next dev on :${PORT} (data: ${DATA_DIR}) …`);
-  const child = spawn('npx', ['next', 'dev', '-p', PORT], {
-    cwd: root,
-    env: { ...process.env, ...SETTINGS, ORB_MOCK_AI: '1', ORB_PGLITE_DIR: DATA_DIR },
-    stdio: ['ignore', 'ignore', 'inherit'],
-    detached: true,
-  });
-  const until = Date.now() + 180_000;
-  while (Date.now() < until) {
-    if ((await serverState()) === 'ready') return child;
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  stopServer(child);
-  throw new Error('next dev did not come up');
-}
-
-function stopServer(child) {
-  if (!child) return;
-  try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {}
+  return startNext({ port: PORT, env: { ...SETTINGS, ORB_MOCK_AI: '1', ORB_PGLITE_DIR: DATA_DIR }, ready: async () => (await serverState()) === 'ready', echo: true });
 }
 
 // ------------------------------------------------------------------------------------------
@@ -112,13 +73,7 @@ async function newBrowser(browser, { passkeys = false, init } = {}) {
   const context = await browser.newContext();
   if (init) await context.addInitScript(init);
   const page = await context.newPage();
-  if (passkeys) {
-    const cdp = await context.newCDPSession(page);
-    await cdp.send('WebAuthn.enable', { enableUI: false });
-    await cdp.send('WebAuthn.addVirtualAuthenticator', {
-      options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-    });
-  }
+  if (passkeys) await addAuthenticator(context, page);
   const visited = [];
   page.on('framenavigated', (f) => f === page.mainFrame() && visited.push(f.url()));
   page.on('pageerror', (e) => console.log('    [pageerror]', e.message));
@@ -134,20 +89,6 @@ async function openHarness(page, origin) {
 async function travel(page, from, url) {
   await page.goto(from, { waitUntil: 'commit' });
   await page.waitForURL((u) => u.href === url, { timeout: 180_000 });
-}
-
-/** Run a harness call in the page; returns { ok, value } or { ok: false, error }. */
-function inPage(page, fn, arg) {
-  return page.evaluate(
-    async ({ src, arg }) => {
-      try {
-        return { ok: true, value: await new Function('arg', `return (${src})(arg)`)(arg) };
-      } catch (e) {
-        return { ok: false, error: e instanceof Error ? e.message : String(e) };
-      }
-    },
-    { src: fn.toString(), arg },
-  );
 }
 
 /** fetch() from the page (its cookies, and its device key unless `device: false`). */
@@ -492,12 +433,9 @@ async function main() {
   } finally {
     for (const c of contexts) await c.close().catch(() => {});
     await browser.close();
-    stopServer(server);
+    await stopNext(server);
   }
-
-  const failed = results.filter((r) => !r.ok);
-  console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-  process.exit(failed.length ? 1 : 0);
+  finish();
 }
 
 main().catch((e) => {

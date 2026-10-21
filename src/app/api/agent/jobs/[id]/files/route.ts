@@ -1,5 +1,5 @@
-// GET/PUT /api/agent/jobs/:id/files?t=… — a Cursor agent working without GitHub (the free builder
-// on Orb's own Cursor key) downloads the world's files here and saves its work back (see
+// GET/PUT /api/agent/jobs/:id/files?t=… — a Cursor agent (the free builder on Orb's own Cursor
+// key, or a person's own key) downloads the world's files here and saves its work back (see
 // src/server/agent/sync.ts). `t` is the job's files token; both work only while the job runs.
 // GET: the files as a .tar.gz with .orb/save and .orb/look. PUT (?base=<tree it downloaded>): a
 // save, answered in plain words for the agent's terminal.

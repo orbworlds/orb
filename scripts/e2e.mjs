@@ -4,63 +4,36 @@
 //   ORB_TEST_BASE=http://localhost:3200 node scripts/e2e.mjs   # reuse a running server
 // Screenshots land in .data/e2e/.
 
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { launch, routeCdn } from './pw.mjs';
+import { launch, routeCdn } from '../kit/lib/browser.mjs';
+import { check, finish, root, startNext, stopNext } from './harness.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WORLD_URL = /^\/(w\/[A-Za-z0-9_-]+|[a-z0-9-]+\/[a-z0-9-]+)\/?$/;
 const BASE = (process.env.ORB_TEST_BASE || 'http://localhost:3200').replace(/\/$/, '');
 const OUT = path.join(root, '.data/e2e');
 fs.mkdirSync(OUT, { recursive: true });
 
-let server = null;
 async function up() {
   try {
-    const r = await fetch(BASE + '/api/config', { signal: AbortSignal.timeout(3000) });
-    if (r.ok) return;
+    if ((await fetch(BASE + '/api/config', { signal: AbortSignal.timeout(3000) })).ok) return null;
   } catch {}
   const dir = '/tmp/orb-pglite-e2e';
   fs.rmSync(dir, { recursive: true, force: true });
-  server = spawn('npx', ['next', 'dev', '-p', new URL(BASE).port], {
-    cwd: root,
-    env: { ...process.env, ORB_MOCK_AI: '1', ORB_PGLITE_DIR: dir, NEXT_TELEMETRY_DISABLED: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true, // own process group, so cleanup also stops next-server
-  });
-  server.stdout.on('data', (d) => process.env.E2E_VERBOSE && process.stderr.write(d));
-  server.stderr.on('data', (d) => process.env.E2E_VERBOSE && process.stderr.write(d));
-  for (let i = 0; i < 120; i++) {
-    await new Promise((r) => setTimeout(r, 1000));
-    try {
-      const r = await fetch(BASE + '/api/config');
-      if (r.ok) return;
-    } catch {}
-  }
-  throw new Error('dev server did not start');
+  return startNext({ port: new URL(BASE).port, env: { ORB_MOCK_AI: '1', ORB_PGLITE_DIR: dir }, echo: !!process.env.E2E_VERBOSE });
 }
 
-let pass = 0,
-  fail = 0;
-function check(name, ok, info) {
-  if (ok) pass++;
-  else fail++;
-  console.log(`  ${ok ? '✓' : '✗'} ${name}${!ok && info !== undefined ? ' — ' + String(typeof info === 'string' ? info : JSON.stringify(info)).slice(0, 300) : ''}`);
-}
-
-await up();
+const server = await up();
 // Warm up route compilation (first compile in dev can take a while on a busy machine).
 for (const p of ['/', '/explore', '/api/worlds?sort=featured']) await fetch(BASE + p).catch(() => {});
 const browser = await launch();
 try {
-  for (const [label, viewport, scheme] of [
-    ['desktop', { width: 1440, height: 900 }, 'light'],
-    ['mobile', { width: 390, height: 844 }, 'light'],
+  for (const [label, viewport] of [
+    ['desktop', { width: 1440, height: 900 }],
+    ['mobile', { width: 390, height: 844 }],
   ]) {
     console.log(`\n${label}`);
-    const ctx = await browser.newContext({ viewport, colorScheme: scheme, hasTouch: label === 'mobile', isMobile: label === 'mobile' });
+    const ctx = await browser.newContext({ viewport, hasTouch: label === 'mobile', isMobile: label === 'mobile' });
     await routeCdn(ctx);
     const page = await ctx.newPage();
     page.setDefaultNavigationTimeout(120000);
@@ -170,8 +143,8 @@ try {
     g.setDefaultTimeout(90000);
     g.on('pageerror', (e) => errors.push('pageerror (links): ' + e.message));
     await g.goto(`${BASE}/orbworlds/star-runner?remix&utm_source=github&utm_campaign=star-runner`, { waitUntil: 'domcontentloaded' });
-    const copy = g.getByRole('button', { name: /make my own copy/i });
-    check('?remix: the game opens with Make my own copy', await copy.waitFor({ timeout: 60000 }).then(() => true, () => false));
+    const copy = g.getByRole('button', { name: 'Remix', exact: true });
+    check('?remix: the game opens with its chat and Remix', await copy.waitFor({ timeout: 60000 }).then(() => true, () => false));
     check('…and the link leaves the address', !new URL(g.url()).searchParams.has('remix') && new URL(g.url()).pathname === '/orbworlds/star-runner', g.url());
     await g.screenshot({ path: `${OUT}/${label}-8-remix-link.png` });
     await copy.click();
@@ -194,11 +167,6 @@ try {
   }
 } finally {
   await browser.close();
-  if (server) {
-    try {
-      process.kill(-server.pid, 'SIGTERM');
-    } catch {}
-  }
+  await stopNext(server);
 }
-console.log(`\n${pass}/${pass + fail} checks passed${fail ? ` — ${fail} FAILED` : ''}`);
-process.exit(fail ? 1 : 0);
+finish();

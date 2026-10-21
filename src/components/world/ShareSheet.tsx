@@ -4,7 +4,7 @@
 // "Download .zip". Changes are reported through onChange(patch); the caller persists them.
 
 import { track } from '@/lib/analytics';
-import { api, ApiError, worldHref } from '@/lib/api';
+import { worldHref } from '@/lib/api';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { Visibility, WorldFull } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
@@ -13,8 +13,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import { Switch } from '@/components/ui/Switch';
 import { showFriends, useFriends } from '@/state/friends';
-import { shareUrl } from '@/state/share';
-import { toast } from '@/state/toast';
+import { copyText, downloadZip, shareUrl } from '@/state/share';
+import { apiMessage, toast } from '@/state/toast';
 import { AccountCard, useMe } from '../orb/AccountCard';
 import { PersonAvatar, whereIs } from '../orb/People';
 import { groupClass } from '../orb/WorldCard';
@@ -32,61 +32,6 @@ export function ShareSheet({ open, onClose, world, onChange }: { open: boolean; 
 
 function worldUrl(world: { id: string; path?: string | null }) {
   return typeof window === 'undefined' ? worldHref(world) : shareUrl(world);
-}
-
-/** "Cloud Castle!" → "cloud-castle" */
-export function slugify(name: string): string {
-  const s = name
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60);
-  return s || 'world';
-}
-
-/** Copy to the clipboard, with a fallback for older browsers. Resolves false when it couldn't. */
-export async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    // Older browsers / denied permission: fall back to a hidden textarea.
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.setAttribute('readonly', '');
-      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
-      document.body.appendChild(ta);
-      ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove();
-      return ok;
-    } catch {
-      return false;
-    }
-  }
-}
-
-/** Save the world's files as a .zip (GET /api/worlds/:id/zip). */
-export async function downloadZip(world: { id: string; name: string }): Promise<void> {
-  let blob: Blob;
-  try {
-    blob = await api.worldZip(world.id);
-  } catch {
-    toast('Couldn’t download this world. Try again in a moment.', 'error');
-    return;
-  }
-  track('world_download', { world_id: world.id });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${slugify(world.name)}.zip`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 function useCanNativeShare() {
@@ -156,7 +101,7 @@ function ShareBody({ world, onChange }: { world: WorldFull; onChange(patch: Part
             value={displayUrl}
             aria-label="World link"
             onFocus={(e) => e.currentTarget.select()}
-            className="h-9 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none focus-visible:outline-none"
+            className="h-9 min-w-0 flex-1 rounded-[8px] bg-transparent text-[14px] text-ink"
           />
           <Button variant="primary" size="sm" onClick={copy} className="min-w-[84px]" aria-live="polite">
             <Icon name={copied ? 'check' : 'copy'} size={15} />
@@ -307,7 +252,7 @@ function InviteFriends({ world }: { world: WorldFull }) {
       await useFriends.getState().invite(world.id, ids);
       setSent((s) => ({ ...s, ...Object.fromEntries(ids.map((id) => [id, true])) }));
     } catch (e) {
-      toast(e instanceof ApiError && e.status < 500 && e.message ? e.message : 'Couldn’t send the invite. Try again in a moment.', 'error');
+      toast(apiMessage(e, 'Couldn’t send the invite. Try again in a moment.'), 'error');
     } finally {
       setBusy(null);
     }
@@ -366,7 +311,6 @@ interface SegOption<T extends string> {
   value: T;
   label: string;
   icon?: IconName;
-  disabled?: boolean;
 }
 
 function Segmented<T extends string>({ value, onChange, options, labelledBy }: { value: T; onChange(v: T): void; options: SegOption<T>[]; labelledBy: string }) {
@@ -379,14 +323,9 @@ function Segmented<T extends string>({ value, onChange, options, labelledBy }: {
     const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
     if (!dir) return;
     e.preventDefault();
-    for (let step = 1; step <= options.length; step++) {
-      const j = (index + dir * step + options.length) % options.length;
-      if (!options[j].disabled) {
-        onChange(options[j].value);
-        refs.current[j]?.focus();
-        return;
-      }
-    }
+    const j = (index + dir + options.length) % options.length;
+    onChange(options[j].value);
+    refs.current[j]?.focus();
   };
   return (
     <div role="radiogroup" aria-labelledby={labelledBy} className={`${groupClass} relative grid p-1`} style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
@@ -407,10 +346,9 @@ function Segmented<T extends string>({ value, onChange, options, labelledBy }: {
             role="radio"
             aria-checked={on}
             tabIndex={on ? 0 : -1}
-            disabled={o.disabled}
             onClick={() => onChange(o.value)}
             onKeyDown={onKey}
-            className={`relative z-[1] flex h-10 items-center justify-center gap-2 rounded-[14px] text-[14px] font-medium transition-colors duration-200 focus-visible:rounded-[14px] focus-visible:outline-offset-0 disabled:opacity-40 ${on ? 'text-ink' : 'text-ink-2 hover:text-ink'}`}
+            className={`relative z-[1] flex h-10 items-center justify-center gap-2 rounded-[14px] text-[14px] font-medium transition-colors duration-200 focus-visible:rounded-[14px] focus-visible:outline-offset-0 ${on ? 'text-ink' : 'text-ink-2 hover:text-ink'}`}
           >
             {o.icon && <Icon name={o.icon} size={16} />}
             {o.label}

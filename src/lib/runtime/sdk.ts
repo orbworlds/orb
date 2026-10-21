@@ -2,17 +2,19 @@
 // world (SPEC §7). It runs inside the sandboxed, opaque-origin iframe before any world code and
 //   - shims localStorage / sessionStorage / document.cookie (the real ones throw there), lets
 //     workers start from the world's own files and history keep its state without an address,
+//   - asks for the world's own images and media with CORS (so they don't taint its canvases),
 //   - forces preserveDrawingBuffer on WebGL contexts (so thumbnails can be captured),
 //   - reports runtime errors, failed resource loads and the first console.error calls,
 //   - posts 'ready' after load + 2 animation frames,
 //   - exposes the frozen world-author SDK as window.orb,
 //   - answers probes: Orb's builder plays the world with synthetic input and gets back what it
-//     saw (screenshots, errors, console output, frame rate, the text on screen).
+//     saw (screenshots, errors, console output, frame rate, the text on screen),
+//   - records clips of the main canvas, with the visitors' name tags, for sharing.
 // The parent side of the protocol lives in ./bridge.ts.
 import type { RuntimeContext } from '../types';
 
 /** Attribute on the injected <script>; the runtime removes its own element once it has run. */
-export const RUNTIME_ATTR = 'data-orb-runtime';
+const RUNTIME_ATTR = 'data-orb-runtime';
 
 /** Max characters (keys + values) a world may keep in its shimmed localStorage (~2 MB). */
 export const WORLD_STORAGE_LIMIT = 2 * 1024 * 1024;
@@ -21,7 +23,7 @@ export const WORLD_STORAGE_LIMIT = 2 * 1024 * 1024;
 export const STORE_VALUE_LIMIT = 8 * 1024;
 
 /** Everything the runtime needs, embedded as a JSON literal in the injected script. */
-export interface RuntimePayload {
+interface RuntimePayload {
   world: { id: string; name: string };
   me: RuntimeContext['me'];
   /** localStorage seed as [key, value] pairs (an object literal would swallow a "__proto__" key). */
@@ -34,7 +36,6 @@ export interface RuntimePayload {
   scripts: Record<string, number>;
   /** [line, startColumn, endColumn) of the injected runtime itself — its stack frames are skipped. */
   rt: [number, number, number];
-  limits: { storage: number; store: number };
   /** `orb.room.invited`: the room an invite link asked for, or null. */
   room: string | null;
 }
@@ -42,12 +43,19 @@ export interface RuntimePayload {
 /** Room names worlds may use (`orb.room.join(cb, { name })`, invite links). */
 export const ROOM_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/;
 
+/** Rooms one world may be in at once. */
+export const ROOMS_PER_WORLD = 4;
+
+/** Ids of the items a world sells (its orb-shop list). */
+export const SHOP_ITEM_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
 // ---------------------------------------------------------------------------------------------
 // Runtime source. ES2019, one IIFE, no imports, invoked with the payload: `(function (P) {…})`.
 // Rules for editing (the source is collapsed to a single line when injected):
 //   - terminate every statement with a semicolon; use only /* block */ comments;
 //   - never put a line break inside a string/regex, and never write the character sequences
-//     "</" + "script" or "<!" + "--" (they would end the inline <script> early).
+//     "</" + "script" or "<!" + "--" (they would end the inline <script> early);
+//   - ${…} inserts a TS constant declared above, which must be single-line and contain neither.
 // scripts/test-runtime.mjs checks that the collapsed script parses.
 const RUNTIME_SOURCE = String.raw`
 (function (P) {
@@ -59,9 +67,10 @@ const RUNTIME_SOURCE = String.raw`
   var PARENT = W.parent;
   var EMBEDDED = PARENT && PARENT !== W;
   var hasOwn = Object.prototype.hasOwnProperty;
-  var raf = W.requestAnimationFrame ? W.requestAnimationFrame.bind(W) : function (f) { return setTimeout(f, 16); };
+  var raf = W.requestAnimationFrame.bind(W);
   var nativeConsoleError = console.error;
-  var RT = P.rt || [0, 0, 0];
+  var RT = P.rt;
+  var STORAGE_LIMIT = ${WORLD_STORAGE_LIMIT}, LIMIT = ${STORE_VALUE_LIMIT};
 
   /* Remove our own <script> so the world's DOM looks exactly like its author wrote it. */
   try { if (D.currentScript && D.currentScript.parentNode) { D.currentScript.parentNode.removeChild(D.currentScript); } } catch (e) { /* ignore */ }
@@ -98,11 +107,12 @@ const RUNTIME_SOURCE = String.raw`
     } catch (e) { /* ignore */ }
   })();
 
-  function post(msg) {
+  function post(msg, transfer) {
     if (!EMBEDDED) { return; }
     msg.__orb = 1;
-    try { PARENT.postMessage(msg, '*'); } catch (e) {
-      /* DataCloneError (functions, DOM nodes…): retry with a JSON-normalised copy. */
+    try { PARENT.postMessage(msg, '*', transfer); } catch (e) {
+      /* A transfer that fails goes again without; DataCloneError (functions, DOM nodes…): retry with a JSON-normalised copy. */
+      if (transfer) { post(msg); return; }
       try { PARENT.postMessage(JSON.parse(JSON.stringify(msg)), '*'); } catch (e2) { /* give up */ }
     }
   }
@@ -117,15 +127,10 @@ const RUNTIME_SOURCE = String.raw`
   }
 
   /* ===== Storage shims ===== */
-  function makeStorage(area, seed, limit) {
+  function makeStorage(area, seed) {
     var map = new Map();
     var size = 0;
-    if (Array.isArray(seed)) {
-      for (var si = 0; si < seed.length; si++) {
-        var kv = seed[si];
-        if (kv && typeof kv[0] === 'string' && typeof kv[1] === 'string') { map.set(kv[0], kv[1]); size += kv[0].length + kv[1].length; }
-      }
-    }
+    seed.forEach(function (kv) { map.set(kv[0], kv[1]); size += kv[0].length + kv[1].length; });
     function str(v) {
       if (typeof v === 'symbol') { throw new TypeError('Cannot convert a Symbol value to a string'); }
       return String(v);
@@ -147,7 +152,7 @@ const RUNTIME_SOURCE = String.raw`
         var had = map.has(k), old = had ? map.get(k) : null;
         if (had && old === v) { return; }
         var next = size - (had ? k.length + old.length : 0) + k.length + v.length;
-        if (limit && next > limit) { throw quota(); }
+        if (next > STORAGE_LIMIT) { throw quota(); }
         map.set(k, v); size = next;
         post({ type: 'storage', area: area, op: 'set', key: k, value: v });
       },
@@ -174,7 +179,7 @@ const RUNTIME_SOURCE = String.raw`
       }
     };
     /* Prototype chain → Storage.prototype, so instanceof Storage and toString() look native. */
-    var proto = Object.create(W.Storage ? W.Storage.prototype : Object.prototype);
+    var proto = Object.create(W.Storage.prototype);
     Object.keys(methods).forEach(function (name) {
       Object.defineProperty(proto, name, { value: methods[name], writable: true, configurable: true, enumerable: false });
     });
@@ -214,8 +219,8 @@ const RUNTIME_SOURCE = String.raw`
       Object.defineProperty(W, name, { configurable: true, enumerable: true, get: function () { return value; }, set: function () { /* read-only, like the real one */ } });
     } catch (e) { /* ignore */ }
   }
-  installGlobal('localStorage', makeStorage('local', P.storage, P.limits && P.limits.storage));
-  installGlobal('sessionStorage', makeStorage('session', null, P.limits && P.limits.storage));
+  installGlobal('localStorage', makeStorage('local', P.storage));
+  installGlobal('sessionStorage', makeStorage('session', []));
 
   /* A world's own files are another origin than its opaque frame, so new Worker('worker.js') is
      refused: such a worker starts from a tiny data: script that loads the file instead (a blob:
@@ -278,7 +283,7 @@ const RUNTIME_SOURCE = String.raw`
 
   /* ===== WebGL: keep the drawing buffer so capture() can read the last frame ===== */
   /* Which kind of context each canvas has (probe screenshots skip tainted 2D canvases). */
-  var ctxTypes = W.WeakMap ? new WeakMap() : null;
+  var ctxTypes = new WeakMap();
   try {
     var CP = W.HTMLCanvasElement && W.HTMLCanvasElement.prototype;
     var getContext = CP && CP.getContext;
@@ -293,20 +298,20 @@ const RUNTIME_SOURCE = String.raw`
         } else {
           ctx = getContext.apply(this, arguments);
         }
-        if (ctx && ctxTypes && !ctxTypes.has(this)) { ctxTypes.set(this, String(type)); }
+        if (ctx && !ctxTypes.has(this)) { ctxTypes.set(this, String(type)); }
         return ctx;
       };
     }
   } catch (e) { /* ignore */ }
 
   /* ===== Error reporting ===== */
-  var SCRIPT_LINES = P.scripts || {};
+  var SCRIPT_LINES = P.scripts;
   var seen = {}, blamed = {}, sentTotal = 0, burstStart = 0, burstCount = 0, consoleCount = 0;
   var setT = W.setTimeout.bind(W);
-  var perf = W.performance && W.performance.now ? W.performance : null;
-  var T0 = perf ? perf.now() : Date.now();
+  var perf = W.performance;
+  var T0 = perf.now();
   /* ms since the runtime started (≈ since the world started). */
-  function since() { return Math.round((perf ? perf.now() : Date.now()) - T0); }
+  function since() { return Math.round(perf.now() - T0); }
   /* What a probe reports: the latest errors and console output, kept inside the world. */
   var errLog = [], conLog = [], conTimes = [], conDropped = 0;
   function keepError(m) {
@@ -496,11 +501,12 @@ const RUNTIME_SOURCE = String.raw`
 
   /* ===== Capture ===== */
   function opaqueColor(el) {
-    try {
-      var c = getComputedStyle(el).backgroundColor;
-      if (c && c !== 'transparent' && !/^rgba\(.*,\s*0\)$/.test(c)) { return c; }
-    } catch (e) { /* ignore */ }
-    return '';
+    try { return cssColor(getComputedStyle(el).backgroundColor); } catch (e) { return ''; }
+  }
+  /* A data URL of the canvas: webp, or jpeg where the browser can't make webp. */
+  function encode(cv, q) {
+    var url = cv.toDataURL('image/webp', q);
+    return url.indexOf('data:image/webp') === 0 ? url : cv.toDataURL('image/jpeg', 0.85);
   }
   /* The visible canvas covering most of the screen: the world's picture. */
   function bestCanvas() {
@@ -532,8 +538,7 @@ const RUNTIME_SOURCE = String.raw`
     if (sw / sh > OW / OH) { cw = sh * OW / OH; } else { ch = sw * OH / OW; }
     g.imageSmoothingQuality = 'high';
     g.drawImage(best, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, OW, OH);
-    var url = out.toDataURL('image/webp', 0.82);
-    if (url.indexOf('data:image/webp') !== 0) { url = out.toDataURL('image/jpeg', 0.85); }
+    var url = encode(out, 0.82);
     return url.length > 32 ? url : null;
   }
   function safeGrab() { try { return grab(); } catch (e) { return null; } }
@@ -829,7 +834,7 @@ const RUNTIME_SOURCE = String.raw`
     return src.indexOf('data:') === 0 || src.indexOf('blob:') === 0 || el.crossOrigin === 'anonymous' || el.crossOrigin === 'use-credentials';
   }
   function tainted(c) {
-    if (!ctxTypes || ctxTypes.get(c) !== '2d') { return false; }
+    if (ctxTypes.get(c) !== '2d') { return false; }
     try { c.getContext('2d').getImageData(0, 0, 1, 1); return false; } catch (e) { return true; }
   }
   function drawMedia(g, el, r) {
@@ -945,10 +950,7 @@ const RUNTIME_SOURCE = String.raw`
     if (D.body) { paintTree(g, D.body, 1, vw, vh, { n: 0 }, 0); }
     g.globalAlpha = 1;
     var url;
-    try {
-      url = out.toDataURL('image/webp', 0.8);
-      if (url.indexOf('data:image/webp') !== 0) { url = out.toDataURL('image/jpeg', 0.85); }
-    } catch (e) { return null; }
+    try { url = encode(out, 0.8); } catch (e) { return null; }
     return { url: url, flat: flatness(out) };
   }
 
@@ -999,7 +1001,7 @@ const RUNTIME_SOURCE = String.raw`
       if (w > 0 && h > 0 && w * h > area) { best = cs[i]; area = w * h; }
     }
     if (!best) { return null; }
-    return { w: best.width, h: best.height, type: (ctxTypes && ctxTypes.get(best)) || 'none', cover: round3(area / (vw * vh)) };
+    return { w: best.width, h: best.height, type: ctxTypes.get(best) || 'none', cover: round3(area / (vw * vh)) };
   }
 
   /*
@@ -1013,7 +1015,7 @@ const RUNTIME_SOURCE = String.raw`
     if (softGl !== null) { return softGl; }
     var cs = D.getElementsByTagName('canvas');
     for (var i = 0; i < cs.length; i++) {
-      var type = ctxTypes && ctxTypes.get(cs[i]);
+      var type = ctxTypes.get(cs[i]);
       if (!type || type.indexOf('webgl') === -1) { continue; }
       try {
         var gl = cs[i].getContext(type);
@@ -1109,13 +1111,22 @@ const RUNTIME_SOURCE = String.raw`
       post({ type: 'probe-result', reqId: d.reqId, result: result });
     }, function (e) {
       probeBusy = false;
-      probing = false;
       post({ type: 'probe-result', reqId: d.reqId, error: describe(e) });
     });
   }
 
   /* ===== Parent → world messages ===== */
   var pending = {}, reqSeq = 0;
+  /* Ask Orb: resolves with its answer (the message carrying this reqId), or with late after ms. */
+  function ask(msg, ms, late) {
+    return new Promise(function (resolve) {
+      var id = 'r' + (++reqSeq);
+      var timer = setTimeout(function () { delete pending[id]; resolve(late); }, ms);
+      pending[id] = function (res) { clearTimeout(timer); delete pending[id]; resolve(res); };
+      msg.reqId = id;
+      post(msg);
+    });
+  }
   /* Joined rooms by name ('' is the world's own room). */
   var rooms = Object.create(null);
   W.addEventListener('message', function (ev) {
@@ -1140,26 +1151,16 @@ const RUNTIME_SOURCE = String.raw`
     return JSON.parse(s);
   }
   function storeCall(op, key, extra) {
-    return new Promise(function (resolve, reject) {
-      if (typeof key !== 'string' && typeof key !== 'number') { throw new TypeError('orb.store.' + op + ': key must be a string'); }
-      key = String(key);
-      /* list takes a prefix, which may be empty (every key). */
-      if ((!key && op !== 'list') || key.length > 64) { throw new TypeError('orb.store.' + op + ': key must be 1-64 characters'); }
-      var id = 's' + (++reqSeq) + '_' + Date.now().toString(36);
-      var msg = { type: 'store', reqId: id, op: op, key: key };
-      for (var k in extra) { if (hasOwn.call(extra, k)) { msg[k] = extra[k]; } }
-      var timer = setTimeout(function () { delete pending[id]; reject(new Error('orb.store.' + op + ' timed out')); }, 10000);
-      pending[id] = function (res) {
-        clearTimeout(timer);
-        delete pending[id];
-        if (res.ok) { resolve(res.value === undefined ? null : res.value); }
-        else { reject(new Error(res.error || 'orb.store.' + op + ' failed')); }
-      };
-      if (!EMBEDDED) { pending[id]({ ok: false, error: 'orb.store is only available inside Orb' }); return; }
-      post(msg);
+    if (typeof key !== 'string' && typeof key !== 'number') { return Promise.reject(new TypeError('orb.store.' + op + ': key must be a string')); }
+    key = String(key);
+    /* list takes a prefix, which may be empty (every key). */
+    if ((!key && op !== 'list') || key.length > 64) { return Promise.reject(new TypeError('orb.store.' + op + ': key must be 1-64 characters')); }
+    if (!EMBEDDED) { return Promise.reject(new Error('orb.store is only available inside Orb')); }
+    return ask(Object.assign({ type: 'store', op: op, key: key }, extra), 10000, { ok: false, error: 'orb.store.' + op + ' timed out' }).then(function (res) {
+      if (res.ok) { return res.value === undefined ? null : res.value; }
+      throw new Error(res.error || 'orb.store.' + op + ' failed');
     });
   }
-  var LIMIT = (P.limits && P.limits.store) || 8192;
   var store = Object.freeze({
     get: function (key) { return storeCall('get', key, {}); },
     set: function (key, value) {
@@ -1189,10 +1190,10 @@ const RUNTIME_SOURCE = String.raw`
     var listeners = [], peers = new Map(), state = { self: null, joined: false, live: false };
     function emit(ev) {
       for (var i = 0; i < listeners.length; i++) {
-        try { listeners[i](ev); } catch (err) { setTimeout(function () { throw err; }); }
+        try { listeners[i](ev); } catch (err) { later(err); }
       }
     }
-    var r = {
+    return {
       peers: peers,
       listeners: listeners,
       state: state,
@@ -1217,9 +1218,8 @@ const RUNTIME_SOURCE = String.raw`
         return { type: 'joined', self: state.self, peers: list, live: state.live };
       }
     };
-    return r;
   }
-  var ROOM_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/;
+  var ROOM_RE = ${ROOM_NAME_RE};
   function roomName(v, what) {
     var n = v == null ? '' : String(v);
     if (n && !ROOM_RE.test(n)) { throw new TypeError('orb.room.' + what + ': a room name is 1-40 letters, digits, - or _'); }
@@ -1247,14 +1247,14 @@ const RUNTIME_SOURCE = String.raw`
     if (opts != null && typeof opts !== 'object') { throw new TypeError('orb.room.join: options must be an object, like { name: "match-1" }'); }
     var name = roomName(opts ? opts.name : null, 'join');
     var fresh = !rooms[name];
-    if (fresh && Object.keys(rooms).length >= 4) { throw new RangeError('orb.room.join: a world can be in at most 4 rooms at once (leave one first)'); }
+    if (fresh && Object.keys(rooms).length >= ${ROOMS_PER_WORLD}) { throw new RangeError('orb.room.join: a world can be in at most ${ROOMS_PER_WORLD} rooms at once (leave one first)'); }
     if (fresh) { rooms[name] = createRoom(); }
     var current = rooms[name], active = true;
     var listener = cb || function () { /* no-op */ };
     current.listeners.push(listener);
     if (fresh) { post({ type: 'room', op: 'join', room: name }); }
     else if (current.state.joined) {
-      setTimeout(function () { if (active) { try { listener(current.joinedEvent()); } catch (err) { setTimeout(function () { throw err; }); } } });
+      setTimeout(function () { if (active) { try { listener(current.joinedEvent()); } catch (err) { later(err); } } });
     }
     return Object.freeze({
       name: name,
@@ -1280,33 +1280,25 @@ const RUNTIME_SOURCE = String.raw`
   }
   /* An invite link to a room of this world: Orb copies it (or opens the share sheet) and says so. */
   function roomInvite(name) {
-    return new Promise(function (resolve) {
-      var n = roomName(name, 'invite');
+    var n;
+    try {
+      n = roomName(name, 'invite');
       if (!n) { throw new TypeError('orb.room.invite: give the room a name'); }
-      if (!EMBEDDED) { resolve(null); return; }
-      var id = 'i' + (++reqSeq) + '_' + Date.now().toString(36);
-      var timer = setTimeout(function () { delete pending[id]; resolve(null); }, 60000);
-      pending[id] = function (res) { clearTimeout(timer); delete pending[id]; resolve(typeof res.url === 'string' ? res.url : null); };
-      post({ type: 'invite', reqId: id, room: n });
-    });
+    } catch (e) { return Promise.reject(e); }
+    if (!EMBEDDED) { return Promise.resolve(null); }
+    return ask({ type: 'invite', room: n }, 60000, {}).then(function (res) { return typeof res.url === 'string' ? res.url : null; });
   }
-  var invited = typeof P.room === 'string' && ROOM_RE.test(P.room) ? P.room : null;
+  var invited = P.room;
 
   /* ===== SDK: shop — things players buy with their Orb credits ===== */
   /* What a world sells is listed in its page (a JSON script with id "orb-shop"); buying always goes
      through Orb's own sheet, which asks the player with the price from Orb's copy of that list. */
-  var ITEM_ID_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+  var ITEM_ID_RE = ${SHOP_ITEM_RE};
   function shopCall(op, item) {
-    return new Promise(function (resolve, reject) {
-      if (!EMBEDDED) { resolve(op === 'buy' ? { ok: false, item: item, reason: 'not_on_orb' } : []); return; }
-      var id = 'h' + (++reqSeq) + '_' + Date.now().toString(36);
-      var timer = setTimeout(function () { delete pending[id]; reject(new Error('orb.shop.' + op + ' timed out')); }, op === 'buy' ? 900000 : 15000);
-      pending[id] = function (res) {
-        clearTimeout(timer);
-        delete pending[id];
-        if (res.ok) { resolve(res.value); } else { reject(new Error(res.error || 'orb.shop.' + op + ' failed')); }
-      };
-      post({ type: 'shop', reqId: id, op: op, item: item });
+    if (!EMBEDDED) { return Promise.resolve(op === 'buy' ? { ok: false, item: item, reason: 'not_on_orb' } : []); }
+    return ask({ type: 'shop', op: op, item: item }, op === 'buy' ? 900000 : 15000, { ok: false, error: 'orb.shop.' + op + ' timed out' }).then(function (res) {
+      if (res.ok) { return res.value; }
+      throw new Error(res.error || 'orb.shop.' + op + ' failed');
     });
   }
   var shop = Object.freeze({
@@ -1337,7 +1329,7 @@ const RUNTIME_SOURCE = String.raw`
     return out;
   }
   var crowds = [], crowdAt = 0, crowdRunning = false;
-  function nowMs() { return perf ? perf.now() : Date.now(); }
+  function nowMs() { return perf.now(); }
   function wrapAngle(d) { return Math.atan2(Math.sin(d), Math.cos(d)); }
   function round2(n) { return Math.round(n * 100) / 100; }
   function later(err) { setTimeout(function () { throw err; }); }
@@ -1373,8 +1365,7 @@ const RUNTIME_SOURCE = String.raw`
     }
     raf(crowdFrame);
   }
-  function makeCrowd(read, opts, what) {
-    if (typeof read !== 'function') { throw new TypeError('orb.visitors.' + what + ': give it a function that says where you are, like () => ({ x: hero.x, y: hero.y })'); }
+  function makeCrowd(read, opts) {
     var name = roomName(opts.room, 'join');
     var smooth = Array.isArray(opts.smooth) ? opts.smooth.map(String) : SMOOTH_KEYS;
     var snapOf = typeof opts.snap === 'function' ? opts.snap : function () { return typeof opts.snap === 'number' && opts.snap > 0 ? opts.snap : Infinity; };
@@ -1503,7 +1494,8 @@ const RUNTIME_SOURCE = String.raw`
   }
   function visitorsJoin(read, opts) {
     if (opts != null && typeof opts !== 'object') { throw new TypeError('orb.visitors.join: options must be an object, like { room: "match-1" }'); }
-    return makeCrowd(read, opts || {}, 'join').handle;
+    if (typeof read !== 'function') { throw new TypeError('orb.visitors.join: give it a function that says where you are, like () => ({ x: hero.x, y: hero.y })'); }
+    return makeCrowd(read, opts || {}).handle;
   }
 
   /* orb.visitors.show: three.js worlds — each visitor as a character the size of yours, with a name tag. */
@@ -1721,9 +1713,7 @@ const RUNTIME_SOURCE = String.raw`
     function wearOn(a, v) {
       if (a.custom || a.wornRef === v.wears) { return; }
       a.wornRef = v.wears;
-      var list = v.wears || [], key = list.join(), h = height, i, w, g;
-      if (key === a.wornKey) { return; }
-      a.wornKey = key;
+      var list = v.wears || [], h = height, i, w, g;
       for (i = 0; i < a.worn.length; i++) { if (a.worn[i].parent) { a.worn[i].parent.remove(a.worn[i]); } }
       a.worn = [];
       for (i = 0; i < list.length; i++) {
@@ -1845,7 +1835,7 @@ const RUNTIME_SOURCE = String.raw`
       }
       clipTags = forClip;
     }
-    function hideTag(tag) { if (tag && tag.shown) { tag.shown = false; tag.el.style.display = 'none'; } }
+    function hideTag(tag) { if (tag.shown) { tag.shown = false; tag.el.style.display = 'none'; } }
     function avatarFor(v) {
       measure();
       var a = null, obj = null;
@@ -1860,7 +1850,6 @@ const RUNTIME_SOURCE = String.raw`
       a.flying = false;
       a.worn = [];
       a.wornRef = null;
-      a.wornKey = '';
       return a;
     }
     /* In and out of flight: the orb shows instead of the character, and back. */
@@ -1871,7 +1860,7 @@ const RUNTIME_SOURCE = String.raw`
         a.group.add(a.wisp.group);
         a.mats.push.apply(a.mats, a.wisp.mats);
         if (!a.phase) { a.phase = Math.random() * 6; }
-        a.wornRef = a.wornKey = null;
+        a.wornRef = null;
       }
       if (a.wisp) { a.wisp.group.visible = on; }
       if (a.custom) { a.object.visible = !on; }
@@ -1883,7 +1872,7 @@ const RUNTIME_SOURCE = String.raw`
       for (var i = 0; i < a.mats.length; i++) { a.mats[i].dispose(); }
       if (a.tag && a.tag.el.parentNode) { a.tag.el.parentNode.removeChild(a.tag.el); }
     }
-    var made = makeCrowd(myPose, { room: o.room, snap: function () { return (height || 1.7) * 12; } }, 'show');
+    var made = makeCrowd(myPose, { room: o.room, snap: function () { return (height || 1.7) * 12; } });
     made.c.onTick = function (dt, now) {
       var cam = camOf(), list = made.handle.list, seen = {}, near = null, tagged = [], i, v, a, x, y, z, flying;
       if (cam && cam.isCamera) { V2.setFromMatrixPosition(cam.matrixWorld); } else { cam = null; }
@@ -1997,11 +1986,6 @@ const RUNTIME_SOURCE = String.raw`
     g.textBaseline = 'middle';
     g.fillText(text, x + 30 * k, orbY + 0.5 * k);
   }
-  function postTransfer(msg, transfer) {
-    if (!EMBEDDED) { return; }
-    msg.__orb = 1;
-    try { PARENT.postMessage(msg, '*', transfer); } catch (e) { post(msg); }
-  }
   function recordClip(d) {
     var reqId = d.reqId;
     function fail(why) { clipping = false; post({ type: 'clip-result', reqId: reqId, error: why }); }
@@ -2042,7 +2026,7 @@ const RUNTIME_SOURCE = String.raw`
       if (!blob.size) { fail('empty'); return; }
       blob.arrayBuffer().then(function (buf) {
         clipping = false;
-        postTransfer({ type: 'clip-result', reqId: reqId, mime: blob.type, data: buf }, [buf]);
+        post({ type: 'clip-result', reqId: reqId, mime: blob.type, data: buf }, [buf]);
       }, function () { fail('read'); });
     };
     draw();
@@ -2073,10 +2057,10 @@ const RUNTIME_SOURCE = String.raw`
     }, 250);
   }
 
-  var me = P.me || {}, world = P.world || {};
+  var me = P.me, world = P.world;
   var orb = {
-    world: Object.freeze({ id: String(world.id || ''), name: String(world.name || '') }),
-    me: Object.freeze({ id: String(me.id || ''), name: String(me.name || 'Guest'), color: String(me.color || '#8b7bff'), wears: Object.freeze(wearOf(me.wears)) }),
+    world: Object.freeze({ id: world.id, name: world.name }),
+    me: Object.freeze({ id: me.id, name: me.name || 'Guest', color: me.color || '#8b7bff', wears: Object.freeze(wearOf(me.wears)) }),
     store: store,
     room: Object.freeze({ join: roomJoin, invite: roomInvite, invited: invited }),
     visitors: Object.freeze({ join: visitorsJoin, show: visitorsShow }),
@@ -2090,7 +2074,7 @@ const RUNTIME_SOURCE = String.raw`
   function onLoad() {
     raf(function () { raf(function () { post({ type: 'ready' }); postTitle(); }); });
     try {
-      if (W.MutationObserver && D.head) { new MutationObserver(postTitle).observe(D.head, { childList: true, subtree: true, characterData: true }); }
+      new MutationObserver(postTitle).observe(D.head, { childList: true, subtree: true, characterData: true });
     } catch (e) { /* ignore */ }
   }
   if (D.readyState === 'complete') { onLoad(); } else { W.addEventListener('load', onLoad); }
@@ -2098,7 +2082,7 @@ const RUNTIME_SOURCE = String.raw`
 `;
 
 /** The runtime collapsed to one line (block comments stripped, line breaks + indentation → one space). */
-export const RUNTIME_SCRIPT: string = RUNTIME_SOURCE.replace(/\/\*[\s\S]*?\*\//g, '')
+const RUNTIME_SCRIPT: string = RUNTIME_SOURCE.replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/[ \t]*\n\s*/g, ' ')
   .trim();
 
@@ -2106,7 +2090,7 @@ export const RUNTIME_SCRIPT: string = RUNTIME_SOURCE.replace(/\/\*[\s\S]*?\*\//g
 // Injection
 
 /** JSON that is safe inside an inline <script>: no `<` (so no `</script` / `<!--`), no U+2028/9. */
-export function scriptSafeJson(value: unknown): string {
+function scriptSafeJson(value: unknown): string {
   return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 }
 
@@ -2204,11 +2188,10 @@ export function injectRuntime(html: string, ctx: RuntimeContext): string {
   const where = lineAt(starts, at);
   const payload: RuntimePayload = {
     world: { id: String(ctx.worldId ?? ''), name: String(ctx.worldName ?? '') },
-    me: { id: String(ctx.me?.id ?? ''), name: String(ctx.me?.name ?? ''), color: String(ctx.me?.color ?? ''), wears: (ctx.me?.wears ?? []).filter((x) => typeof x === 'string').slice(0, 4) },
+    me: { id: String(ctx.me.id ?? ''), name: String(ctx.me.name ?? ''), color: String(ctx.me.color ?? ''), wears: ctx.me.wears ?? [] },
     storage: Object.entries(ctx.storage ?? {}).filter((e): e is [string, string] => typeof e[1] === 'string'),
     scripts: scanScripts(src, starts),
     rt: [where.line, where.col, 0],
-    limits: { storage: WORLD_STORAGE_LIMIT, store: STORE_VALUE_LIMIT },
     room: typeof ctx.room === 'string' && ROOM_NAME_RE.test(ctx.room) ? ctx.room : null,
   };
   // No line breaks anywhere in the tag, so the world's own line numbers stay exactly the same.

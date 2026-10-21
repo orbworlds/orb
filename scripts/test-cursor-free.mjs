@@ -11,42 +11,22 @@
 // again with every request taken for a bot's (ORB_BOTID_TEST=bot, src/server/botid.ts), and once
 // more with a free builder budget of $0.20 a day (src/server/budget.ts).
 // Exit code 0 = all checks passed.
-import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { startFake } from './fake-cursor-github.mjs';
+import { check, client, device, finish, newest, root, startNext, stopNext } from './harness.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = process.env.ORB_TEST_PORT || '3104';
 const BASE = `http://localhost:${PORT}`;
 const DATA_DIR = '.data/pglite-cursor-free';
 const KEY = 'crsr_test_free';
+const { request, build, newWorld } = client(BASE);
 
-const results = [];
-function check(name, ok, detail) {
-  results.push(!!ok);
-  console.log(`  ${ok ? '✓' : '✗'} ${name}${ok || detail === undefined ? '' : ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`}`);
-}
-
-const device = (label) => `test-${label}-${crypto.randomBytes(8).toString('hex')}`;
 const OWNER = device('owner');
 const VISITOR = device('visitor');
 
-async function request(method, urlPath, { dev, body, cookie, headers: extra } = {}) {
-  const headers = { ...(dev ? { 'x-orb-device': dev } : {}), ...(body ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...extra };
-  const res = await fetch(BASE + urlPath, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(120_000) });
-  const text = await res.text();
-  let json = null;
-  try {
-    json = JSON.parse(text);
-  } catch {}
-  return { status: res.status, text, json, cookie: /orb_session=[^;]+/.exec(res.headers.get('set-cookie') || '')?.[0] ?? null };
-}
-
-const build = (dev, worldId, content, opts = {}) => request('POST', '/api/agent/jobs', { dev, ...opts, body: { worldId, messages: [{ role: 'user', content }], mode: 'build', code: '' } });
 /** A build followed like a watching page does: `answer(look, n)` answers the agent's n-th look. */
 async function watchBuild(dev, worldId, content, answer) {
   const res = await fetch(`${BASE}/api/agent/jobs`, {
@@ -75,11 +55,8 @@ async function watchBuild(dev, worldId, content, answer) {
 }
 /** A 1×1 PNG, as a page's screenshot. */
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
-const newest = (fake) => [...fake.agents.values()].at(-1);
 const ADMIN_TOKEN = 'orb-test-admin-token';
 const LAB_KEY = 'test-lab-key';
-const BLANK = '<!doctype html><html><head><title>world</title></head><body>hi</body></html>';
-const newWorld = async (dev) => (await request('POST', '/api/worlds', { dev, body: { name: 'Untitled world', code: BLANK } })).json.world;
 /** "Today (UTC): $x of the $y budget · without an account $a of $b" on the Pulse page, as numbers. */
 async function spentToday() {
   const html = (await (await fetch(`${BASE}/lab/${LAB_KEY}/pulse`)).text()).replace(/<!-- -->/g, '');
@@ -87,36 +64,15 @@ async function spentToday() {
   return m ? { all: Number(m[1]), budget: Number(m[2]), anon: Number(m[3]), anonBudget: Number(m[4]) } : null;
 }
 
-async function startServer(fakeUrl, extraEnv = {}) {
+function startServer(fakeUrl, extraEnv = {}) {
   fs.rmSync(path.join(root, DATA_DIR), { recursive: true, force: true });
-  const env = { ...process.env };
-  for (const k of ['ORB_MOCK_AI', 'ANTHROPIC_API_KEY', 'AI_GATEWAY_API_KEY', 'POSTGRES_URL', 'DATABASE_URL', 'CURSOR_API_KEY', 'ORB_BOTID_TEST']) delete env[k];
-  for (const k of ['ORB_FREE_DAILY_USD', 'ORB_FREE_DAILY_USD_ANON']) delete env[k];
-  Object.assign(env, { ORB_CURSOR_KEY: KEY, ORB_CURSOR_API: fakeUrl, ORB_PGLITE_DIR: DATA_DIR, ORB_SECRET: 'orb-test-secret', ORB_ADMIN_TOKEN: ADMIN_TOKEN, ORB_LAB_KEY: LAB_KEY, ORB_FREE_DAILY_PER_DEVICE: '3', NEXT_TELEMETRY_DISABLED: '1', ...extraEnv });
   const about = [extraEnv.ORB_BOTID_TEST && 'everyone a bot', extraEnv.ORB_FREE_DAILY_USD && `$${extraEnv.ORB_FREE_DAILY_USD} a day`].filter(Boolean).join(', ');
   console.log(`Starting next dev on :${PORT} (PGlite: ${DATA_DIR}${about ? `, ${about}` : ''}) …`);
-  const child = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '-p', PORT], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
-  let log = '';
-  child.stdout.on('data', (d) => (log += d));
-  child.stderr.on('data', (d) => (log += d));
-  const deadline = Date.now() + 180_000;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`next dev exited early:\n${log.slice(-2000)}`);
-    try {
-      if ((await fetch(`${BASE}/api/config`, { signal: AbortSignal.timeout(90_000) })).ok) return { child, log: () => log };
-    } catch {}
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  throw new Error(`next dev did not become ready:\n${log.slice(-2000)}`);
-}
-
-async function stopServer({ child }) {
-  if (child.exitCode !== null || child.signalCode !== null) return;
-  const exited = new Promise((resolve) => child.once('exit', resolve));
-  try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {}
-  await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 15_000))]);
+  return startNext({
+    port: PORT,
+    unset: ['ORB_MOCK_AI', 'ANTHROPIC_API_KEY', 'AI_GATEWAY_API_KEY', 'CURSOR_API_KEY', 'ORB_BOTID_TEST', 'ORB_FREE_DAILY_USD', 'ORB_FREE_DAILY_USD_ANON'],
+    env: { ORB_CURSOR_KEY: KEY, ORB_CURSOR_API: fakeUrl, ORB_PGLITE_DIR: DATA_DIR, ORB_SECRET: 'orb-test-secret', ORB_ADMIN_TOKEN: ADMIN_TOKEN, ORB_LAB_KEY: LAB_KEY, ORB_FREE_DAILY_PER_DEVICE: '3', ...extraEnv },
+  });
 }
 
 const fake = await startFake();
@@ -127,7 +83,7 @@ try {
   check('the free builder is set up, on Cursor’s Opus 5.5', cfg.json?.ai === true && cfg.json?.model === 'claude-opus-5-5', cfg.json);
 
   console.log('\nA free build');
-  const w = (await request('POST', '/api/worlds', { dev: OWNER, body: { name: 'Untitled world', code: '<!doctype html><html><head><title>world</title></head><body>hi</body></html>' } })).json.world;
+  const w = await newWorld(OWNER);
   const r = await build(OWNER, w.id, 'a glowing garden mocknoop');
   const job = /"kind":"agent","id":"([^"]+)"/.exec(r.text)?.[1];
   const agent = newest(fake);
@@ -288,13 +244,13 @@ try {
   check('the same device builds again, on the account’s own quota', mine.status === 200 && /"kind":"agent"/.test(mine.text) && /"t":"version"/.test(mine.text), mine.json ?? mine.text.slice(-300));
 
   console.log('\nBots');
-  await stopServer(server);
+  await stopNext(server);
   server = await startServer(`http://localhost:${fake.port}`, { ORB_BOTID_TEST: 'bot' });
   const BOT = device('bot');
-  const wb = (await request('POST', '/api/worlds', { dev: BOT, body: { name: 'Untitled world', code: '<!doctype html><html><head><title>world</title></head><body>hi</body></html>' } })).json.world;
+  const wb = await newWorld(BOT);
   const agentsBefore = fake.agents.size;
   const turned = await build(BOT, wb.id, 'a castle');
-  check('a free build from a bot is turned away → 403 bot_detected', turned.status === 403 && turned.json?.error === 'bot_detected' && /Reload the page/.test(turned.json?.message ?? ''), turned.json);
+  check('a free build from a bot is turned away → 403 bot_detected', turned.status === 403 && turned.json?.error === 'bot_detected' && /Try again in a moment/.test(turned.json?.message ?? ''), turned.json);
   check('…before a Cursor agent starts', fake.agents.size === agentsBefore);
   for (const [what, urlPath, body] of [
     ['signing up', '/api/auth/signup', { username: 'bot-maker', password: 'correct horse battery' }],
@@ -311,7 +267,7 @@ try {
 
   // A build here is estimated at ~$0.13 (Cursor's instructions + Orb's prompt + 260 tokens written, at Opus 5.5's price).
   console.log('\nThe day’s budget ($0.40 here, half of it for builds without an account)');
-  await stopServer(server);
+  await stopNext(server);
   server = await startServer(`http://localhost:${fake.port}`, { ORB_FREE_DAILY_USD: '0.4' });
   const [P1, P2, P3, P4] = ['budget1', 'budget2', 'budget3', 'budget4'].map(device);
   const pond = await build(P1, (await newWorld(P1)).id, 'a little pond');
@@ -334,11 +290,8 @@ try {
 } catch (e) {
   check('unexpected exception', false, e?.stack?.split('\n').slice(0, 4).join(' | ') ?? String(e));
 } finally {
-  await stopServer(server);
+  await stopNext(server);
   fake.close();
 }
 
-const failed = results.filter((ok) => !ok).length;
-console.log(`\n${results.length - failed}/${results.length} checks passed`);
-if (failed) console.log(server.log().slice(-3000));
-process.exit(failed ? 1 : 0);
+finish({ onFail: () => console.log(server.log().slice(-3000)) });

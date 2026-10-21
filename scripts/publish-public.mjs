@@ -28,7 +28,7 @@ const TRAILER = /^([\w-]+-by|claude-session|cursor-session):/i;
 const MERGE_TITLE = /^(Merge pull request #\d+ from \S+|Merge branch '[^']*'( of \S+)?( into \S+)?|Merge remote-tracking branch '[^']*')\s*$/i;
 
 /** The change's title and body as the public repository tells it. */
-export function publicMessage(raw) {
+function publicMessage(raw) {
   let lines = raw
     .split('\n')
     .filter((l) => !TRAILER.test(l.trim()))
@@ -47,7 +47,7 @@ export function publicMessage(raw) {
  * whatever ORB_PUBLISH_DENY lists (comma-separated, any case: names, handles, addresses — kept in
  * the workflow's secrets, never in this file).
  */
-export function denied(text, deny = process.env.ORB_PUBLISH_DENY ?? '') {
+function denied(text, deny = process.env.ORB_PUBLISH_DENY ?? '') {
   const words = deny
     .split(',')
     .map((w) => w.trim().toLowerCase())

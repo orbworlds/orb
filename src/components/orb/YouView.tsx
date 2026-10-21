@@ -1,7 +1,7 @@
 'use client';
-// The Orb panel's "You" tab: profile (inline-editable name), account, plan and credits, friends,
-// your worlds, the ones you liked, your blob, and under Advanced your own AI and GitHub. Fills its
-// container and scrolls inside it.
+// The Orb panel's "You" tab: profile (inline-editable name), account (signed out, the one place
+// that asks for one), plan and credits, friends, your worlds, the ones you liked, your blob, and
+// under Advanced your own AI and GitHub. Fills its container and scrolls inside it.
 
 import { useRef, useState } from 'react';
 import { api } from '@/lib/api';
@@ -21,6 +21,7 @@ import { PlanCard } from './PlanCard';
 import { Skeleton, useHydrated } from './WorldCard';
 
 export function YouView({ onOpenWorld, onNewWorld }: { onOpenWorld(id: string): void; onNewWorld?(): void }) {
+  const { signedIn } = useMe();
   return (
     <div className="scroll-soft h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain">
       <div className="flex flex-col gap-8 px-4 pt-4 pb-6 sm:px-5">
@@ -28,13 +29,12 @@ export function YouView({ onOpenWorld, onNewWorld }: { onOpenWorld(id: string): 
           <ProfileHeader />
           <AccountCard />
         </div>
-        <PlanCard />
+        {signedIn && <PlanCard />}
         <FriendsSection />
         <MyWorlds onOpenWorld={onOpenWorld} onNewWorld={onNewWorld} />
         <MyWorlds onOpenWorld={onOpenWorld} liked />
         <BlobCard />
         <Advanced />
-        <Footer />
       </div>
     </div>
   );
@@ -135,18 +135,24 @@ function ProfileHeader() {
   );
 }
 
-/** Your own AI and GitHub. Folded away unless you use them, or a "Use your own key" link opens it. */
+/**
+ * Your own AI and GitHub, folded away unless you use them or a "Use your own key" link opens it.
+ * Signed out, it shows only then.
+ */
 function Advanced() {
   const hydrated = useHydrated();
-  return hydrated ? <AdvancedInner /> : <AdvancedToggle open={false} />;
+  return hydrated ? <AdvancedInner /> : null;
 }
 
 function AdvancedInner() {
+  const { me, signedIn } = useMe();
   const [inUse] = useState(() => {
     const ai = getAiConfig();
     return ai.active !== 'free' || Object.values(ai.keys).some(Boolean);
   });
-  const open = useUi((s) => s.advancedOpen) ?? inUse;
+  const asked = useUi((s) => s.advancedOpen);
+  const open = asked ?? inUse;
+  if (!signedIn && asked === null && !inUse) return null;
   return (
     <section aria-label="Advanced">
       <AdvancedToggle open={open} onToggle={() => useUi.getState().setAdvanced(!open)} />
@@ -154,13 +160,18 @@ function AdvancedInner() {
         <div className="animate-fade-up mt-6 flex flex-col gap-8">
           <ModelSettings />
           <GitHubConnect />
+          {me?.deviceId && (
+            <p className="px-1 text-[11.5px] text-ink-3" title="This device’s public id (handy for support)">
+              Device <span className="font-mono tabular-nums">{me.deviceId.slice(0, 8)}</span>
+            </p>
+          )}
         </div>
       )}
     </section>
   );
 }
 
-function AdvancedToggle({ open, onToggle }: { open: boolean; onToggle?(): void }) {
+function AdvancedToggle({ open, onToggle }: { open: boolean; onToggle(): void }) {
   return (
     <button
       type="button"
@@ -174,22 +185,5 @@ function AdvancedToggle({ open, onToggle }: { open: boolean; onToggle?(): void }
       </span>
       <Icon name="chevron-down" size={16} className={`shrink-0 text-ink-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
     </button>
-  );
-}
-
-function Footer() {
-  const { me } = useMe();
-  return (
-    <footer className="flex items-center justify-between gap-3 px-1 pt-1 text-[11.5px] text-ink-3">
-      <span className="flex items-center gap-1.5">
-        <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full [background:var(--iris-conic)]" />
-        Orb
-      </span>
-      {me?.deviceId && (
-        <span className="font-mono tabular-nums" title="This device’s public id (handy for support)">
-          {me.deviceId.slice(0, 8)}
-        </span>
-      )}
-    </footer>
   );
 }

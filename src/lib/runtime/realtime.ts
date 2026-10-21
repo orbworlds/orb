@@ -1,10 +1,11 @@
 'use client';
 // Multiplayer rooms for worlds (`orb.room` in the world SDK, SPEC §7), backed by Supabase Realtime:
-// one channel "orb-world:<worldId>" per world, presence for who's here (+ a recent state snapshot)
-// and broadcast for messages and fast state updates.
+// one channel per world room ("orb-world:<worldId>" for its own, "orb-world:<worldId>:<name>" for a
+// named one), presence for who's here (+ a recent state snapshot) and broadcast for messages and
+// fast state updates.
 //
-// There is one connection ("room") per world per page, shared by every frame that joined it, so a
-// world hot-swapped by a build step keeps the same peer identity and the other players see no
+// Each room is one connection per page, shared by every frame that joined it, so a world
+// hot-swapped by a build step keeps the same peer identity and the other players see no
 // leave/join flicker. When realtime is not configured, fails, or the world is an unsaved draft,
 // the room is "solo": it reports `joined` with no peers and silently drops outgoing traffic.
 // Nothing in here throws.
@@ -13,7 +14,7 @@ import type { RealtimeChannel, RealtimeClient } from '@supabase/realtime-js';
 import { api } from '../api';
 import type { RoomEvent, RoomPeer } from '../types';
 
-export interface RealtimeConfig {
+interface RealtimeConfig {
   url: string;
   key: string;
 }
@@ -71,7 +72,7 @@ const leaving = new Map<string, Promise<unknown>>();
 let configPromise: Promise<RealtimeConfig | null> | null = null;
 
 /** Realtime settings from /api/config (cached; a failed lookup is retried after 30 s). */
-export function getRealtimeConfig(): Promise<RealtimeConfig | null> {
+function getRealtimeConfig(): Promise<RealtimeConfig | null> {
   if (!configPromise) {
     configPromise = api
       .config()
@@ -85,7 +86,6 @@ export function getRealtimeConfig(): Promise<RealtimeConfig | null> {
 }
 
 let clientPromise: Promise<RealtimeClient | null> | null = null;
-let clientKey = '';
 
 /** `https://x.supabase.co` → `wss://x.supabase.co/realtime/v1`. */
 function socketUrl(url: string): string {
@@ -93,10 +93,9 @@ function socketUrl(url: string): string {
   return /\/realtime\/v\d+$/.test(base) ? base : `${base}/realtime/v1`;
 }
 
+/** The page's one realtime client (its config never changes once a lookup succeeded). */
 function getClient(cfg: RealtimeConfig): Promise<RealtimeClient | null> {
-  const key = `${cfg.url}|${cfg.key}`;
-  if (!clientPromise || clientKey !== key) {
-    clientKey = key;
+  if (!clientPromise) {
     // Loaded on demand: most worlds never join a room.
     clientPromise = import('@supabase/realtime-js')
       // worker: heartbeats from a Web Worker keep the socket alive in background tabs, where timers
@@ -139,9 +138,8 @@ interface PeerRecord {
   /** How many connections hold its presence key (one page: 1). */
   metas: number;
 }
-interface Member {
-  onEvent(event: RoomEvent): void;
-}
+/** One frame's listener in a room. */
+type Member = (event: RoomEvent) => void;
 
 function randomId(n = 6): string {
   const a = new Uint8Array(n);
@@ -192,9 +190,7 @@ function roomsEvent(e: RoomsEvent): void {
 
 /** This page's peer id in each networked room of a world it's in ('' is the world's own room). */
 export function roomSelves(worldId: string): Array<{ room: string; peer: string }> {
-  const out: Array<{ room: string; peer: string }> = [];
-  for (const [key, room] of rooms) if (key.startsWith('net:') && room.worldId === worldId && room.live) out.push({ room: room.name, peer: room.self.id });
-  return out;
+  return [...rooms.values()].filter((r) => r.worldId === worldId && r.live).map((r) => ({ room: r.name, peer: r.self.id }));
 }
 
 class WorldRoom {
@@ -241,7 +237,7 @@ class WorldRoom {
     clearTimeout(this.closeTimer);
     this.members.add(member);
     this.identify(me);
-    if (this.joined) queueMicrotask(() => this.members.has(member) && member.onEvent(this.joinedEvent()));
+    if (this.joined) queueMicrotask(() => this.members.has(member) && member(this.joinedEvent()));
   }
 
   /** Who we are changed (a new name, color or what our blob wears): the others see it with the next presence. */
@@ -268,7 +264,7 @@ class WorldRoom {
   private emit(event: RoomEvent): void {
     for (const m of this.members) {
       try {
-        m.onEvent(event);
+        m(event);
       } catch (e) {
         console.error('[orb] room listener failed', e);
       }
@@ -320,11 +316,9 @@ class WorldRoom {
       if (this.closed) return; // left while connecting
       client.connect();
       this.healthTimer = setInterval(() => this.checkHealth(), HEALTH_INTERVAL_MS);
-      if (typeof document !== 'undefined') {
-        document.addEventListener('visibilitychange', this.onVisibility);
-        addEventListener('online', this.onWake);
-        addEventListener('pageshow', this.onWake);
-      }
+      document.addEventListener('visibilitychange', this.onVisibility);
+      addEventListener('online', this.onWake);
+      addEventListener('pageshow', this.onWake);
     } catch (e) {
       console.warn('[orb] realtime room failed', e);
       this.markJoined();
@@ -339,7 +333,7 @@ class WorldRoom {
   private async openChannel(): Promise<void> {
     const client = this.client;
     if (!client || this.closed) return;
-    await leaving.get(this.topic)?.catch(() => undefined);
+    await leaving.get(this.topic); // never rejects
     const stale = client.getChannels().find((c) => c.topic === `realtime:${this.topic}`);
     if (stale) await client.removeChannel(stale).catch(() => undefined);
     if (this.closed) return;
@@ -422,11 +416,9 @@ class WorldRoom {
     this.closed = true;
     for (const t of [this.joinTimer, this.stateTimer, this.trackTimer, this.sendTimer]) clearTimeout(t);
     clearInterval(this.healthTimer);
-    if (typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', this.onVisibility);
-      removeEventListener('online', this.onWake);
-      removeEventListener('pageshow', this.onWake);
-    }
+    document.removeEventListener('visibilitychange', this.onVisibility);
+    removeEventListener('online', this.onWake);
+    removeEventListener('pageshow', this.onWake);
     this.onClosed(this);
     const { channel, client } = this;
     this.channel = null;
@@ -480,20 +472,18 @@ class WorldRoom {
       } else {
         const p = existing.peer;
         existing.metas = metas.length;
-        const friend = this.isFriend(existing);
+        const name = str(meta.name, p.name);
+        const color = str(meta.color, p.color, 32);
         const wears = wearOf(meta.wears);
-        const renamed = str(meta.name, p.name) !== p.name || str(meta.color, p.color, 32) !== p.color || !sameWear(wears, p.wears) || friend !== (p.friend === true);
-        p.name = str(meta.name, p.name);
-        p.color = str(meta.color, p.color, 32);
-        p.wears = wears;
-        p.friend = friend;
-        if (seq > existing.seq || renamed) {
-          if (seq > existing.seq) {
-            existing.seq = seq;
-            p.state = st;
-          }
-          if (this.joined) this.emit({ type: 'state', peer: copy(p) });
+        const friend = this.isFriend(existing);
+        const renamed = name !== p.name || color !== p.color || !sameWear(wears, p.wears) || friend !== p.friend;
+        Object.assign(p, { name, color, wears, friend });
+        const newer = seq > existing.seq;
+        if (newer) {
+          existing.seq = seq;
+          p.state = st;
         }
+        if ((newer || renamed) && this.joined) this.emit({ type: 'state', peer: copy(p) });
       }
     }
     for (const [id, rec] of this.peers) {
@@ -624,24 +614,19 @@ export function joinRoom(opts: JoinRoomOptions): RoomMembership {
   const netKey = `net:${opts.worldId}:${name}`;
   const solo = !!opts.solo || (!rooms.has(netKey) && [...rooms.keys()].filter((k) => k.startsWith('net:')).length >= MAX_NET_ROOMS);
   const key = solo ? `solo:${opts.worldId}:${name}` : netKey;
-  let room = rooms.get(key);
-  if (!room) {
-    room = new WorldRoom(opts.worldId, name, opts.me, solo, (r) => {
-      if (rooms.get(key) === r) rooms.delete(key);
-    });
-    rooms.set(key, room);
-  }
-  const member: Member = { onEvent: (e) => opts.onEvent(e) };
-  const r = room;
-  r.add(member, opts.me);
+  const room = rooms.get(key) ?? new WorldRoom(opts.worldId, name, opts.me, solo, (r) => rooms.get(key) === r && rooms.delete(key));
+  rooms.set(key, room);
+  // A fresh function per join: each frame's membership is its own, even with the same onEvent.
+  const member: Member = (e) => opts.onEvent(e);
+  room.add(member, opts.me);
   let active = true;
   return {
-    send: (data) => active && r.send(data),
-    setState: (state) => active && r.setState(state),
+    send: (data) => active && room.send(data),
+    setState: (state) => active && room.setState(state),
     leave: () => {
       if (!active) return;
       active = false;
-      r.remove(member);
+      room.remove(member);
     },
   };
 }

@@ -1,6 +1,6 @@
 'use client';
-// "Plan" section of the You tab: the plan, the credits left and when they refresh, what your
-// worlds' shops earned you, and the way to more: an account, Pro, a top-up, or managing billing in
+// "Plan" section of the You tab (accounts): the plan, the credits left and when they refresh, what
+// your worlds' shops earned you, and the way to more: Pro, a top-up, or managing billing in
 // Stripe's portal.
 
 import { track } from '@/lib/analytics';
@@ -14,7 +14,7 @@ import { useWorld } from '@/state/world';
 import { groupClass, SectionHeader, Skeleton, useHydrated } from './WorldCard';
 
 /** How much of this period's plan credits is left, as a bar. */
-export function CreditsMeter({ left, total }: { left: number; total: number }) {
+function CreditsMeter({ left, total }: { left: number; total: number }) {
   const share = total > 0 ? Math.min(1, Math.max(0, left / total)) : 0;
   return (
     <div
@@ -31,7 +31,7 @@ export function CreditsMeter({ left, total }: { left: number; total: number }) {
 }
 
 /** Credits as US$ (a credit is a cent). */
-const usd = (credits: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(credits / 100);
+const usd = (credits: number) => money(credits / 100, 'USD');
 
 /** The prompt "Add a shop" puts in the chat, for a world of your own on screen. */
 const ADD_SHOP = 'Add a shop where players can buy a few fun things for credits';
@@ -47,7 +47,7 @@ export function PlanCard() {
     ui.setDraft(ADD_SHOP);
     ui.setTab('chat');
     ui.requestFocus();
-    track('earn_add_shop', {});
+    track('earn_add_shop');
   };
 
   const header = (
@@ -72,19 +72,7 @@ export function PlanCard() {
   }
 
   const c = info.credits;
-  if (info.plan === 'guest') {
-    return (
-      <section aria-labelledby="orb-plan-h">
-        {header}
-        <div className={`${groupClass} p-4 text-[13.5px] leading-snug text-ink-2`}>
-          <button type="button" onClick={() => useUi.getState().requestSignup()} className="font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-ink">
-            Create a free account
-          </button>{' '}
-          to get {formatCredits(info.plans.free)} credits a month.
-        </div>
-      </section>
-    );
-  }
+  if (info.plan === 'guest') return null; // the account card above asks for an account
 
   const pro = info.plan === 'pro';
   const when = pro ? (c.cancelAt ? `Pro ends ${shortDate(c.cancelAt)}` : `Renews ${shortDate(c.periodEnd)}`) : `More on ${shortDate(c.periodEnd)}`;
@@ -168,6 +156,8 @@ const PAYOUT_COUNTRIES = [
   'AT', 'AU', 'BE', 'BG', 'CA', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GB', 'GR', 'HK', 'HR', 'HU', 'IE', 'IT', 'JP',
   'LI', 'LT', 'LU', 'LV', 'MT', 'MX', 'NL', 'NO', 'NZ', 'PL', 'PT', 'RO', 'SE', 'SG', 'SI', 'SK', 'TH', 'AE', 'US',
 ];
+const REGIONS = new Intl.DisplayNames(['en'], { type: 'region' });
+const COUNTRY_OPTIONS = PAYOUT_COUNTRIES.map((c) => ({ c, name: REGIONS.of(c) ?? c })).sort((a, b) => a.name.localeCompare(b.name));
 
 /** Under the earnings: where cashing out stands. */
 function payoutLine(p: Payouts | null | undefined, earned: number): string {
@@ -186,8 +176,6 @@ function CashOut({ payouts: p, earned }: { payouts: Payouts; earned: number }) {
   const going = useBilling((s) => s.going);
   const [asking, setAsking] = useState(false);
   const [country, setCountry] = useState(() => (p.country && PAYOUT_COUNTRIES.includes(p.country) ? p.country : ''));
-  const names = typeof Intl !== 'undefined' && 'DisplayNames' in Intl ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
-  const sorted = PAYOUT_COUNTRIES.map((c) => ({ c, name: names?.of(c) ?? c })).sort((a, b) => a.name.localeCompare(b.name));
   const amount = p.currency && p.usdPer ? money(p.payable / 100 / p.usdPer, p.currency) : usd(p.payable);
   const b = useBilling.getState();
 
@@ -211,7 +199,7 @@ function CashOut({ payouts: p, earned }: { payouts: Payouts; earned: number }) {
             <option value="" disabled>
               Country
             </option>
-            {sorted.map(({ c, name }) => (
+            {COUNTRY_OPTIONS.map(({ c, name }) => (
               <option key={c} value={c}>
                 {name}
               </option>

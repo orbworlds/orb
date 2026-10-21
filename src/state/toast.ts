@@ -1,6 +1,7 @@
 'use client';
 import { create } from 'zustand';
 import { track } from '@/lib/analytics';
+import { ApiError } from '@/lib/api';
 
 export interface Toast {
   id: number;
@@ -32,4 +33,9 @@ export const useToasts = create<ToastState>((set, get) => ({
 export function toast(text: string, tone: Toast['tone'] = 'default', action?: Toast['action']) {
   if (tone === 'error') track('error_toast', { text: text.slice(0, 160) });
   useToasts.getState().push({ text, tone, action });
+}
+
+/** What a failed request tells the person: the server's own words for a 4xx, else `fallback`. */
+export function apiMessage(e: unknown, fallback: string): string {
+  return e instanceof ApiError && e.status < 500 && e.message ? e.message : fallback;
 }

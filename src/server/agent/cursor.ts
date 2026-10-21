@@ -11,19 +11,17 @@ import { cleanPath as cleanTreePath, getText, getTree, putBlob, putTree, type Tr
 import { recordError } from '../errors';
 import { withDeadline } from '../signals';
 import { cursorSegment } from '../traces';
-import { closeLooks, LOOK_SIZE, SEEN_DIR, takeLookRequests } from './look';
+import { closeLooks, lookFrames, SEEN_DIR, takeLookRequests } from './look';
 import { applyUnifiedDiff, streamedEdit, type StreamedEdit } from './mirror';
-import { narration } from './narration';
+import { latestSentence, narration } from './narration';
 import { isSaveFile } from './sync';
 import { CURSOR_ORB_CONTINUE, FILES_URL } from './prompt';
 import type { TickCtx, TickResult } from './runner';
-import { PROBE_LIMITS } from '../../lib/probe';
 
 /** What a Cursor job remembers between ticks (orb_agent_jobs.ext). */
 export interface CursorState {
   agentId?: string;
   runs?: string[];
-  runIndex?: number;
   lastId?: string | null;
   /** The saved tree last pulled into the world. */
   pulledTree?: string | null;
@@ -46,8 +44,13 @@ const MAX_RUNS = 600;
 const NEXT_IDEAS = /^\s*next ideas:\s*(.+)$/im;
 /** A guide's line saying the person wants a change: the page offers them their own copy. */
 const OWN_COPY = /^\s*own copy:\s*yes\b.*$/im;
-const FREE_DOWN = 'The free builder is resting right now. You can keep building by adding your own AI key in You → Model.';
+/** The agent's words without its wrap-up lines (the ideas, and whether to offer a copy). */
+const withoutWrapUp = (t: string) => t.replace(/^\s*next ideas:.*$/gim, '').replace(/^\s*own copy:.*$/gim, '');
+export const FREE_DOWN = 'The free builder is resting right now. You can keep building by adding your own AI key in You → Model.';
 const FREE_PAUSE = "I've worked on this for a good while, so I'll pause here — say “keep going” and I'll continue!";
+
+/** A failure that ends the build (not a hiccup on Cursor's side that the next tick tries again). */
+class CursorStop extends CursorError {}
 
 const basename = (p: string) => p.split('/').pop() || p;
 const cleanPath = (p: unknown) => (typeof p === 'string' ? p.replace(/^\/?(workspace|agent)\//, '').replace(/^\.\//, '') : '');
@@ -72,7 +75,7 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
   if (!apiKey || !c.filesUrl) return c.finish('failed', c.shared ? FREE_DOWN : 'This build needs your Cursor key — check it in You → Model and try again.');
   const withLink = (text: string) => text.replaceAll(FILES_URL, c.filesUrl!);
   const st: CursorState = { ...(c.ext as CursorState) };
-  const deadline = c.startedAt + c.hardMs;
+  const deadline = c.deadline;
   const saveState = () => c.save({ ext: JSON.stringify(st) });
 
   // -- pulling the agent's saves into the world -------------------------------------------------
@@ -164,8 +167,7 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
         await settle();
         for (const l of asked) {
           if (l.request.tree !== c.getTree()) await c.setTree(l.request.tree);
-          out.control({ t: 'status', phase: 'thinking', text: l.request.viewport === 'phone' ? 'Trying it on a phone…' : 'Trying it out…' });
-          out.control({ t: 'look', job: job.id, id: l.id, tree: l.request.tree, actions: l.request.actions, size: LOOK_SIZE, shots: PROBE_LIMITS.shots, ...(l.request.viewport ? { viewport: l.request.viewport } : {}) });
+          for (const f of lookFrames(job.id, l.id, l.request)) out.control(f);
         }
         await out.flush();
       } catch (e) {
@@ -207,7 +209,7 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
         signal: c.signal,
         maxWaitMs: 120_000,
       });
-      Object.assign(st, { agentId: run.agentId, runs: [run.runId], runIndex: 0, lastId: null, idle: 0, active: false });
+      Object.assign(st, { agentId: run.agentId, runs: [run.runId], lastId: null, idle: 0, active: false });
       if (c.charge) st.tokens = cursorTokens(withLink(text).length);
       c.trace.note('run', { text, images: images.length, run: 0, runId: run.runId, agentId: run.agentId });
       await saveState();
@@ -227,25 +229,23 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
     let writing = 0; // tokens of code the agent is writing (the stream only counts them)
     let lastWriting = 0;
     const flushSay = (all: boolean) => {
-      let upto = all ? pending.length : pending.lastIndexOf('\n') + 1;
+      const upto = all ? pending.length : pending.lastIndexOf('\n') + 1;
       if (upto <= 0) return;
-      let text = pending.slice(0, upto);
+      const text = pending.slice(0, upto);
       pending = pending.slice(upto);
-      text = text.replace(/^\s*next ideas:.*$/gim, '').replace(/^\s*own copy:.*$/gim, '');
-      out.say(narration(text));
-      upto = 0;
+      out.say(narration(withoutWrapUp(text)));
     };
 
-    const until = deadline;
-    while (!done && Date.now() < until) {
+    while (!done && Date.now() < deadline) {
       if (out.cancelled || c.signal.aborted) break;
-      const runId = st.runs![st.runIndex!];
+      const runIndex = st.runs!.length - 1;
+      const runId = st.runs![runIndex];
       let result: Record<string, unknown> | null = null;
       let res: Response | null = null;
       try {
         res = await fetch(`${BASE}${runPath({ agentId: st.agentId!, runId })}/stream`, {
           headers: { ...authHeaders(apiKey), Accept: 'text/event-stream', ...(st.lastId ? { 'Last-Event-ID': st.lastId } : {}) },
-          signal: withDeadline(c.signal, Math.max(1000, until - Date.now())),
+          signal: withDeadline(c.signal, Math.max(1000, deadline - Date.now())),
         });
       } catch {
         res = null;
@@ -255,14 +255,14 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
         const timer = setInterval(() => {
           if (Date.now() - lastPull > INBOX_EVERY_MS) void pull();
         }, 2000);
-        const seg = cursorSegment(c.trace, st.runIndex ?? 0, runId);
+        const seg = cursorSegment(c.trace, runIndex, runId);
         try {
           for await (const ev of readSse(res.body)) {
             if (ev.id) st.lastId = ev.id;
             const d = parseJson(ev.data);
             seg.add(ev.event, d);
             const edit = streamedEdit(ev.event, d);
-            if (edit) mirror(`${st.runIndex ?? 0}:${String(d.callId ?? '')}`, edit);
+            if (edit) mirror(`${runIndex}:${String(d.callId ?? '')}`, edit);
             if (ev.event === 'interaction_update') {
               if (st.tokens) {
                 if (d.type === 'step-started') cursorCall(st.tokens);
@@ -293,14 +293,13 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
               thought = (thought + d.text).slice(-600);
               if (Date.now() - lastThought > 3000) {
                 lastThought = Date.now();
-                const parts = thought.replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+/).filter((p) => p.length > 12);
-                out.control({ t: 'status', phase: 'thinking', text: (parts[parts.length - 1] ?? '').slice(0, 180) });
+                out.control({ t: 'status', phase: 'thinking', text: latestSentence(thought) });
               }
             } else if (ev.event === 'tool_call') {
               // The agent moved on from talking: what it said is complete, so it shows now.
               if (!afterTools && pending.trim()) flushSay(true);
               afterTools = true;
-              toolEvent(c, d, st.runIndex ?? 0, () => void pull());
+              toolEvent(c, d, runIndex, () => void pull());
             } else if (ev.event === 'result') {
               result = d;
             } else if (ev.event === 'error') {
@@ -321,8 +320,8 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
         await res?.body?.cancel().catch(() => undefined);
         if (res && (res.status === 404 || res.status === 410)) {
           // No stream (expired): wait for the run to end instead.
-          const info = await waitForRun(apiKey, { agentId: st.agentId!, runId }, c.signal, until);
-          if (info) result = { status: info.status, text: info.result ?? '', durationMs: (info as { durationMs?: number }).durationMs };
+          const info = await waitForRun(apiKey, { agentId: st.agentId!, runId }, c.signal, deadline);
+          if (info) result = { status: info.status, text: info.result ?? '', durationMs: info.durationMs };
         } else await new Promise((r) => setTimeout(r, 2000));
       }
       if (!result) continue;
@@ -338,14 +337,14 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
         break;
       }
       const hitLimit = status === 'EXPIRED' || (status === 'ERROR' && Number(result.durationMs) >= 29 * 60_000);
-      if (!hitLimit) throw new CursorError(502, `Cursor agent ${status.toLowerCase()}${result.error ? `: ${String(typeof result.error === 'object' ? (result.error as { message?: string }).message : result.error)}` : ''}`);
+      if (!hitLimit) throw new CursorStop(502, `Cursor agent ${status.toLowerCase()}${result.error ? `: ${String(typeof result.error === 'object' ? (result.error as { message?: string }).message : result.error)}` : ''}`);
       if ((st.idle ?? 0) >= 2) {
         // An hour of work without a save: it ran out of time, so it isn't refunded.
         if (c.shared) return c.finish('failed', 'The builder worked for a long time without saving anything, so I stopped it. Try a smaller first step.', { refund: false });
-        throw new CursorError(502, 'The agent worked through two whole Cursor runs without pushing anything, so Orb stopped it. Try a smaller first step, or lower effort in You → Model.');
+        throw new CursorStop(502, 'The agent worked through two whole Cursor runs without pushing anything, so Orb stopped it. Try a smaller first step, or lower effort in You → Model.');
       }
       if ((st.runs?.length ?? 0) >= MAX_RUNS) {
-        if (!c.shared) throw new CursorError(502, 'This build ran for a very long time, so Orb paused it. Say “keep going” to continue.');
+        if (!c.shared) throw new CursorStop(502, 'This build ran for a very long time, so Orb paused it. Say “keep going” to continue.');
         // Days of work: keep what it saved.
         if (st.idle) return c.finish('failed', 'The builder ran out of time before it saved anything. Try a smaller first step.', { refund: false });
         out.say(`${spoke ? '\n' : ''}${FREE_PAUSE}`);
@@ -359,8 +358,7 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
       const nextId = next.run?.id ?? next.id;
       if (!nextId) throw new CursorError(502, 'Cursor did not start the follow-up run');
       st.runs!.push(nextId);
-      st.runIndex = st.runs!.length - 1;
-      c.trace.note('run', { text: followUp, run: st.runIndex, runId: nextId, previous: { status, durationMs: result.durationMs } });
+      c.trace.note('run', { text: followUp, run: st.runs!.length - 1, runId: nextId, previous: { status, durationMs: result.durationMs } });
       st.lastId = null;
       st.active = false;
       out.control({ t: 'status', phase: 'thinking', text: 'Picking up where I left off…' });
@@ -370,13 +368,13 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
     await serveLooks();
 
     if (out.cancelled || c.signal.aborted) {
-      await cancelCursorRun(apiKey, { agentId: st.agentId!, runId: st.runs![st.runIndex!] });
+      await cancelCursorRun(apiKey, { agentId: st.agentId!, runId: st.runs!.at(-1)! });
       await settle();
       return c.finish('cancelled');
     }
     if (budgetStop && !done) {
       // The day's budget or the maker's credits are spent: stop the agent (its run would go on) and keep what it made.
-      await cancelCursorRun(apiKey, { agentId: st.agentId!, runId: st.runs![st.runIndex!] });
+      await cancelCursorRun(apiKey, { agentId: st.agentId!, runId: st.runs!.at(-1)! });
       await settle();
       flushSay(true);
       c.trace.note('pause', { text: /credits/.test(budgetStop) ? "Stopped the agent: the maker's credits are used up." : "Stopped the agent: the free builder's budget for today is used up." });
@@ -389,9 +387,7 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
       // The final message comes with the run's result too: say whatever of it never streamed (a
       // dropped or expired stream), or the person sees only "Let me look…" and the ideas.
       const flat = (t: string) => t.replace(/\s+/g, ' ').trim();
-      const unsaid = finalText
-        .replace(/^\s*next ideas:.*$/gim, '')
-        .replace(/^\s*own copy:.*$/gim, '')
+      const unsaid = withoutWrapUp(finalText)
         .split(/\n+/)
         .filter((l) => flat(l) && !flat(streamed).includes(flat(l)))
         .join('\n');
@@ -410,7 +406,7 @@ export async function cursorTick(c: TickCtx): Promise<TickResult> {
     await sync.pulling?.catch(() => undefined);
     await bill().catch((err) => console.error('[orb] charging the free builder failed', err));
     const msg = e instanceof Error ? e.message : String(e);
-    if (e instanceof CursorError && e.status >= 500 && !/agent (error|failed|cancel)|two whole|very long/i.test(msg)) {
+    if (e instanceof CursorError && e.status >= 500 && !(e instanceof CursorStop)) {
       // A hiccup on Cursor's side: the next tick tries again.
       console.error('[orb] cursor tick failed', msg);
       c.trace.error({ message: msg, retry: true, status: e.status });
@@ -435,7 +431,7 @@ function toolEvent(c: TickCtx, d: Record<string, unknown>, runIndex: number, onP
   const id = d.callId ? `r${runIndex}:${String(d.callId)}` : '';
   const args = (d.args && typeof d.args === 'object' ? d.args : undefined) as Record<string, unknown> | undefined;
   if (!id || !args) return;
-  if (name === 'run_terminal_cmd' || /terminal|shell|command/i.test(name)) {
+  if (/terminal|shell|command/i.test(name)) {
     const cmd = String(args.command ?? '');
     if (/git\s+push|\.orb\/save\b/.test(cmd)) {
       if (status === 'running') c.out.control({ t: 'status', phase: 'thinking', text: 'Saving to the world…' });

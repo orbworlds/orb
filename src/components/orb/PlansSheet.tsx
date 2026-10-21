@@ -20,7 +20,7 @@ export function PlansSheet({ open, onClose }: { open: boolean; onClose(): void }
     if (open) void useBilling.getState().load(true);
   }, [open]);
   return (
-    <Modal open={open} onClose={onClose} title={<span id="orb-plans-title">Plans</span>} width={680}>
+    <Modal open={open} onClose={onClose} title="Plans" width={680}>
       {info ? (
         <Plans info={info} signedIn={signedIn} onClose={onClose} />
       ) : status === 'error' ? (

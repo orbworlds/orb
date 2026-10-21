@@ -11,15 +11,8 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { launch, routeCdn } from './pw.mjs';
-
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-let failed = 0;
-const check = (name, ok, detail = '') => {
-  console.log(`${ok ? '✓' : '✗'} ${name}${ok || !detail ? '' : ` — ${detail}`}`);
-  if (!ok) failed++;
-};
+import { launch, routeCdn } from '../kit/lib/browser.mjs';
+import { check, finish, root } from './harness.mjs';
 
 // ---- the package -------------------------------------------------------------------------------
 
@@ -50,9 +43,7 @@ try {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto(`${server.url}?player=${player}`);
-    const frame = await waitFrame(page);
-    await frame.waitForFunction(() => !!window.orb, null, { timeout: 30000 });
-    return { page, frame, errors };
+    return { page, frame: await waitFrame(page), errors };
   };
   const a = await open(1);
   const b = await open(2);
@@ -62,23 +53,18 @@ try {
   check('the world knows which Orb world it is', (await a.frame.evaluate(() => window.orb.world.id)) === 'orb-kit-test');
 
   const joinRoom = (f) =>
-    f.evaluate(
-      () =>
-        new Promise((resolve) => {
-          const seen = new Set();
-          const room = window.orb.room.join(
-            (e) => {
-              if (e.type === 'joined') e.peers.forEach((p) => seen.add(p.name));
-              if (e.type === 'join') seen.add(e.peer.name);
-              if (e.type === 'message') window.__kitMsg = e.data;
-              window.__kitSeen = [...seen];
-            },
-            { name: 'kit-test' },
-          );
-          window.__kitRoom = room;
-          resolve(true);
-        }),
-    );
+    f.evaluate(() => {
+      const seen = new Set();
+      window.__kitRoom = window.orb.room.join(
+        (e) => {
+          if (e.type === 'joined') e.peers.forEach((p) => seen.add(p.name));
+          if (e.type === 'join') seen.add(e.peer.name);
+          if (e.type === 'message') window.__kitMsg = e.data;
+          window.__kitSeen = [...seen];
+        },
+        { name: 'kit-test' },
+      );
+    });
   await joinRoom(a.frame);
   await joinRoom(b.frame);
   await a.page.waitForTimeout(600);
@@ -99,7 +85,6 @@ try {
   await a.page.waitForTimeout(500);
   await a.page.reload();
   a.frame = await waitFrame(a.page);
-  await a.frame.waitForFunction(() => !!window.orb, null, { timeout: 30000 });
   check('saves survive a reload', (await a.frame.evaluate(() => localStorage.getItem('kit-save'))) === 'kept');
   check('…and belong to their player', (await b.frame.evaluate(() => localStorage.getItem('kit-save'))) === null);
 
@@ -141,8 +126,7 @@ check('orb share in a fork links to importing it on Orb', said.includes('/?impor
 fs.rmSync(world, { recursive: true, force: true });
 fs.rmSync(broken, { recursive: true, force: true });
 
-console.log(failed ? `\n${failed} failed` : '\nall passed');
-process.exit(failed ? 1 : 0);
+finish();
 
 async function waitFrame(page) {
   for (let i = 0; i < 150; i++) {

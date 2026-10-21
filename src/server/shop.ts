@@ -18,22 +18,20 @@
 import type { ShopBought, ShopItem, ShopView } from '@/lib/types';
 import { canEdit, type Viewer } from './auth';
 import type { Db } from './db';
-import { ensureWallet, plansConfig, toCredits, toMicros, type PlansConfig, type Wallet } from './credits';
-import { fail, isWorldId, sessionUser } from './worlds';
+import { fail } from './http';
+import { ensureWallet, numberEnv, plansConfig, toCredits, toMicros, type PlansConfig, type Wallet } from './credits';
+import { isWorldId, sessionUser } from './worlds';
 
 export const SHOP_LIMITS = { items: 40, minPrice: 1, maxPrice: 1000 } as const;
 const ITEM_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
 /** A pending purchase older than this was cut off midway (nothing was taken): it may go. */
 const PENDING_STALE_S = 60;
 
-function numberEnv(env: Record<string, string | undefined>, key: string, fallback: number, min: number, max: number): number {
-  const raw = (env[key] ?? '').trim();
-  const n = Number(raw);
-  return raw && Number.isFinite(n) && n >= min && n <= max ? n : fallback;
-}
 /** What part of paid credits spent in a world its maker earns (ORB_SHOP_SHARE, default 1: all of it). */
 export const shopShare = (env: Record<string, string | undefined> = process.env) => numberEnv(env, 'ORB_SHOP_SHARE', 1, 0, 1);
 /** Credits an account may spend in worlds in a day (ORB_SHOP_DAILY, default 2,000). */
+export const shopDaily = (env: Record<string, string | undefined> = process.env) => numberEnv(env, 'ORB_SHOP_DAILY', 2000, 0, 1_000_000);
+
 /**
  * 402 for a purchase the wallet can't cover. A build can leave it a little below zero, which Orb
  * shows as 0, so the message says where the extra credits it asks for come from.
@@ -43,8 +41,6 @@ function short(price: number, left: number): never {
   const below = Math.ceil(-left);
   fail(402, 'no_credits', below > 0 ? `You need ${need} more credits: your last build went ${below} below zero.` : `You need ${need} more credits.`, { need, credits: left });
 }
-
-export const shopDaily = (env: Record<string, string | undefined> = process.env) => numberEnv(env, 'ORB_SHOP_DAILY', 2000, 0, 1_000_000);
 
 const clean = (s: string, max: number) =>
   s

@@ -9,7 +9,7 @@ import type { Db } from '../db';
 import { blobSizes, cleanPath, FILE_LIMITS, getBlob, isText, putBlob, putTree, type Tree } from '../files';
 import { problemsAfterChange } from './check';
 import { LOOK_ACTIONS } from './look';
-import { DOC_HOSTS, excerpt, fetchText } from './web';
+import { DOC_HOSTS, excerpt, fetchText, type Doc } from './web';
 
 const MAX_READ_LINES = 2000;
 const DEFAULT_READ_LINES = 800;
@@ -44,7 +44,6 @@ export class Workspace {
   files: Tree;
   private readonly sizes = new Map<string, number>();
   private readonly text = new Map<string, string>();
-  private readonly running = new Set<Promise<unknown>>();
   /** File changes run one at a time, in the order the reply asked for them: the tools of one reply start side by side, and two edits of a file must not both start from its old text. */
   private queue: Promise<unknown> = Promise.resolve();
   changed = false;
@@ -53,18 +52,14 @@ export class Workspace {
   track<T>(run: () => Promise<T>): Promise<T> {
     const p = this.queue.then(run);
     this.queue = p.catch(() => undefined);
-    this.running.add(p);
-    p.then(
-      () => this.running.delete(p),
-      () => this.running.delete(p),
-    );
     return p;
   }
 
   /** Wait for the file changes started so far (e.g. before looking at the world). */
   async settled(): Promise<void> {
     await new Promise((r) => setTimeout(r, 0));
-    while (this.running.size) await Promise.allSettled([...this.running]);
+    let q: Promise<unknown> | undefined;
+    while (q !== this.queue) await (q = this.queue);
   }
 
   private readonly db: Db;
@@ -100,7 +95,7 @@ export class Workspace {
     if (cached !== undefined) return cached;
     const bytes = await getBlob(this.db, sha);
     if (!bytes) throw new Error(`The contents of ${path} are missing.`);
-    if (!isText(path, bytes)) throw new Error(`${path} is a binary file (${bytes.length.toLocaleString('en')} bytes) — it can't be read as text.`);
+    if (!isText(bytes)) throw new Error(`${path} is a binary file (${bytes.length.toLocaleString('en')} bytes) — it can't be read as text.`);
     const t = new TextDecoder().decode(bytes);
     this.text.set(sha, t);
     return t;
@@ -195,12 +190,6 @@ export interface LookInput {
   viewport?: unknown;
 }
 
-/** What the runner (./runner.ts) lends the tools. */
-export interface ToolHelpers {
-  /** Run the world in a page that watches the job and see it (./look.ts); the text for the model. */
-  look?: (input: LookInput, toolCallId: string, signal?: AbortSignal) => Promise<string>;
-}
-
 const LOOK_DESCRIPTION = `Run the world in the person's browser — with your latest files — and see what they see: screenshots, errors, console output, frame rate, and the text and buttons on screen. Optionally play it first; actions run in order:
 ${LOOK_ACTIONS}
 Each look starts the world fresh and takes a few seconds. If nobody has the world open, it says so.`;
@@ -229,10 +218,10 @@ const ACTION_SCHEMA: JSONSchema7 = {
   required: ['type'],
 };
 
-const docCache = new Map<string, { at: number; doc: Exclude<Awaited<ReturnType<typeof fetchText>>, { error: string }> }>();
+const docCache = new Map<string, { at: number; doc: Doc }>();
 
 /** Library code and docs change rarely (and pinned versions never): keep recent ones a while. */
-async function readDoc(url: string): Promise<Awaited<ReturnType<typeof fetchText>>> {
+async function readDoc(url: string): Promise<Doc | { error: string }> {
   const key = url.trim();
   const hit = docCache.get(key);
   if (hit && Date.now() - hit.at < 10 * 60_000) return hit.doc;
@@ -246,9 +235,10 @@ async function readDoc(url: string): Promise<Awaited<ReturnType<typeof fetchText
 
 /**
  * The agent's tools. `onStep` reports file changes (shown in the chat as they happen); `meta`
- * collects the world name, next ideas and remix offers.
+ * collects the world name, next ideas and remix offers; `look` runs the world in a page that
+ * watches the job and sees it (./look.ts), giving the text for the model.
  */
-export function agentTools(ws: Workspace, mode: 'build' | 'ask', meta: Meta, onStep: (e: StepEvent) => void, helpers: ToolHelpers = {}): ToolSet {
+export function agentTools(ws: Workspace, mode: 'build' | 'ask', meta: Meta, onStep: (e: StepEvent) => void, look?: (input: LookInput, toolCallId: string, signal?: AbortSignal) => Promise<string>): ToolSet {
   const pathError = (p: unknown) => `"${String(p)}" is not a valid file path. Use relative paths like "src/main.js" (letters, digits, - _ . / only).`;
 
   const read = {
@@ -382,7 +372,6 @@ export function agentTools(ws: Workspace, mode: 'build' | 'ask', meta: Meta, onS
 
   const label = (l: unknown, fallback: string) => str(l).replace(/[<>"]/g, '').trim().slice(0, 60) || fallback;
 
-  const look = helpers.look;
   const seeing: ToolSet = look
     ? {
         look: tool({
@@ -493,7 +482,6 @@ export function agentTools(ws: Workspace, mode: 'build' | 'ask', meta: Meta, onS
         if (ws.files[b]) return `${b} already exists — delete it first or pick another name.`;
         ws.files[b] = ws.files[a];
         ws.remove(a);
-        ws.changed = true;
         onStep({ id, kind: 'edit', label: `Moving ${a.split('/').pop()}`, path: b, ok: true });
         return `Moved ${a} to ${b}.${await problemsAfterChange(ws, [a, b])}`;
       }),
@@ -538,5 +526,5 @@ export function closeToolCalls(added: ModelMessage[], results: Map<string, strin
 
 /** A step that only wraps up (next ideas, remix offer, naming) ends the reply: nothing to wait for. */
 export function isFinalStep(toolNames: string[]): boolean {
-  return toolNames.length > 0 && toolNames.some((n) => n === 'suggest_next' || n === 'offer_remix') && toolNames.every((n) => n === 'suggest_next' || n === 'offer_remix' || n === 'name_world');
+  return toolNames.some((n) => n === 'suggest_next' || n === 'offer_remix') && toolNames.every((n) => n === 'suggest_next' || n === 'offer_remix' || n === 'name_world');
 }

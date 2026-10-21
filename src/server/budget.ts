@@ -11,6 +11,7 @@
 // model writes (see CursorTokens), and for a model call cut short (a stopped build pays for what it
 // used, see cutCallUsd). Spend per day is in orb_spend and on the Pulse page.
 
+import { numberEnv } from './credits';
 import type { Db } from './db';
 import { utcDay } from './freetier';
 
@@ -166,15 +167,9 @@ export interface BudgetConfig {
 
 export const BUDGET_DEFAULT_USD = 20;
 
-function usdEnv(env: Record<string, string | undefined>, key: string, fallback: number): number {
-  const raw = (env[key] ?? '').trim();
-  const n = Number(raw);
-  return raw && Number.isFinite(n) && n >= 0 ? n : fallback;
-}
-
 export function budgetConfig(env: Record<string, string | undefined> = process.env): BudgetConfig {
-  const dailyUsd = usdEnv(env, 'ORB_FREE_DAILY_USD', BUDGET_DEFAULT_USD);
-  return { dailyUsd, anonUsd: Math.min(dailyUsd, usdEnv(env, 'ORB_FREE_DAILY_USD_ANON', dailyUsd / 2)) };
+  const dailyUsd = numberEnv(env, 'ORB_FREE_DAILY_USD', BUDGET_DEFAULT_USD);
+  return { dailyUsd, anonUsd: Math.min(dailyUsd, numberEnv(env, 'ORB_FREE_DAILY_USD_ANON', dailyUsd / 2)) };
 }
 
 export interface Spent {
@@ -209,27 +204,26 @@ export async function spentToday(db: Db, now: Date = new Date()): Promise<Spent>
   return toSpent(await db.query<{ scope: string; micros: string | number }>(`select scope, micros from orb_spend where day = $1::date`, [utcDay(now)]));
 }
 
-/** Add what a free build cost (US$) to today's spend; what's spent after it. */
-export async function chargeFree(db: Db, usd: number, anonymous: boolean, now: Date = new Date()): Promise<Spent> {
+/** Add a cost (US$) to today's spend in each of these scopes. */
+async function addSpend(db: Db, scopes: string[], usd: number, now: Date): Promise<void> {
   const micros = Math.round(count(usd) * MICROS);
-  if (!micros) return spentToday(db, now);
+  if (!micros) return;
   await db.query(
     `insert into orb_spend (day, scope, micros) select $1::date, s, $3::bigint from unnest($2::text[]) as s
      on conflict (day, scope) do update set micros = orb_spend.micros + excluded.micros, updated_at = now()`,
-    [utcDay(now), anonymous ? ['free', 'free:anon'] : ['free'], micros],
+    [utcDay(now), scopes, micros],
   );
+}
+
+/** Add what a free build cost (US$) to today's spend; what's spent after it. */
+export async function chargeFree(db: Db, usd: number, anonymous: boolean, now: Date = new Date()): Promise<Spent> {
+  await addSpend(db, anonymous ? ['free', 'free:anon'] : ['free'], usd, now);
   return spentToday(db, now);
 }
 
 /** Add what a build paid for with bought credits cost (US$) to today's spend, outside the budget. */
-export async function chargePaid(db: Db, usd: number, now: Date = new Date()): Promise<void> {
-  const micros = Math.round(count(usd) * MICROS);
-  if (!micros) return;
-  await db.query(
-    `insert into orb_spend (day, scope, micros) values ($1::date, 'paid', $2::bigint)
-     on conflict (day, scope) do update set micros = orb_spend.micros + excluded.micros, updated_at = now()`,
-    [utcDay(now), micros],
-  );
+export function chargePaid(db: Db, usd: number, now: Date = new Date()): Promise<void> {
+  return addSpend(db, ['paid'], usd, now);
 }
 
 /** Free spend per UTC day (US$), for the Pulse page. */

@@ -5,13 +5,12 @@
 import { SITE } from './site';
 
 const MARK = 'data-orb-base';
-const BASE_RE = /<base data-orb-base href="[^"]*">/;
 
 function origin(): string {
   return typeof location !== 'undefined' ? location.origin : SITE;
 }
 
-export const treeUrl = (tree: string) => `${origin()}/api/tree/${tree}/`;
+const treeUrl = (tree: string) => `${origin()}/api/tree/${tree}/`;
 
 /** The page with the base tag for `tree` (unchanged when there is no tree or it already has one). */
 export function withTree(html: string, tree: string | null | undefined): string {
@@ -22,11 +21,6 @@ export function withTree(html: string, tree: string | null | undefined): string 
   const top = /^(﻿?\s*<!doctype[^>]*>)?(\s*<html(\s[^>]*)?>)?/i.exec(html);
   const at = top ? top[0].length : 0;
   return html.slice(0, at) + tag + html.slice(at);
-}
-
-/** The page as the person wrote it (for the code view). */
-export function withoutTree(html: string): string {
-  return html.includes(MARK) ? html.replace(BASE_RE, '') : html;
 }
 
 /** Runtime error locations point into the world's files: show them as plain paths. */

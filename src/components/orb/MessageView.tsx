@@ -1,7 +1,9 @@
 'use client';
 // One chat message. User → a compact soft bubble on the right. Orb → warm text with a tiny orb
-// avatar, the build as a minimalist checklist, a "v12 · 14 credits · Undo" footer and suggestion chips.
-import { Fragment, memo, useEffect, useState, type ReactNode } from 'react';
+// avatar, in the order it streamed: what it said first, the build as a minimalist checklist, what it
+// said after; then Undo (the newest reply that changed the world) and suggestion chips, or Remix
+// when a visitor asked for a change.
+import { useEffect, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
@@ -21,28 +23,31 @@ export function formatCountdown(seconds: number): string {
   return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
-export interface MessageViewProps {
+interface MessageViewProps {
   message: ChatMessage;
   /** This is the newest message in the thread (suggestions + countdown show only here). */
   isLast: boolean;
   /** A build is running somewhere in this chat (hides chips / undo meanwhile). */
   building: boolean;
+  /** Someone else's world: Orb answers here ("Thinking…") rather than builds ("Building…"). */
+  guide: boolean;
+  /** The newest reply that changed the world, in a world you can change. */
   canUndo: boolean;
   retryAfter: number | null;
   onUndo(id: string): void;
   onSuggest(text: string): void;
   onOpenKeys(): void;
-  /** Someone else's world: make their own copy and build what this answer couldn't change here. */
+  /** Someone else's world: remix it and build what this answer couldn't change here. */
   onRemix?(): void;
   /** This answer failed: ask the same again. */
   onRetry?(): void;
 }
 
-export const MessageView = memo(function MessageView(props: MessageViewProps) {
+export function MessageView(props: MessageViewProps) {
   const { message } = props;
   if (message.role === 'user') {
     return (
-      <div className="animate-fade-up flex justify-end pl-10" data-msg={message.id}>
+      <div className="animate-fade-up flex justify-end pl-10">
         <div className="max-w-full rounded-[18px] rounded-br-[6px] bg-[var(--bubble)] px-3.5 py-2 text-[14.5px] leading-[1.45] break-words whitespace-pre-wrap text-ink">
           {message.text}
         </div>
@@ -50,46 +55,52 @@ export const MessageView = memo(function MessageView(props: MessageViewProps) {
     );
   }
   return <AssistantMessage {...props} />;
-});
+}
 
-function AssistantMessage({ message, isLast, building, canUndo, retryAfter, onUndo, onSuggest, onOpenKeys, onRemix, onRetry }: MessageViewProps) {
+function AssistantMessage({ message, isLast, building, guide, canUndo, retryAfter, onUndo, onSuggest, onOpenKeys, onRemix, onRetry }: MessageViewProps) {
   const b = message.build;
   const streaming = b?.status === 'streaming';
   if (streaming) liveIds.add(message.id);
   const animate = liveIds.has(message.id);
-  const text = message.text.trim();
   const steps = b?.steps ?? [];
-  const thinking = streaming && !text && !steps.length;
+  // What was said before the first step goes above the checklist, the rest under it.
+  const at = steps.length ? (b?.stepsAt ?? message.text.length) : message.text.length;
+  const before = message.text.slice(0, at).trim();
+  const after = message.text.slice(at).trim();
+  const thinking = streaming && !before && !after && !steps.length;
+  const settled = isLast && !building && !streaming && !b?.undone;
+  const remix = settled && b?.remix && onRemix;
+
+  // An undone reply fades back, under the line that says so.
+  const dim = `transition-opacity duration-300 ${b?.undone ? 'opacity-45' : ''}`;
 
   return (
-    <div className="animate-fade-up flex gap-2.5 pr-2" data-msg={message.id}>
-      <span className="mt-[3px] shrink-0">
+    <div className="animate-fade-up flex gap-2.5 pr-2">
+      <span className={`mt-[3px] shrink-0 ${dim}`}>
         <OrbSphere size={18} building={streaming} glow={false} />
       </span>
       <div className="min-w-0 flex-1">
-        {thinking && <Thinking label={b?.repair ? 'Fixing a little thing…' : b?.thinkingSince ? 'Thinking it through…' : 'Dreaming it up…'} since={b?.thinkingSince} />}
-        {text && <Prose text={text} />}
-        {steps.length > 0 && <Checklist build={b!} animate={animate} />}
-        {streaming && b?.thought && (
-          <p key={b.thought} className="animate-fade-in mt-2 line-clamp-2 text-[12.5px] leading-snug text-ink-3 italic">💭 {b.thought}</p>
-        )}
-        {b?.repair && streaming && steps.length > 0 && (
-          <p className="mt-2 flex items-center gap-1.5 text-[12.5px] text-ink-3">
-            <Icon name="wand" size={13} /> Polishing a few things…
-          </p>
-        )}
+        <div className={dim}>
+          {thinking && <Thinking label={guide ? 'Thinking…' : 'Building…'} since={b?.thinkingSince} />}
+          {before && <Prose text={before} />}
+          {steps.length > 0 && <Checklist build={b!} animate={animate} />}
+          {after && <Prose text={after} className={steps.length ? 'mt-2.5' : ''} />}
+          {streaming && b?.thought && (
+            <p key={b.thought} className="animate-fade-in mt-2 line-clamp-2 text-[12.5px] leading-snug text-ink-3 italic">
+              {b.thought}
+            </p>
+          )}
+        </div>
         {b && <Status build={b} isLast={isLast} retryAfter={retryAfter} onOpenKeys={onOpenKeys} onRetry={isLast && !building ? onRetry : undefined} />}
         {b && <Footer build={b} id={message.id} canUndo={canUndo && !building} onUndo={onUndo} />}
-        {isLast && !building && b?.status !== 'streaming' && b?.remix && onRemix && (
-          <button
-            type="button"
-            onClick={onRemix}
-            className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-full bg-ink px-3.5 py-1.5 text-[13.5px] font-medium text-paper transition-transform duration-150 active:scale-[.97]"
-          >
-            <Icon name="remix" size={15} /> Make my own copy
+        {/* A change they can't make here: the one way on, Remix (it builds the request in the copy). */}
+        {remix ? (
+          <button type="button" onClick={onRemix} className={`mt-3 gap-1.5 font-medium ${CHIP}`}>
+            <Icon name="remix" size={14} /> Remix
           </button>
+        ) : (
+          settled && !!b?.suggestions?.length && <Chips items={b.suggestions} onPick={onSuggest} className="mt-3" />
         )}
-        {isLast && !building && b?.status !== 'streaming' && !!b?.suggestions?.length && <Chips items={b.suggestions} onPick={onSuggest} className="mt-3" />}
       </div>
     </div>
   );
@@ -107,15 +118,15 @@ function Thinking({ label, since }: { label: string; since?: number }) {
   return (
     <p className="flex h-[22px] items-center gap-2 text-[14.5px]">
       <span className="shimmer-text font-medium">{label}</span>
-      {since && s >= 5 && <span className="text-[13px] text-ink-3 tabular-nums">{Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}</span>}
+      {since && s >= 5 && <span className="text-[13px] text-ink-3 tabular-nums">{formatCountdown(s)}</span>}
     </p>
   );
 }
 
 /** Narration: paragraphs on blank lines, single line breaks kept. */
-function Prose({ text }: { text: string }) {
+function Prose({ text, className = '' }: { text: string; className?: string }) {
   return (
-    <div className="space-y-2 text-[14.5px] leading-[1.55] text-ink [overflow-wrap:anywhere]">
+    <div className={`space-y-2 text-[14.5px] leading-[1.55] text-ink [overflow-wrap:anywhere] ${className}`}>
       {text.split(/\n{2,}/).map((p, i) => (
         <p key={i} className="whitespace-pre-line">
           {p}
@@ -177,6 +188,10 @@ function Tick({ animate }: { animate: boolean }) {
 }
 
 const KEY_HINT = /you → model|own (ai )?key/i;
+const ACCOUNT_HINT = /you → account/i;
+const LINK = 'inline-flex h-7 items-center gap-1 font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-ink';
+/** The buttons under an error point the way, so its own pointers ("in You → Model", "(You → Account)") go. */
+const unpoint = (s: string) => s.replace(/\s*\(You → \w+\)/g, '').replace(/\s+(?:in|via) You → \w+/g, '');
 
 function Status({ build, isLast, retryAfter, onOpenKeys, onRetry }: { build: BuildInfo; isLast: boolean; retryAfter: number | null; onOpenKeys(): void; onRetry?(): void }) {
   if (build.status === 'stopped') {
@@ -185,26 +200,33 @@ function Status({ build, isLast, retryAfter, onOpenKeys, onRetry }: { build: Bui
   if (build.status !== 'error' || !build.error) return null;
   if (build.errorCode === 'out_of_credits') return <OutOfCredits message={build.error} onOpenKeys={onOpenKeys} />;
   const countdown = isLast && retryAfter != null && retryAfter > 0;
-  // The link below replaces the textual "in You → Model" pointer.
-  const message = build.error.replace(/\s+(?:in|via) You → Model/gi, '');
+  const account = ACCOUNT_HINT.test(build.error);
+  const key = countdown || KEY_HINT.test(build.error);
   return (
     <div className="mt-2.5 rounded-[14px] bg-[var(--warn-bg)] px-3.5 py-2.5 text-[13.5px] leading-[1.45] text-ink" role="status">
-      <p>{message}</p>
+      <p>{unpoint(build.error)}</p>
       {onRetry && !countdown && (
-        <button type="button" onClick={onRetry} className="mt-1.5 inline-flex h-7 items-center gap-1 text-[13px] font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-ink">
+        <button type="button" onClick={onRetry} className={`mt-1.5 text-[13px] ${LINK}`}>
           <Icon name="refresh" size={13} /> Try again
         </button>
       )}
-      {(countdown || KEY_HINT.test(build.error)) && (
+      {(account || key) && (
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
           {countdown && (
             <span className="text-ink-2">
               Free building resumes in <span className="font-medium text-ink tabular-nums">{formatCountdown(retryAfter!)}</span>
             </span>
           )}
-          <button type="button" onClick={onOpenKeys} className="inline-flex h-7 items-center gap-1 font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-ink">
-            <Icon name="key" size={13} /> Use your own key
-          </button>
+          {account && (
+            <button type="button" onClick={() => useUi.getState().requestSignup()} className={LINK}>
+              Create a free account
+            </button>
+          )}
+          {key && (
+            <button type="button" onClick={onOpenKeys} className={LINK}>
+              <Icon name="key" size={13} /> Use your own key
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -217,14 +239,11 @@ function OutOfCredits({ message, onOpenKeys }: { message: string; onOpenKeys(): 
   const going = useBilling((s) => s.going);
   const plan = info?.plan ?? (/free account/i.test(message) ? 'guest' : 'free');
   const ui = useUi.getState();
-  // The buttons below replace the textual pointers ("(You → Account)", "in You → Model"…).
-  const text = message.replace(/\s*\(You → \w+\)/g, '').replace(/\s+in You → \w+/g, '');
-  const link = 'inline-flex h-7 items-center gap-1 font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-ink';
   return (
     <div className="mt-2.5 rounded-[14px] bg-[color-mix(in_oklab,var(--iris-1)_10%,transparent)] px-3.5 py-3 text-[13.5px] leading-[1.45] text-ink" role="status">
       <p className="flex gap-2">
         <Icon name="coins" size={15} className="mt-[2px] shrink-0 text-[var(--iris-1)]" />
-        <span>{text}</span>
+        <span>{unpoint(message)}</span>
       </p>
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-[23px] text-[13px]">
         {plan === 'guest' && (
@@ -243,11 +262,11 @@ function OutOfCredits({ message, onOpenKeys }: { message: string; onOpenKeys(): 
             Top up
           </Button>
         )}
-        <button type="button" onClick={() => ui.setPlans(true)} className={link}>
+        <button type="button" onClick={() => ui.setPlans(true)} className={LINK}>
           See plans
         </button>
         {plan !== 'guest' && (
-          <button type="button" onClick={onOpenKeys} className={link}>
+          <button type="button" onClick={onOpenKeys} className={LINK}>
             <Icon name="key" size={13} /> Use your own key
           </button>
         )}
@@ -256,56 +275,28 @@ function OutOfCredits({ message, onOpenKeys }: { message: string; onOpenKeys(): 
   );
 }
 
-/** Rounded up: credits left are shown rounded down, so what a build used and what's left add up. */
-const creditsLabel = (n: number) => {
-  const whole = Math.max(1, Math.ceil(n - 1e-9));
-  return `${whole.toLocaleString('en-US')} credit${whole === 1 ? '' : 's'}`;
-};
-
-/** "v12 · 14 credits · Undo": what the build saved and what it used (a stopped build or an answer too). */
+/** Undo under the newest reply that changed the world; an undone reply says where the world went. */
 function Footer({ build, id, canUndo, onUndo }: { build: BuildInfo; id: string; canUndo: boolean; onUndo(id: string): void }) {
-  const used = build.credits != null && build.credits > 0;
-  if (build.toVersion == null && !build.undone && !used) return null;
-  const undoable = canUndo && !build.undone && build.fromVersion != null && build.toVersion != null && build.status !== 'streaming';
-  const parts: ReactNode[] = [];
-  if (build.toVersion != null) parts.push(<span className="tabular-nums">v{build.toVersion}</span>);
-  if (used)
-    parts.push(
-      <span className="tabular-nums" title="What this build’s AI cost, in credits (a credit is a cent of AI time)">
-        {creditsLabel(build.credits!)}
-        {build.status === 'streaming' ? ' so far' : ''}
-      </span>,
-    );
-  if (undoable)
-    parts.push(
-      <button type="button" onClick={() => onUndo(id)} className="-mx-1 inline-flex h-6 items-center gap-1 rounded-full px-1 font-medium text-ink-2 hover:text-ink">
-        <Icon name="undo" size={12} /> Undo
-      </button>,
-    );
-  if (build.undone) parts.push(<span>Undone</span>);
+  if (build.undone) return <p className="mt-2 text-[12.5px] text-ink-2">Back to how it was</p>;
+  if (!canUndo || build.fromVersion == null || build.toVersion == null || build.status === 'streaming') return null;
   return (
-    <p className="mt-2 flex items-center gap-1.5 text-[12px] text-ink-3">
-      {parts.map((part, i) => (
-        <Fragment key={i}>
-          {i > 0 && <span aria-hidden="true">·</span>}
-          {part}
-        </Fragment>
-      ))}
+    <p className="mt-1.5 text-[12.5px]">
+      <button type="button" onClick={() => onUndo(id)} className="-mx-2 inline-flex h-8 items-center gap-1 rounded-full px-2 font-medium text-ink-2 transition-colors hover:text-ink phone:-my-1.5 phone:h-11">
+        <Icon name="undo" size={13} /> Undo
+      </button>
     </p>
   );
 }
 
+const CHIP =
+  'inline-flex min-h-8 items-center rounded-full bg-[var(--chip-bg)] px-3 py-1 text-left phone:min-h-11 phone:px-3.5 text-[13px] leading-tight text-ink shadow-[inset_0_0_0_1px_var(--ink-5),0_1px_2px_rgba(16,16,40,.05)] transition-[background,transform,box-shadow] duration-200 hover:bg-[var(--chip-bg-hover)] hover:shadow-[inset_0_0_0_1px_var(--ink-4),0_4px_12px_-4px_rgba(16,16,40,.16)] active:scale-[.97]';
+
 /** Tappable suggestion chips (tap = send). */
 export function Chips({ items, onPick, className = '' }: { items: string[]; onPick(text: string): void; className?: string }) {
   return (
-    <div className={`flex flex-wrap gap-1.5 ${className}`}>
+    <div className={`flex flex-wrap gap-1.5 phone:gap-2 ${className}`}>
       {items.slice(0, 4).map((s) => (
-        <button
-          key={s}
-          type="button"
-          onClick={() => onPick(s)}
-          className="inline-flex min-h-8 items-center rounded-full bg-[var(--chip-bg)] px-3 py-1 text-left text-[13px] leading-tight text-ink shadow-[inset_0_0_0_1px_var(--ink-5),0_1px_2px_rgba(16,16,40,.05)] transition-[background,transform,box-shadow] duration-200 hover:bg-[var(--chip-bg-hover)] hover:shadow-[inset_0_0_0_1px_var(--ink-4),0_4px_12px_-4px_rgba(16,16,40,.16)] active:scale-[.97]"
-        >
+        <button key={s} type="button" onClick={() => onPick(s)} className={CHIP}>
           {s}
         </button>
       ))}

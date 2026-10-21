@@ -1,8 +1,10 @@
-// Viewer identity: anonymous device key (header) + optional passkey account (signed cookie), or
-// the Orb kit's token (a bearer token that acts as the browser that approved it, see ./kit.ts).
+// Viewer identity: anonymous device key (header) + optional account (signed session cookie, from a
+// password or a passkey sign-in), or the Orb kit's token (a bearer token that acts as the browser
+// that approved it, see ./kit.ts).
 
 import crypto from 'node:crypto';
 import type { Db } from './db';
+import { adoptDeviceHandle } from './paths';
 
 export const SESSION_COOKIE = 'orb_session';
 const SESSION_DAYS = 365;
@@ -35,39 +37,46 @@ export function publicDeviceId(hash: string): string {
 /** Short, URL-safe random id (base62). */
 export function randomId(len = 10): string {
   const alphabet = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const bytes = crypto.randomBytes(len * 2);
-  let out = '';
-  for (let i = 0; out.length < len && i < bytes.length; i++) {
-    const b = bytes[i];
-    if (b < 248) out += alphabet[b % 62];
-  }
-  while (out.length < len) out += alphabet[crypto.randomInt(62)];
-  return out;
+  return Array.from({ length: len }, () => alphabet[crypto.randomInt(62)]).join('');
+}
+
+/** Whether two strings are the same, compared in constant time. */
+export function sameString(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
 function hmac(data: string): string {
   return crypto.createHmac('sha256', secret()).update(data).digest('base64url');
 }
 
-export function signSession(userId: string): string {
-  const exp = Math.floor(Date.now() / 1000) + SESSION_DAYS * 86400;
-  const payload = Buffer.from(JSON.stringify({ u: userId, e: exp })).toString('base64url');
-  return `${payload}.${hmac(payload)}`;
+/** `data` as a signed token that holds for `days` (`scope` keeps one kind of token from passing for another). */
+function seal(scope: string, data: Record<string, unknown>, days: number): string {
+  const payload = Buffer.from(JSON.stringify({ ...data, e: Math.floor(Date.now() / 1000) + days * 86400 })).toString('base64url');
+  return `${payload}.${hmac(scope + payload)}`;
 }
 
-export function verifySession(token: string | undefined | null): { userId: string } | null {
-  if (!token) return null;
+/** What a sealed token holds, while its signature and expiry hold. */
+function unseal(scope: string, token: string): Record<string, unknown> | null {
   const [payload, sig] = token.split('.');
-  if (!payload || !sig) return null;
-  const expected = hmac(payload);
-  if (expected.length !== sig.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) return null;
+  if (!payload || !sig || !sameString(hmac(scope + payload), sig)) return null;
   try {
-    const { u, e } = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    if (typeof u !== 'string' || typeof e !== 'number' || e < Date.now() / 1000) return null;
-    return { userId: u };
+    const o: unknown = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    const data = o && typeof o === 'object' ? (o as Record<string, unknown>) : null;
+    return data && typeof data.e === 'number' && data.e >= Date.now() / 1000 ? data : null;
   } catch {
     return null;
   }
+}
+
+export function signSession(userId: string): string {
+  return seal('', { u: userId }, SESSION_DAYS);
+}
+
+export function verifySession(token: string | undefined | null): { userId: string } | null {
+  const o = token ? unseal('', token) : null;
+  return typeof o?.u === 'string' ? { userId: o.u } : null;
 }
 
 export function sessionCookie(userId: string): string {
@@ -100,26 +109,16 @@ const KIT_DAYS = 365;
 
 /** A token for the Orb kit that acts as this device (and account): signed like a session, for a year. */
 export function signKitToken(deviceHash: string | null, userId: string | null): string {
-  const exp = Math.floor(Date.now() / 1000) + KIT_DAYS * 86400;
-  const payload = Buffer.from(JSON.stringify({ k: 'kit', d: deviceHash, u: userId, e: exp })).toString('base64url');
-  return `${KIT_PREFIX}${payload}.${hmac(`kit.${payload}`)}`;
+  return KIT_PREFIX + seal('kit.', { k: 'kit', d: deviceHash, u: userId }, KIT_DAYS);
 }
 
 export function verifyKitToken(token: string | null | undefined): { deviceHash: string | null; userId: string | null } | null {
   if (!token?.startsWith(KIT_PREFIX)) return null;
-  const [payload, sig] = token.slice(KIT_PREFIX.length).split('.');
-  if (!payload || !sig) return null;
-  const expected = hmac(`kit.${payload}`);
-  if (expected.length !== sig.length || !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) return null;
-  try {
-    const { k, d, u, e } = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    if (k !== 'kit' || typeof e !== 'number' || e < Date.now() / 1000) return null;
-    const deviceHash = typeof d === 'string' && /^[a-f0-9]{64}$/.test(d) ? d : null;
-    const userId = typeof u === 'string' && u ? u : null;
-    return deviceHash || userId ? { deviceHash, userId } : null;
-  } catch {
-    return null;
-  }
+  const o = unseal('kit.', token.slice(KIT_PREFIX.length));
+  if (o?.k !== 'kit') return null;
+  const deviceHash = typeof o.d === 'string' && /^[a-f0-9]{64}$/.test(o.d) ? o.d : null;
+  const userId = typeof o.u === 'string' && o.u ? o.u : null;
+  return deviceHash || userId ? { deviceHash, userId } : null;
 }
 
 export function getViewer(req: Request): Viewer {
@@ -145,7 +144,6 @@ export async function touchDevice(db: Db, viewer: Viewer, name?: string): Promis
 export async function linkDeviceToUser(db: Db, deviceHash: string | null, userId: string): Promise<void> {
   if (!deviceHash) return;
   // The device's handle (its world URLs) becomes the account's, if the account has none yet.
-  const { adoptDeviceHandle } = await import('./paths');
   await adoptDeviceHandle(db, deviceHash, userId);
   // Signing into another account on this device: the device stops being a key to the previous
   // account's worlds (they stay that account's, reachable by signing back in).
@@ -177,6 +175,16 @@ export async function canEdit(db: Db, viewer: Viewer, world: Ownable): Promise<b
 export function isAdmin(req: Request): boolean {
   const token = process.env.ORB_ADMIN_TOKEN;
   const given = req.headers.get('x-admin-token');
-  if (!token || !given || token.length !== given.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(given));
+  return !!token && !!given && sameString(token, given);
+}
+
+// -- GitHub's OAuth round trip (/api/github/login, then /api/github/callback) ------------------
+
+export const GH_STATE_COOKIE = 'orb_gh_state';
+export const GH_STATE_PATH = '/api/github';
+
+/** Same-origin relative path to return to after connecting (default "/"). */
+export function safeNext(raw: string | null): string {
+  if (!raw || raw.length > 300 || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) return '/';
+  return raw.split('#')[0] || '/';
 }

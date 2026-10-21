@@ -10,14 +10,10 @@ import { ready } from '@/server/schema';
 
 export const maxDuration = 300;
 
-export async function GET(req: Request): Promise<Response> {
+export async function GET(): Promise<Response> {
   const db = await ready();
-  const secret = process.env.CRON_SECRET;
-  const trusted = !!secret && req.headers.get('authorization') === `Bearer ${secret}`;
-  if (!trusted) {
-    const r = await rateLimit(db, 'cron:github', 6, 60);
-    if (!r.ok) return error(429, 'rate_limited', 'Too often.', { retryAfter: r.retryAfter });
-  }
+  const r = await rateLimit(db, 'cron:github', 6, 60);
+  if (!r.ok) return error(429, 'rate_limited', 'Too often.', { retryAfter: r.retryAfter });
   return json({ checked: await sweepRepos(db, 20) });
 }
 

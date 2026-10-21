@@ -45,16 +45,13 @@ const TYPES = {
 };
 const typeOf = (p) => TYPES[path.extname(p).toLowerCase()] ?? 'application/octet-stream';
 
-/** orb.json of the world's folder (or the folder above it, for a packaged build): {} when there is none. */
-function readOrbJson(dir) {
-  for (const d of [dir, path.dirname(dir)]) {
-    try {
-      return JSON.parse(fs.readFileSync(path.join(d, 'orb.json'), 'utf8'));
-    } catch {
-      /* none here */
-    }
+/** The parsed JSON of a file, or null when it is missing or not JSON. */
+export function readJson(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return null;
   }
-  return {};
 }
 
 /** The items of the page's `<script type="application/json" id="orb-shop">` (SPEC §7), as Orb would sell them. */
@@ -72,7 +69,7 @@ export function shopItems(html) {
   for (const it of items) {
     if (out.length >= 40 || !it || typeof it !== 'object') continue;
     const { id, name, price, emoji, description } = it;
-    if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(id)) continue;
+    if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,39}$/.test(id)) continue; // Orb's SHOP_ITEM_RE (src/lib/runtime/sdk.ts)
     if (typeof name !== 'string' || !name.trim() || name.length > 40) continue;
     if (!Number.isInteger(price) || price < 1 || price > 1000) continue;
     out.push({ id, name: name.trim(), price, ...(typeof emoji === 'string' && emoji ? { emoji } : {}), ...(typeof description === 'string' && description.length <= 140 ? { description } : {}) });
@@ -116,13 +113,14 @@ export function serve({ dir, port = 4242, host = '127.0.0.1', watch = true, quie
     if (p === '/' || p === '/index.html') return send(res, 200, fs.readFileSync(path.join(HERE, 'host.html')), { 'content-type': TYPES['.html'] });
     if (p === '/__orb/world.json') {
       const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-      const meta = readOrbJson(root);
+      // orb.json of the world's folder, or of the folder above it for a packaged build
+      const meta = readJson(path.join(root, 'orb.json')) ?? readJson(path.join(path.dirname(root), 'orb.json')) ?? {};
       const title = /<title>([^<]{1,80})<\/title>/i.exec(html)?.[1]?.trim();
       const id = typeof meta.world === 'string' && meta.world ? meta.world : `dev-${path.basename(root)}`;
       return send(
         res,
         200,
-        JSON.stringify({ id, name: meta.name || title || path.basename(root), url: meta.url || null, repo: meta.repo || null, base: `/api/tree/${TREE}/`, shop: shopItems(html) }),
+        JSON.stringify({ id, name: meta.name || title || path.basename(root), url: meta.url || null, base: `/api/tree/${TREE}/`, shop: shopItems(html) }),
         { 'content-type': TYPES['.json'] },
       );
     }

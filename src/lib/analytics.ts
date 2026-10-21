@@ -193,7 +193,6 @@ function send(events: Queued[], beacon: boolean): void {
     headers: { 'content-type': 'application/json', 'x-orb-device': device },
     body: JSON.stringify(body),
     keepalive: true,
-    credentials: 'same-origin',
   }).catch(() => {});
 }
 

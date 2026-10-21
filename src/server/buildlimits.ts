@@ -8,7 +8,7 @@ import { currentWallet, paidWallet, paymentsForPayer } from './billing';
 import { ANON_SPENT, BUDGET_SPENT, budgetConfig, chargeFree, chargePaid, overBudget, spentToday } from './budget';
 import { chargeCredits, outOfCredits, payerOf, plansConfig, type Wallet } from './credits';
 import type { Db } from './db';
-import { clientIp, error, json } from './http';
+import { clientIp, error, json, retryLater } from './http';
 import { freeTierChecks, secondsUntilUtcMidnight, type FreeTierConfig, type LimitCheck } from './freetier';
 import { rateLimit, refundRate } from './ratelimit';
 import { ready } from './schema';
@@ -34,7 +34,7 @@ export type Quota = { response: Response } | { charged: LimitCheck[] };
  */
 export async function checkRateLimits(req: Request, cost: number, cfg: FreeTierConfig, paid = false): Promise<Quota> {
   const viewer = getViewer(req);
-  const checks = freeTierChecks({ deviceHash: viewer.deviceHash, ip: clientIp(req), userId: viewer.userId }, cost, cfg, new Date(), paid && !!viewer.userId);
+  const checks = freeTierChecks({ deviceHash: viewer.deviceHash, ip: clientIp(req), userId: viewer.userId }, cost, cfg, new Date(), paid);
   const charged: LimitCheck[] = [];
   try {
     const db = await ready();
@@ -43,8 +43,7 @@ export async function checkRateLimits(req: Request, cost: number, cfg: FreeTierC
       if (!r.ok) {
         // A build turned away by a later quota doesn't use up the earlier ones.
         await refundQuota(charged);
-        const retryAfter = Math.max(1, Math.ceil(c.daily ? Math.min(r.retryAfter || Infinity, secondsUntilUtcMidnight()) : r.retryAfter));
-        return { response: json({ error: 'rate_limited', message: c.message, retryAfter }, { status: 429, headers: { 'retry-after': String(retryAfter) } }) };
+        return { response: retryLater(429, 'rate_limited', c.message, c.daily ? Math.min(r.retryAfter, secondsUntilUtcMidnight()) : r.retryAfter) };
       }
       if (c.cost) charged.push(c);
     }
@@ -52,13 +51,7 @@ export async function checkRateLimits(req: Request, cost: number, cfg: FreeTierC
     if (over) {
       await refundQuota(charged);
       const retryAfter = secondsUntilUtcMidnight();
-      const headers = { 'retry-after': String(retryAfter) };
-      return {
-        response:
-          over === 'all'
-            ? json({ error: 'ai_unavailable', message: BUDGET_SPENT, retryAfter }, { status: 503, headers })
-            : json({ error: 'rate_limited', message: ANON_SPENT, retryAfter }, { status: 429, headers }),
-      };
+      return { response: over === 'all' ? retryLater(503, 'ai_unavailable', BUDGET_SPENT, retryAfter) : retryLater(429, 'rate_limited', ANON_SPENT, retryAfter) };
     }
     return { charged };
   } catch (e) {
@@ -79,15 +72,15 @@ export interface Billing {
  * The builder's credits: who pays for a build on Orb's AI, or the answer that turns it away when
  * their credits are used up (402 out_of_credits). Null billing: no one to charge (no device key).
  */
-export async function checkCredits(req: Request): Promise<{ billing: Billing | null; wallet: Wallet | null } | { response: Response }> {
+export async function checkCredits(req: Request): Promise<{ billing: Billing | null } | { response: Response }> {
   const payer = payerOf(getViewer(req));
-  if (!payer) return { billing: null, wallet: null };
+  if (!payer) return { billing: null };
   try {
     const cfg = plansConfig();
     const db = await ready();
     const wallet = await currentWallet(db, payer, cfg);
     if (wallet.left < 1) return { response: json({ error: 'out_of_credits', message: outOfCredits(wallet, cfg, await paymentsForPayer(db, payer)), plan: wallet.plan }, { status: 402 }) };
-    return { billing: { payer, plan: wallet.plan, paid: paidWallet(wallet) }, wallet };
+    return { billing: { payer, plan: wallet.plan, paid: paidWallet(wallet) } };
   } catch (e) {
     console.error('[orb] credits check failed', e);
     return { response: error(503, 'ai_unavailable', 'Orb is having a little trouble right now. Please try again in a moment.') };

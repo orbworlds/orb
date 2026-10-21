@@ -1,6 +1,7 @@
 'use client';
-// The Chat tab: thread switcher, the conversation (auto-scroll that respects scrolling up), a
-// context-aware empty state, and the composer.
+// The Chat tab: the conversation (pinned to the newest message unless the reader scrolls up), a
+// first line that fits the world on screen, and the composer; with two or more chats, a row above
+// to switch between them.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { track } from '@/lib/analytics';
@@ -10,44 +11,45 @@ import { TEMPLATE_BY_ID } from '@/lib/templates';
 import { creditsText, useCredits } from '@/state/billing';
 import { trackPrompt } from '@/state/tracking';
 import { useIsMobile, useUi } from '@/state/ui';
-import { useWorld } from '@/state/world';
+import { CHANGE_CHIPS, useWorld } from '@/state/world';
 import { ChatSwitcher } from './ChatSwitcher';
 import { Composer } from './Composer';
 import { Chips, formatCountdown, MessageView } from './MessageView';
 import { OrbSphere } from './Orb';
 import { StartFrom } from './StartFrom';
 
-const OWNER_CHIPS = ['Make it nighttime', 'Add gentle music', 'Add a little surprise'];
+const VISITOR_CHIPS = ['How do I play?', 'What can I do here?'];
 
 export function ChatView({
   build,
   onOpenKeys,
   onOpenWorld,
-  onMakeLikeThis,
   onMakeOwn,
   onRemix,
   onStartFrom,
 }: {
   build: UseBuild;
   onOpenKeys(): void;
-  onOpenWorld(worldId: string, threadId: string): void;
-  onMakeLikeThis(): void;
+  onOpenWorld(worldId: string): void;
   /** In a world on its maker's site: start a world of one's own from this text. */
   onMakeOwn(text: string): void;
-  /** Make the viewer's own copy of the world on screen, then build `request` there (if given). */
+  /** Remix the world on screen, then build `request` in the copy. */
   onRemix(request?: string): void;
   /** Start a new world as a remix of this one. */
   onStartFrom(worldId: string): void;
 }) {
   const { world, canEdit, chatKey, templateId, isExternal, verified } = useWorld();
-  const { draft, setDraft, intro, focusSeq, setDetent, panelOpen } = useUi();
+  const { draft, setDraft, intro, focusSeq, detent, setDetent, panelOpen } = useUi();
   const mobile = useIsMobile();
   const { messages, threads, threadId, isBuilding, retryAfter } = build;
 
-  // --- auto-scroll: follow new content unless the reader scrolled up ----------------------------
+  // --- pinned to the newest message ---------------------------------------------------------
+  // Only the reader scrolling up lets go of it (new content, or the sheet or the keyboard resizing
+  // the chat, never does); scrolling back down to it takes it again.
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  const lastTop = useRef(0);
   const [away, setAway] = useState(false);
 
   const toBottom = useCallback((smooth = false) => {
@@ -59,18 +61,18 @@ export function ChatView({
   const onScroll = () => {
     const el = scroller.current;
     if (!el) return;
-    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    stick.current = atBottom;
-    setAway(!atBottom);
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) stick.current = true;
+    else if (el.scrollTop < lastTop.current - 1) stick.current = false;
+    lastTop.current = el.scrollTop;
+    setAway(!stick.current);
   };
 
   useEffect(() => {
-    const el = content.current;
-    if (!el) return;
     const ro = new ResizeObserver(() => {
       if (stick.current) toBottom();
     });
-    ro.observe(el);
+    if (content.current) ro.observe(content.current);
+    if (scroller.current) ro.observe(scroller.current);
     return () => ro.disconnect();
   }, [toBottom]);
 
@@ -102,17 +104,14 @@ export function ChatView({
 
   const suggest = (text: string) => send(text, 'suggestion');
 
-  const undo = useCallback(
-    (id: string) => {
-      track('build_undo');
-      build.undo(id).catch(() => {
-        /* the store already told the user */
-      });
-    },
-    [build],
-  );
+  const undo = (id: string) => {
+    track('build_undo');
+    build.undo(id).catch(() => {
+      /* the store already told the user */
+    });
+  };
 
-  const freeTier = (getModelSettings().provider ?? 'free') === 'free';
+  const freeTier = getModelSettings().provider === 'free';
   const blocked = confirming
     ? 'Loading this world…'
     : retryAfter != null && retryAfter > 0 && freeTier
@@ -121,50 +120,49 @@ export function ChatView({
 
   const visitor = !!world && !canEdit;
   const forkable = !!world?.forkable && !isExternal;
-  const placeholder = !world ? 'Describe your world…' : isExternal ? 'Describe your own world…' : canEdit ? 'Describe a change…' : forkable ? 'Ask, or describe a change…' : 'Ask about this world…';
+  const template = templateId && templateId !== 'blank' ? TEMPLATE_BY_ID[templateId] : undefined;
+  const placeholder = isExternal ? 'Describe a world of your own…' : visitor ? `Ask about ${world.name}…` : world || template ? 'Describe a change…' : 'Describe a world to make…';
 
   const lastIndex = messages.length - 1;
+  // Undo: on the newest reply that changed the world.
+  const lastChange = canEdit ? messages.findLast((m) => m.build?.toVersion != null) : undefined;
   const showIntro = !!intro && intro.chatKey === chatKey;
   const empty = messages.length === 0;
 
   return (
     <>
-      {(messages.length > 0 || threads.length > 1) && <ChatSwitcher
-        threads={threads}
-        threadId={threadId}
-        chatKey={chatKey}
-        canStartNew={!empty && !isBuilding}
-        onSwitch={build.switchThread}
-        onNew={build.newThread}
-        onOpenOther={(worldId, id) => {
-          track('world_open', { world_id: worldId, source: 'chat' });
-          onOpenWorld(worldId, id);
-        }}
-      />}
-      <div className="relative min-h-0 flex-1">
-        <div ref={scroller} onScroll={onScroll} className="scroll-soft absolute inset-0 overflow-y-auto overscroll-contain">
-          <div ref={content} className="flex min-h-full flex-col justify-end gap-5 px-4 pt-3 pb-4">
+      {threads.length > 1 && !(mobile && detent === 'half') && (
+        <ChatSwitcher
+          threads={threads}
+          threadId={threadId}
+          chatKey={chatKey}
+          canStartNew={!empty && !isBuilding}
+          onSwitch={build.switchThread}
+          onNew={build.newThread}
+          onOpenOther={(worldId) => {
+            track('world_open', { world_id: worldId, source: 'chat' });
+            onOpenWorld(worldId);
+          }}
+        />
+      )}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {/* Soft fades where the conversation meets the rows above and the composer. */}
+        <div
+          ref={scroller}
+          onScroll={onScroll}
+          className="scroll-soft min-h-0 flex-1 overflow-y-auto overscroll-contain [mask-image:linear-gradient(to_bottom,transparent,#000_16px,#000_calc(100%_-_20px),transparent)]"
+        >
+          <div ref={content} className="flex min-h-full flex-col justify-end gap-5 px-4 pt-4 pb-5">
             {showIntro && <OrbLine text={intro!.text} chips={empty ? intro!.suggestions : undefined} onPick={suggest} />}
-            {!showIntro && empty && (
-              <EmptyState
-                world={world}
-                visitor={visitor}
-                forkable={forkable}
-                isExternal={isExternal}
-                templateId={templateId}
-                onPick={suggest}
-                onMakeLikeThis={onMakeLikeThis}
-                onRemix={() => onRemix()}
-                onStartFrom={onStartFrom}
-              />
-            )}
+            {!showIntro && empty && <EmptyState world={world} visitor={visitor} isExternal={isExternal} template={template} onPick={suggest} onStartFrom={onStartFrom} />}
             {messages.map((m, i) => (
               <MessageView
                 key={m.id}
                 message={m}
                 isLast={i === lastIndex}
                 building={isBuilding}
-                canUndo={!!world && canEdit}
+                guide={visitor}
+                canUndo={m === lastChange}
                 retryAfter={retryAfter}
                 onUndo={undo}
                 onSuggest={suggest}
@@ -175,8 +173,6 @@ export function ChatView({
             ))}
           </div>
         </div>
-        {/* Soft fade where the conversation meets the composer. */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-[var(--glass-bg-strong)] to-transparent" />
         <button
           type="button"
           aria-label="Jump to the latest message"
@@ -184,7 +180,7 @@ export function ChatView({
             stick.current = true;
             toBottom(true);
           }}
-          className={`glass-strong absolute bottom-3 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full text-ink-2 transition-[opacity,transform] duration-300 ease-[var(--ease)] hover:text-ink ${away ? 'opacity-100' : 'pointer-events-none translate-y-2 opacity-0'}`}
+          className={`glass-strong absolute right-3 bottom-3 flex h-9 w-9 items-center justify-center rounded-full text-ink-2 transition-[opacity,transform] duration-300 ease-[var(--ease)] hover:text-ink phone:h-11 phone:w-11 ${away ? 'opacity-100' : 'pointer-events-none translate-y-2 opacity-0'}`}
           tabIndex={away ? 0 : -1}
         >
           <Icon name="chevron-down" size={18} />
@@ -211,14 +207,13 @@ export function ChatView({
 /** Credits running low (less than a typical build) or out, with the way to more (accounts only). */
 function CreditsNote() {
   const { info } = useCredits();
-  const ui = useUi();
   if (!info || info.plan === 'guest' || info.credits.left >= info.plans.typicalBuild) return null;
   const out = info.credits.left < 1;
   return (
     <p className="animate-fade-up flex flex-wrap items-center gap-x-1.5 px-2 pb-1.5 text-[12.5px] text-ink-2" role="status">
       <span className="tabular-nums">{out ? 'You’re out of credits' : `${creditsText(info.credits.left)} left`}</span>
       <span aria-hidden="true">·</span>
-      <button type="button" className="font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-ink" onClick={() => ui.setPlans(true)}>
+      <button type="button" className="font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-ink" onClick={() => useUi.getState().setPlans(true)}>
         {info.plan === 'pro' ? 'Top up' : 'See plans'}
       </button>
     </p>
@@ -244,78 +239,26 @@ function OrbLine({ text, chips, onPick, children }: { text: string; chips?: stri
 function EmptyState({
   world,
   visitor,
-  forkable,
   isExternal,
-  templateId,
+  template,
   onPick,
-  onMakeLikeThis,
-  onRemix,
   onStartFrom,
 }: {
   world: ReturnType<typeof useWorld.getState>['world'];
   visitor: boolean;
-  forkable: boolean;
   isExternal: boolean;
-  templateId: string | null;
+  template?: (typeof TEMPLATE_BY_ID)[string];
   onPick(t: string): void;
-  onMakeLikeThis(): void;
-  onRemix(): void;
   onStartFrom(worldId: string): void;
 }) {
-  const template = templateId ? TEMPLATE_BY_ID[templateId] : undefined;
-  if (!world) {
+  if (!world && !template) {
     return (
-      <OrbLine text="What shall we make? Describe it & watch it come alive." chips={(template ?? TEMPLATE_BY_ID.blank).suggestions} onPick={onPick}>
+      <OrbLine text="What should we make?" chips={TEMPLATE_BY_ID.blank.suggestions} onPick={onPick}>
         <StartFrom onStart={onStartFrom} />
       </OrbLine>
     );
   }
-  if (isExternal) {
-    return (
-      <OrbLine
-        text={
-          `${world.name} by ${world.authorName} runs on its maker's site, so I can't look inside it. Describe a world of your own and I'll make it.`
-        }
-        onPick={onPick}
-      >
-        {world.sourceUrl && (
-          <a
-            href={world.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 mr-2 inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[var(--chip-bg)] px-3 py-1 text-[13px] text-ink shadow-[inset_0_0_0_1px_var(--ink-5)] hover:bg-[var(--chip-bg-hover)]"
-          >
-            <Icon name="github" size={14} /> See the code
-          </a>
-        )}
-        <button
-          type="button"
-          onClick={onMakeLikeThis}
-          className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[var(--chip-bg)] px-3 py-1 text-[13px] text-ink shadow-[inset_0_0_0_1px_var(--ink-5)] hover:bg-[var(--chip-bg-hover)]"
-        >
-          <Icon name="sparkle" size={14} /> Make something like this
-        </button>
-      </OrbLine>
-    );
-  }
-  if (visitor) {
-    return forkable ? (
-      <OrbLine
-        text={`You're visiting ${world.name} by ${world.authorName}. Ask me anything about it — or make your own copy to change it.`}
-        chips={['How does it work?', 'What can I do here?']}
-        onPick={onPick}
-      >
-        <button
-          type="button"
-          onClick={onRemix}
-          className="mt-1.5 inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[var(--chip-bg)] px-3 py-1 text-[13px] text-ink shadow-[inset_0_0_0_1px_var(--ink-5)] hover:bg-[var(--chip-bg-hover)]"
-        >
-          <Icon name="remix" size={14} /> Make my own copy
-        </button>
-      </OrbLine>
-    ) : (
-      <OrbLine text="Ask me anything about this world." chips={['How does it work?', 'What can I do here?']} onPick={onPick} />
-    );
-  }
-  return <OrbLine text="What should we change?" chips={template && template.id !== 'blank' ? template.suggestions : OWNER_CHIPS} onPick={onPick} />;
+  if (world && isExternal) return <OrbLine text={`${world.name} runs on its maker's site, so I can't look inside it. Describe a world of your own and I'll make it.`} onPick={onPick} />;
+  if (world && visitor) return <OrbLine text={`Ask me anything about ${world.name}.`} chips={VISITOR_CHIPS} onPick={onPick} />;
+  return <OrbLine text="What should we change?" chips={template?.suggestions ?? CHANGE_CHIPS} onPick={onPick} />;
 }

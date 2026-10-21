@@ -1,5 +1,5 @@
-// Upserts the curated Explore catalog from src/data/seeds.json. One statement, idempotent:
-// re-running refreshes metadata but never touches plays/likes/forks.
+// Upserts the curated Explore catalog from src/data/seeds.json and drops curated worlds that left
+// it; idempotent, never touches plays/likes/forks.
 //
 // A seed is embedded by URL until Orb hosts its code: seeds marked `native` (open source, with a
 // license that allows it, and runnable without a build step) are imported from their repository
@@ -26,7 +26,7 @@ export interface Seed {
   origin?: SeedOrigin;
 }
 
-export interface SeedOrigin {
+interface SeedOrigin {
   post_url?: string | null;
   platform?: string | null;
   views?: number | null;

@@ -6,81 +6,27 @@
 //   node scripts/test-runtime.mjs                     # ORB_TEST_BASE=http://localhost:3101 by default
 //
 // If nothing answers on the base URL, the script starts `next dev -p 3101` itself and stops it
-// at the end. Exit code 0 = all checks passed.
-//
-// Note on Chromium flags: by default Chromium isolates sandboxed iframes in their own process
-// (IsolateSandboxedIframes) and Playwright's request interception then misses some of their
-// requests, so routeCdn() can't serve three.js reliably. We disable that feature for the tests;
-// it changes process placement only — the iframe keeps its opaque origin and sandbox flags.
-import { spawn } from 'node:child_process';
+// at the end. Exit code 0 = all checks passed. The browser is the kit's (kit/lib/browser.mjs).
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { launch, routeCdn } from './pw.mjs';
+import { launch, routeCdn } from '../kit/lib/browser.mjs';
+import { check, finish, options, root, section, startNext, stopNext } from './harness.mjs';
 
 const require = createRequire(import.meta.url);
+options.details = true;
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = (process.env.ORB_TEST_BASE || 'http://localhost:3101').replace(/\/$/, '');
 const PORT = new URL(BASE).port || '3101';
 
 // ------------------------------------------------------------------------------------------
-// Tiny test framework
-
-const results = [];
-function check(name, ok, detail) {
-  results.push({ name, ok: !!ok });
-  console.log(`  ${ok ? '✓' : '✗'} ${name}${detail !== undefined ? ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}` : ''}`);
-}
-// ORB_TEST_ONLY=<substring> runs only the sections whose title contains it.
-const ONLY = (process.env.ORB_TEST_ONLY || '').toLowerCase();
-async function section(title, fn) {
-  if (ONLY && !title.toLowerCase().includes(ONLY)) return;
-  console.log(`\n${title}`);
-  try {
-    await fn();
-  } catch (e) {
-    check(`${title}: unexpected exception`, false, e && e.stack ? e.stack.split('\n').slice(0, 4).join(' | ') : String(e));
-  }
-}
-
-// ------------------------------------------------------------------------------------------
 // Dev server
 
-async function reachable() {
-  try {
-    const res = await fetch(`${BASE}/dev/frame?sample=none`, { signal: AbortSignal.timeout(60_000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
 async function ensureServer() {
-  if (await reachable()) return null;
-  console.log(`Starting next dev on :${PORT} …`);
-  const child = spawn('npx', ['next', 'dev', '-p', PORT], {
-    cwd: root,
-    env: { ...process.env, ORB_MOCK_AI: '1', ORB_PGLITE_DIR: process.env.ORB_PGLITE_DIR || '.data/pglite-runtime' },
-    stdio: ['ignore', 'ignore', 'inherit'],
-    detached: true,
-  });
-  const until = Date.now() + 180_000;
-  while (Date.now() < until) {
-    if (await reachable()) return child;
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  stopServer(child);
-  throw new Error('next dev did not come up');
-}
-
-function stopServer(child) {
-  if (!child) return;
   try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {
-    /* already gone */
-  }
+    if ((await fetch(`${BASE}/dev/frame?sample=none`, { signal: AbortSignal.timeout(60_000) })).ok) return null;
+  } catch {}
+  console.log(`Starting next dev on :${PORT} …`);
+  return startNext({ port: PORT, ready: '/dev/frame?sample=none', echo: true, env: { ORB_MOCK_AI: '1', ORB_PGLITE_DIR: process.env.ORB_PGLITE_DIR || '.data/pglite-runtime' } });
 }
 
 // ------------------------------------------------------------------------------------------
@@ -203,6 +149,18 @@ async function openHarness(context, params = {}) {
   await page.waitForFunction(() => !!window.__orbHarness, null, { timeout: 60_000 });
   return page;
 }
+
+/** openHarness with Orb's config naming the realtime server at `url`. */
+async function openRealtime(context, url, params) {
+  const page = await openHarness(context, params);
+  await page.route('**/api/config', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ai: false, model: 'x', githubOAuth: false, passkeys: false, realtime: { url, key: 'anon' } }) }),
+  );
+  return page;
+}
+
+/** Wait until `fn(arg)` is true in the frame. */
+const wait = (frame, fn, arg, timeout = 8000) => frame.waitForFunction(fn, arg, { timeout, polling: 50 });
 
 const count = (page, type) => page.evaluate((t) => window.__orbHarness.events.filter((e) => e.type === t).length, type);
 const eventsOf = (page, type) => page.evaluate((t) => window.__orbHarness.events.filter((e) => e.type === t).map((e) => e.data), type);
@@ -356,7 +314,6 @@ window.__visits = visits;
   let frame = await load(page, world);
   const api = await frame.evaluate(() => {
     const r = {};
-    let realThrows = false;
     r.type = typeof localStorage;
     r.instanceofStorage = localStorage instanceof Storage;
     r.toStringTag = Object.prototype.toString.call(localStorage);
@@ -394,7 +351,6 @@ window.__visits = visits;
     localStorage.removeItem('n');
     localStorage.removeItem('nul');
     r.visits = window.__visits;
-    void realThrows;
     return r;
   });
   check('Storage API: typeof/instanceof/toString look native', api.type === 'object' && api.instanceofStorage && api.toStringTag === '[object Storage]', api.toStringTag);
@@ -540,7 +496,6 @@ async function testCapture(context) {
   await page.close();
 }
 
-/** RGB of the pixel at (fx, fy) (fractions) of an image. */
 async function testWorkers(context) {
   // A world's files are another origin than its opaque frame (like /api/tree): workers from them.
   await context.route('https://files.orb.test/**', (route) => {
@@ -571,6 +526,7 @@ w2.onmessage = (e) => got.push(e.data);
   await page.close();
 }
 
+/** RGB of the pixel at (fx, fy) (fractions) of an image. */
 async function pixelAt(page, src, fx, fy) {
   return page.evaluate(
     async ([s, x, y]) => {
@@ -954,10 +910,7 @@ async function testRoom(context) {
   await page.close();
 
   // Saved world with realtime pointing nowhere → still joins (solo), never throws.
-  const page2 = await openHarness(context, { world: 'w-room' });
-  await page2.route('**/api/config', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ai: false, model: 'x', githubOAuth: false, passkeys: false, realtime: { url: 'http://127.0.0.1:9', key: 'anon' } }) }),
-  );
+  const page2 = await openRealtime(context, 'http://127.0.0.1:9', { world: 'w-room' });
   frame = await load(page2, doc('<p>room</p>'));
   const t0 = Date.now();
   const net = await frame.evaluate(
@@ -981,39 +934,32 @@ async function testMultiplayer(context) {
   const mock = await startMockRealtime();
   try {
     const WORLD = 'w-multiplayer';
-    const open = async (me) => {
-      const page = await openHarness(context, { world: WORLD, me });
-      await page.route('**/api/config', (route) =>
-        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ai: false, model: 'x', githubOAuth: false, passkeys: false, realtime: { url: mock.url, key: 'anon' } }) }),
-      );
-      return page;
-    };
+    const open = (me) => openRealtime(context, mock.url, { world: WORLD, me });
     const world = (tag) => doc(`<script>
 window.__ev = [];
 window.__room = window.orb.room.join((e) => window.__ev.push(JSON.parse(JSON.stringify(e))));
 document.title = ${JSON.stringify(tag)};
 </script>`);
     const evs = (frame, type) => frame.evaluate((t) => window.__ev.filter((e) => !t || e.type === t), type);
-    const waitEv = (frame, fn, arg, timeout = 8000) => frame.waitForFunction(fn, arg, { timeout, polling: 50 });
 
     const pageA = await open('alice');
     let fa = await load(pageA, world('A1'));
-    await waitEv(fa, () => window.__ev.some((e) => e.type === 'joined'));
+    await wait(fa, () => window.__ev.some((e) => e.type === 'joined'));
     const selfA = (await evs(fa, 'joined'))[0].self;
 
     const pageB = await open('bob');
     const fb = await load(pageB, world('B1'));
-    await waitEv(fb, () => window.__ev.some((e) => e.type === 'joined'));
+    await wait(fb, () => window.__ev.some((e) => e.type === 'joined'));
     // B learns about A (in `joined` or a later `join`), A gets a `join` for B.
-    await waitEv(fb, (id) => window.__room.peers.has(id), selfA.id);
-    await waitEv(fa, () => window.__ev.some((e) => e.type === 'join'));
+    await wait(fb, (id) => window.__room.peers.has(id), selfA.id);
+    await wait(fa, () => window.__ev.some((e) => e.type === 'join'));
     const joinB = (await evs(fa, 'join'))[0].peer;
     check('two players see each other (presence)', joinB.id.startsWith('bob:') && selfA.id.startsWith('alice:') && joinB.name === 'Dev Player', { a: selfA.id, b: joinB.id });
     const liveAB = [(await evs(fa, 'joined'))[0].live, (await evs(fb, 'joined'))[0].live];
     check('a connected room reports `joined.live: true`', liveAB.every((l) => l === true), liveAB);
 
     await fb.evaluate(() => window.__room.setState({ x: 0.25 }));
-    await waitEv(fa, () => window.__ev.some((e) => e.type === 'state' && e.peer.state && e.peer.state.x === 0.25));
+    await wait(fa, () => window.__ev.some((e) => e.type === 'state' && e.peer.state && e.peer.state.x === 0.25));
     const peerInMap = await fa.evaluate((id) => window.__room.peers.get(id), joinB.id);
     check('setState reaches the other player (event + peers map)', peerInMap && peerInMap.state && peerInMap.state.x === 0.25, peerInMap);
 
@@ -1021,7 +967,7 @@ document.title = ${JSON.stringify(tag)};
     await fb.evaluate(() => {
       for (let i = 0; i < 60; i++) window.__room.setState({ i });
     });
-    await waitEv(fa, () => window.__ev.some((e) => e.type === 'state' && e.peer.state && e.peer.state.i === 59));
+    await wait(fa, () => window.__ev.some((e) => e.type === 'state' && e.peer.state && e.peer.state.i === 59));
     await pageA.waitForTimeout(300);
     const burstEvents = (await evs(fa, 'state')).slice(nStates);
     if (process.env.ORB_TEST_VERBOSE) console.log('    burst states', JSON.stringify(burstEvents.map((e) => e.peer.state)));
@@ -1029,14 +975,14 @@ document.title = ${JSON.stringify(tag)};
     check('setState is throttled (~10/s) and the latest state wins', burst >= 1 && burst <= 4, `${burst} state events for 60 calls`);
 
     await fa.evaluate(() => window.__room.send({ hello: 'bob', n: [1, 2] }));
-    await waitEv(fb, () => window.__ev.some((e) => e.type === 'message'));
+    await wait(fb, () => window.__ev.some((e) => e.type === 'message'));
     const msg = (await evs(fb, 'message'))[0];
     check('room.send delivers a message with the sender peer', msg.peer.id === selfA.id && JSON.stringify(msg.data) === '{"hello":"bob","n":[1,2]}', msg);
 
     // Hot-swap A's world: the new frame adopts the connection — B sees no leave/join flicker.
     const bEventsBefore = (await evs(fb)).length;
     fa = await load(pageA, world('A2'));
-    await waitEv(fa, () => window.__ev.some((e) => e.type === 'joined'));
+    await wait(fa, () => window.__ev.some((e) => e.type === 'joined'));
     const joinedA2 = (await evs(fa, 'joined'))[0];
     await pageA.waitForTimeout(2500); // past the old frame's removal + the room's close grace period
     const bAfter = (await evs(fb)).slice(bEventsBefore);
@@ -1045,7 +991,7 @@ document.title = ${JSON.stringify(tag)};
     check('other players see no leave/join when a world is hot-swapped', !bAfter.some((e) => e.type === 'leave' || e.type === 'join'), bAfter.map((e) => e.type));
 
     await pageB.close();
-    await waitEv(fa, (id) => window.__ev.some((e) => e.type === 'leave' && e.peer.id === id), joinB.id);
+    await wait(fa, (id) => window.__ev.some((e) => e.type === 'leave' && e.peer.id === id), joinB.id);
     check('closing a tab → `leave` for the other player', true);
     check('mock server traffic', mock.stats.joins >= 2 && mock.stats.broadcasts >= 2, mock.stats);
     await pageA.close();
@@ -1058,19 +1004,13 @@ async function testNamedRooms(context) {
   const mock = await startMockRealtime();
   try {
     const WORLD = 'w-named-rooms';
-    const open = async (me, params = {}) => {
-      const page = await openHarness(context, { world: WORLD, me, ...params });
-      await page.route('**/api/config', (route) =>
-        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ai: false, model: 'x', githubOAuth: false, passkeys: false, realtime: { url: mock.url, key: 'anon' } }) }),
-      );
-      return page;
-    };
+    const open = (me, params = {}) => openRealtime(context, mock.url, { world: WORLD, me, ...params });
     // Each player joins the rooms listed in `names` ('' = the world's room) and logs every event.
     const world = (names) => doc(`<script>
 window.__ev = {}; window.__rooms = {};
 for (const n of ${JSON.stringify(names)}) { window.__ev[n] = []; window.__rooms[n] = window.orb.room.join((e) => window.__ev[n].push(JSON.parse(JSON.stringify(e))), { name: n }); }
 </script>`);
-    const joined = (frame, n) => frame.waitForFunction((n) => window.__ev[n].some((e) => e.type === 'joined'), n, { timeout: 8000, polling: 50 });
+    const joined = (frame, n) => wait(frame, (n) => window.__ev[n].some((e) => e.type === 'joined'), n);
 
     const pa = await open('alice');
     const fa = await load(pa, world(['match-1', '']));
@@ -1160,14 +1100,7 @@ async function testVisitors(context) {
   const mock = await startMockRealtime();
   try {
     const WORLD = 'w-visitors';
-    const open = async (me, extra = {}) => {
-      const page = await openHarness(context, { world: WORLD, me, ...extra });
-      await page.route('**/api/config', (route) =>
-        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ai: false, model: 'x', githubOAuth: false, passkeys: false, realtime: { url: mock.url, key: 'anon' } }) }),
-      );
-      return page;
-    };
-    const wait = (frame, fn, arg, timeout = 8000) => frame.waitForFunction(fn, arg, { timeout, polling: 50 });
+    const open = (me, extra = {}) => openRealtime(context, mock.url, { world: WORLD, me, ...extra });
 
     // --- orb.visitors.join: 2D-style, the world draws everyone itself ---
     const flat = doc(`<script>
@@ -1376,14 +1309,7 @@ async function testFriendsInRooms(context) {
   const mock = await startMockRealtime();
   try {
     const WORLD = 'w-friends-here';
-    const open = async (me) => {
-      const page = await openHarness(context, { world: WORLD, me });
-      await page.route('**/api/config', (route) =>
-        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ai: false, model: 'x', githubOAuth: false, passkeys: false, realtime: { url: mock.url, key: 'anon' } }) }),
-      );
-      return page;
-    };
-    const wait = (frame, fn, arg, timeout = 8000) => frame.waitForFunction(fn, arg, { timeout, polling: 50 });
+    const open = (me) => openRealtime(context, mock.url, { world: WORLD, me });
     const world = doc(`<script>
 window.__v = window.orb.visitors.join(() => ({ x: 1, y: 2 }));
 window.__room = window.orb.room.join(() => {});
@@ -1496,9 +1422,7 @@ async function testClips(context) {
 // ------------------------------------------------------------------------------------------
 
 const server = await ensureServer();
-const browser = await launch({
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=IsolateSandboxedIframes'],
-});
+const browser = await launch();
 try {
   const context = await newContext(browser);
   await section('Injection', () => testInjection(context));
@@ -1521,12 +1445,7 @@ try {
   await section('shop: orb.shop asks Orb, which asks the player', () => testShop(context));
 } finally {
   await browser.close();
-  stopServer(server);
+  await stopNext(server);
 }
 
-const failed = results.filter((r) => !r.ok);
-console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-if (failed.length) {
-  console.log('Failed:\n' + failed.map((f) => '  - ' + f.name).join('\n'));
-  process.exit(1);
-}
+finish();

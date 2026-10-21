@@ -23,8 +23,6 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     ".claude/**",
     ".data/**",
-    // Worlds are standalone projects with their own tooling.
-    "worlds/**",
   ]),
 ]);
 

@@ -17,7 +17,6 @@ const K = {
   /** When this browser last saved each world's storage (world id → epoch ms). */
   worldStorageAt: 'orb:ls-at',
   orbPos: 'orb:pos',
-  drafts: 'orb:drafts',
 } as const;
 
 function ls(): Storage | null {
@@ -99,7 +98,6 @@ export function getDeviceKey(): string {
 
 const ADJ = ['Misty', 'Sunny', 'Velvet', 'Cosmic', 'Gentle', 'Lucky', 'Dreamy', 'Brave', 'Quiet', 'Golden', 'Silver', 'Fuzzy', 'Little', 'Wild', 'Sleepy', 'Bright', 'Coral', 'Mossy', 'Starry', 'Snowy'];
 const NOUN = ['Otter', 'Comet', 'Fox', 'Lantern', 'Willow', 'Pebble', 'Panda', 'Moth', 'Koi', 'Fern', 'Nova', 'Cloud', 'Wren', 'Maple', 'Orca', 'Lynx', 'Bramble', 'Ember', 'Puffin', 'Clover'];
-const COLORS = PLAYER_COLORS;
 
 /** Display name for anonymous creations (e.g. "Misty Otter"). */
 export function getDisplayName(): string {
@@ -133,10 +131,10 @@ export function setDisplayName(name: string): void {
 
 export function getPlayerColor(): string {
   const s = ls();
-  if (!s) return COLORS[0];
+  if (!s) return PLAYER_COLORS[0];
   let c = s.getItem(K.color);
   if (!c) {
-    c = COLORS[Math.floor(Math.random() * COLORS.length)];
+    c = PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)];
     try {
       s.setItem(K.color, c);
     } catch {}
@@ -192,15 +190,6 @@ export function getModelSettings(): ModelSettings {
   const params = cfg.params?.[cfg.active]?.[model ?? ''];
   return { provider: cfg.active, apiKey: cfg.keys[cfg.active], model, ...(params && Object.keys(params).length ? { params } : {}) };
 }
-export function setModelSettings(s: ModelSettings): void {
-  const cfg = getAiConfig();
-  cfg.active = s.provider;
-  if (s.provider !== 'free') {
-    if (s.apiKey) cfg.keys[s.provider] = s.apiKey;
-    if (s.model) cfg.models[s.provider] = s.model;
-  }
-  setAiConfig(cfg);
-}
 
 // --- Chats ---------------------------------------------------------------------
 
@@ -215,28 +204,23 @@ export function onChatSaved(fn: (threadId: string) => void): () => void {
 }
 const notifyChat = (id: string) => chatListeners.forEach((fn) => fn(id));
 
-export function saveChatThread(t: ChatThread): void {
+/** Put a thread in the list (newest first), keeping the 200 most recent threads. */
+function putThread(t: ChatThread): void {
   const all = readJSON<ChatThread[]>(K.chats, []).filter((c) => c.id !== t.id);
   all.push(t);
-  // keep the 200 most recent threads
   all.sort((a, b) => b.updatedAt - a.updatedAt);
   for (const old of all.splice(200)) writeJSON(K.chat(old.id), null);
   writeJSON(K.chats, all);
-  notifyChat(t.id);
 }
-export function deleteChatThread(id: string): void {
-  writeJSON(K.chats, readJSON<ChatThread[]>(K.chats, []).filter((c) => c.id !== id));
-  writeJSON(K.chat(id), null);
+export function saveChatThread(t: ChatThread): void {
+  putThread(t);
+  notifyChat(t.id);
 }
 export function loadChatMessages(id: string): ChatMessage[] {
   return readJSON<ChatMessage[]>(K.chat(id), []);
 }
 export function saveChatMessages(id: string, messages: ChatMessage[]): void {
-  // strip bulky raw output before persisting
-  writeJSON(
-    K.chat(id),
-    messages.slice(-120).map((m) => (m.build?.raw ? { ...m, build: { ...m.build, raw: undefined } } : m)),
-  );
+  writeJSON(K.chat(id), messages.slice(-120));
   notifyChat(id);
 }
 
@@ -244,23 +228,9 @@ export function saveChatMessages(id: string, messages: ChatMessage[]): void {
 export function mergeRemoteChat(t: ChatThread, messages: ChatMessage[]): boolean {
   const local = readJSON<ChatThread[]>(K.chats, []).find((c) => c.id === t.id);
   if (local && local.updatedAt >= t.updatedAt) return false;
-  const all = readJSON<ChatThread[]>(K.chats, []).filter((c) => c.id !== t.id);
-  all.push(t);
-  all.sort((a, b) => b.updatedAt - a.updatedAt);
-  writeJSON(K.chats, all.slice(0, 200));
+  putThread(t);
   writeJSON(K.chat(t.id), messages.slice(-120));
   return true;
-}
-/** Re-key chats made on the start canvas ('new') once the world gets a real id. */
-export function moveChatsToWorld(fromWorldId: string, toWorldId: string): void {
-  const all = readJSON<ChatThread[]>(K.chats, []);
-  let changed = false;
-  for (const t of all)
-    if (t.worldId === fromWorldId) {
-      t.worldId = toWorldId;
-      changed = true;
-    }
-  if (changed) writeJSON(K.chats, all);
 }
 
 // --- Per-world storage (the world's shimmed localStorage) --------------------------

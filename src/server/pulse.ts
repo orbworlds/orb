@@ -50,7 +50,7 @@ export interface Pulse {
 const iso = (v: Date | string) => (v instanceof Date ? v : new Date(v)).toISOString();
 
 type ProblemRow = { kind: string; message: string; detail: string | null; path: string | null; count: number; first_at: Date | string; last_at: Date | string };
-const toProblem = (p: ProblemRow): PulseProblem => ({ kind: p.kind, message: p.message, detail: p.detail, path: p.path, count: Number(p.count), firstAt: iso(p.first_at), lastAt: iso(p.last_at) });
+const toProblem = (p: ProblemRow): PulseProblem => ({ kind: p.kind, message: p.message, detail: p.detail, path: p.path, count: p.count, firstAt: iso(p.first_at), lastAt: iso(p.last_at) });
 
 export async function pulse(db: Db): Promise<Pulse> {
   const people = `(w.owner_user is not null or w.owner_device is not null)`;
@@ -88,8 +88,8 @@ export async function pulse(db: Db): Promise<Pulse> {
   ]);
   return {
     now: Date.now(),
-    days: days.map((r) => ({ ...r, visitors: Number(r.visitors), started: Number(r.started), built: Number(r.built), remixes: Number(r.remixes), builds: Number(r.builds), failed: Number(r.failed), accounts: Number(r.accounts), spend: spend.get(r.day)?.all ?? 0 })),
-    totals: Object.fromEntries(Object.entries(totals[0]).map(([k, v]) => [k, Number(v)])) as Pulse['totals'],
+    days: days.map((r) => ({ ...r, spend: spend.get(r.day)?.all ?? 0 })),
+    totals: totals[0],
     builder: {
       backend: aiBackend(),
       model: modelLabel(),

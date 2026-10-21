@@ -1,78 +1,49 @@
 'use client';
-// Explore: the worlds, edge to edge, over a frosted glass layer above the world. A slim header that
-// slips away while you scroll down (search, filter chips, sort) and one infinite grid of every world,
-// trending first unless sorted otherwise (Orb's picks, what people play right now, and a nudge for
-// brand-new worlds — see trendExpr in src/server/worlds.ts). A world's name, maker and numbers show
-// when a tile is hovered. Once opened, Explore stays mounted while closed, so coming back from a
-// world finds it as it was left: the same filter, sort, search and scroll position.
+// The home page: the invitation to make a world (a header row with the Orb, and `intro`) over
+// Explore, the worlds edge to edge, trending first unless sorted otherwise (Orb's picks, what people
+// play right now, and a nudge for brand-new worlds — see trendExpr in src/server/worlds.ts).
+// Explore's header (filters, sort, search) sticks at the top once the worlds reach it. At / the
+// worlds fill a few rows, then "See all worlds" goes on to /explore, where they go on as far as
+// there are worlds. Once opened, it stays mounted while a world plays, so coming back finds it as it
+// was left: the same filter, sort, search and scroll position.
 
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { track } from '@/lib/analytics';
 import { api } from '@/lib/api';
-import { curatedRank } from '@/lib/curation';
 import { GITHUB_URL } from '@/lib/site';
 import { onPhone, touchFirst } from '@/lib/keyboard';
 import type { WorldCard as WorldCardData } from '@/lib/types';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Icon, type IconName } from '@/components/ui/Icon';
-import { Menu } from '@/components/ui/Menu';
 import { Spinner } from '@/components/ui/Spinner';
 import { useUi } from '@/state/ui';
-import { ExploreTile, ExploreTileSkeleton } from './WorldCard';
+import { HomeHeader, OrbButton } from './Hero';
+import { ExploreTile, ExploreTileSkeleton, onPlainClick } from './WorldCard';
 
 type ListParams = NonNullable<Parameters<typeof api.listWorlds>[0]>;
-type FilterId = 'all' | 'games' | 'worlds' | 'art' | 'remix';
-export type SortId = 'trending' | 'played' | 'liked' | 'views' | 'new';
+type FilterId = 'all' | 'games' | 'places' | 'art';
+type SortId = 'trending' | 'new';
 
-interface Filter {
-  id: FilterId;
-  label: string;
-  /** One or more list queries whose results are merged (e.g. art + toy). */
-  queries: ListParams[];
-}
-
-const FILTERS: Filter[] = [
-  { id: 'all', label: 'All', queries: [{}] },
-  { id: 'games', label: 'Games', queries: [{ tag: 'game' }] },
-  { id: 'worlds', label: 'Worlds', queries: [{ tag: 'world' }] },
-  { id: 'art', label: 'Art & toys', queries: [{ tag: 'art,toy' }] },
-  { id: 'remix', label: 'Remix', queries: [{ remixable: true }] },
+const FILTERS: { id: FilterId; label: string; query: ListParams }[] = [
+  { id: 'all', label: 'All', query: {} },
+  { id: 'games', label: 'Games', query: { tag: 'game' } },
+  { id: 'places', label: 'Places', query: { tag: 'world' } },
+  { id: 'art', label: 'Art & toys', query: { tag: 'art,toy' } },
 ];
 
-const SORTS: { id: SortId; label: string; icon: IconName; hint: string }[] = [
-  { id: 'trending', label: 'Trending', icon: 'bolt', hint: 'What people play right now' },
-  { id: 'played', label: 'Most played', icon: 'play', hint: 'Plays on Orb, all time' },
-  { id: 'liked', label: 'Most liked', icon: 'heart', hint: 'Likes on Orb' },
-  { id: 'views', label: 'Most viewed', icon: 'eye', hint: 'Views of the maker’s post, or plays' },
-  { id: 'new', label: 'Newest', icon: 'sparkle', hint: 'Just made' },
+const SORTS: { id: SortId; label: string }[] = [
+  { id: 'trending', label: 'Trending' },
+  { id: 'new', label: 'New' },
 ];
 
-const isFilter = (v: string | null | undefined): v is FilterId => FILTERS.some((f) => f.id === v);
-const isSort = (v: string | null | undefined): v is SortId => SORTS.some((s) => s.id === v);
+const isFilter = (v: string | undefined): v is FilterId => FILTERS.some((f) => f.id === v);
+const isSort = (v: string | undefined): v is SortId => SORTS.some((s) => s.id === v);
 
 const PAGE = 24;
 const EXIT_MS = 240;
 
 // ---------------------------------------------------------------------------------------------
-// Data: paginated, possibly merged world feeds
-
-function sortValue(w: WorldCardData, sort: ListParams['sort']): number {
-  if (sort === 'new') return Date.parse(w.createdAt) || 0;
-  if (sort === 'featured') return w.featured * 1e9 + w.plays;
-  if (sort === 'played') return w.plays;
-  if (sort === 'liked') return w.likes;
-  if (sort === 'views') return Math.max(w.origin?.views ?? 0, w.plays);
-  const rank = curatedRank(w.id);
-  return rank >= 0 ? 1e12 - rank : w.plays;
-}
-
-interface FeedState {
-  key: string;
-  items: WorldCardData[];
-  /** Per query: next cursor, or null when exhausted. */
-  cursors: (string | null)[];
-  error: boolean;
-}
+// Data: a paginated world feed
 
 interface Feed {
   items: WorldCardData[];
@@ -85,21 +56,11 @@ interface Feed {
   retry(): void;
 }
 
-async function fetchPage(queries: ListParams[], cursors: (string | null)[] | null, limit: number) {
-  const results = await Promise.all(
-    queries.map((q, i) => {
-      const cursor = cursors ? cursors[i] : undefined;
-      if (cursor === null) return Promise.resolve({ worlds: [] as WorldCardData[], nextCursor: undefined });
-      return api.listWorlds({ ...q, limit, cursor: cursor || undefined });
-    }),
-  );
-  let items = results.flatMap((r) => r.worlds);
-  // Merged feeds are re-sorted by the shared sort key (single feeds keep the server's order).
-  if (queries.length > 1) items = [...items].sort((a, b) => sortValue(b, queries[0].sort) - sortValue(a, queries[0].sort));
-  // A search shows what was asked for, in order.
-  if (onPhone() && !queries[0].q && queries[0].sort === 'trending') items = touchFirst(items);
-  const next = results.map((r, i) => (cursors && cursors[i] === null ? null : (r.nextCursor ?? null)));
-  return { items, cursors: next };
+async function fetchPage(query: ListParams, cursor?: string) {
+  const r = await api.listWorlds({ ...query, limit: PAGE, cursor });
+  // On touch screens, worlds that need a keyboard come after the others; a search shows what was
+  // asked for, in order.
+  return { items: onPhone() && !query.q ? touchFirst(r.worlds) : r.worlds, cursor: r.nextCursor };
 }
 
 function dedupe(prev: WorldCardData[], next: WorldCardData[]) {
@@ -113,78 +74,65 @@ function dedupe(prev: WorldCardData[], next: WorldCardData[]) {
   return out;
 }
 
-/** Fetches `queries` whenever `enabled` and the query identity change. `limit` caps a single-page feed. */
-function useFeed(queries: ListParams[] | null, { paged = true, limit = PAGE }: { paged?: boolean; limit?: number } = {}): Feed {
+/** Fetches `query` (its caller is keyed by it, so it never changes while mounted), a page at a time. */
+function useFeed(query: ListParams): Feed {
   const [nonce, setNonce] = useState(0);
-  // The serialized queries are the feed's identity (callers may pass fresh arrays each render).
-  const spec = queries ? JSON.stringify(queries) : '';
-  const key = spec ? `${spec}|${limit}|${paged}|${nonce}` : '';
-  const [state, setState] = useState<FeedState | null>(null);
-  const [more, setMore] = useState<{ key: string; status: 'loading' | 'error' } | null>(null);
-  const current = state && state.key === key ? state : null;
+  const spec = JSON.stringify(query);
+  const [state, setState] = useState<{ items: WorldCardData[]; cursor?: string; error: boolean } | null>(null);
+  const [more, setMore] = useState<'loading' | 'error' | null>(null);
 
   useEffect(() => {
-    if (!key) return;
     let alive = true;
-    fetchPage(JSON.parse(spec) as ListParams[], null, limit)
-      .then((p) => alive && setState({ key, items: dedupe([], p.items), cursors: paged ? p.cursors : p.cursors.map(() => null), error: false }))
-      .catch(() => alive && setState({ key, items: [], cursors: [], error: true }));
+    fetchPage(JSON.parse(spec) as ListParams)
+      .then((p) => alive && setState({ items: p.items, cursor: p.cursor, error: false }))
+      .catch(() => alive && setState({ items: [], error: true }));
     return () => {
       alive = false;
     };
-  }, [key, spec, limit, paged]);
+  }, [spec, nonce]);
 
-  const hasMore = !!current && !current.error && current.cursors.some((c) => c !== null);
-  const loadingMore = more?.key === key && more.status === 'loading';
-
+  const cursor = state?.cursor;
   const loadMore = useCallback(() => {
-    if (!current || !hasMore || loadingMore || !spec) return;
-    const k = current.key;
-    setMore({ key: k, status: 'loading' });
-    fetchPage(JSON.parse(spec) as ListParams[], current.cursors, limit)
+    if (!cursor || more === 'loading') return;
+    setMore('loading');
+    fetchPage(JSON.parse(spec) as ListParams, cursor)
       .then((p) => {
-        setState((s) => (s && s.key === k ? { ...s, items: dedupe(s.items, p.items), cursors: p.cursors } : s));
+        setState((s) => s && { ...s, items: dedupe(s.items, p.items), cursor: p.cursor });
         setMore(null);
       })
-      .catch(() => setMore({ key: k, status: 'error' }));
-  }, [current, hasMore, loadingMore, spec, limit]);
+      .catch(() => setMore('error'));
+  }, [cursor, more, spec]);
 
   return {
-    items: current?.items ?? [],
-    loading: !!key && !current,
-    error: !!current?.error,
-    hasMore,
-    loadingMore,
-    moreError: more?.key === key && more.status === 'error',
+    items: state?.items ?? [],
+    loading: !state,
+    error: !!state?.error,
+    hasMore: !!cursor,
+    loadingMore: more === 'loading',
+    moreError: more === 'error',
     loadMore,
-    retry: () => setNonce((n) => n + 1),
+    retry: () => {
+      setState(null);
+      setNonce((n) => n + 1);
+    },
   };
 }
 
 // ---------------------------------------------------------------------------------------------
 // Presence: mounted from the first open on; after a close animates out, it's hidden (not unmounted),
-// so its state survives until Explore opens again.
+// so its state survives until it opens again.
 
-function usePresence(open: boolean, exitMs: number) {
+function usePresence(open: boolean) {
   const [ever, setEver] = useState(open);
   const [shown, setShown] = useState(open);
   if (open && !ever) setEver(true);
   if (open && !shown) setShown(true);
   useEffect(() => {
     if (open) return;
-    const t = setTimeout(() => setShown(false), exitMs);
+    const t = setTimeout(() => setShown(false), EXIT_MS);
     return () => clearTimeout(t);
-  }, [open, exitMs]);
-  return { mounted: ever, hidden: !open && !shown, closing: !open };
-}
-
-/** Explore's place in the address bar (/explore?sort=…&filter=…&q=…), while it's at /explore. */
-function readExploreParams(): { sort?: SortId; filter?: FilterId; q?: string } {
-  if (typeof window === 'undefined' || !window.location.pathname.startsWith('/explore')) return {};
-  const sp = new URLSearchParams(window.location.search);
-  const sort = sp.get('sort');
-  const filter = sp.get('filter');
-  return { sort: isSort(sort) ? sort : undefined, filter: isFilter(filter) ? filter : undefined, q: sp.get('q')?.slice(0, 100) || undefined };
+  }, [open]);
+  return { mounted: ever, hidden: !open && !shown };
 }
 
 /** Explore's address for what it shows (/explore?filter=…&sort=…&q=…). */
@@ -196,86 +144,41 @@ function exploreAddress(sort: SortId, filter: FilterId, q: string): string {
   return `/explore${sp.size ? `?${sp}` : ''}`;
 }
 
+/** Where Explore's header sits before it sticks (a stuck header's own offsetTop is the scroll position). */
+const headerTop = (header: HTMLElement) => (header.nextElementSibling as HTMLElement).offsetTop - header.offsetHeight;
+
 // ---------------------------------------------------------------------------------------------
 // ExploreSheet
 
-export function ExploreSheet({
-  open,
-  onClose,
-  onOpenWorld,
-  onRemix,
-  onNewWorld,
-  onPlace,
-  intro,
-}: {
+interface ExploreProps {
   open: boolean;
-  onClose(): void;
+  /** The invitation to make a world, above the worlds. */
+  intro: ReactNode;
+  /** A build is running (the Orb in the header swirls). */
+  building: boolean;
+  /** The page loaded at /explore: its address (what to show), and all the worlds, not a few rows. */
+  start?: { filter?: string; sort?: string; q?: string };
   onOpenWorld(id: string): void;
   onRemix?(world: WorldCardData): void;
-  onNewWorld?(): void;
-  /** Explore's address for what it shows now. */
-  onPlace?(address: string): void;
-  /** The home page: Explore under this invitation to make a world (no closing it, no New world). */
-  intro?: ReactNode;
-}) {
-  const { mounted, hidden, closing } = usePresence(open, EXIT_MS);
-  if (!mounted) return null;
-  return <ExploreOverlay open={open} hidden={hidden} closing={closing} onClose={onClose} onOpenWorld={onOpenWorld} onRemix={onRemix} onNewWorld={onNewWorld} onPlace={onPlace} intro={intro} />;
 }
 
-function focusables(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(
-    (el) => el.offsetParent !== null || el === document.activeElement,
-  );
+export function ExploreSheet(props: ExploreProps) {
+  const { mounted, hidden } = usePresence(props.open);
+  return mounted ? <ExploreOverlay {...props} hidden={hidden} /> : null;
 }
 
-function ExploreOverlay({
-  open,
-  hidden,
-  closing,
-  onClose,
-  onOpenWorld,
-  onRemix,
-  onNewWorld,
-  onPlace,
-  intro,
-}: {
-  open: boolean;
-  hidden: boolean;
-  closing: boolean;
-  onClose(): void;
-  onOpenWorld(id: string): void;
-  onRemix?(world: WorldCardData): void;
-  onNewWorld?(): void;
-  onPlace?(address: string): void;
-  intro?: ReactNode;
-}) {
-  const home = !!intro;
-  const rootRef = useRef<HTMLDivElement>(null);
+function ExploreOverlay({ open, hidden, intro, building, start, onOpenWorld, onRemix }: ExploreProps & { hidden: boolean }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [initial] = useState(readExploreParams);
-  const [input, setInput] = useState(initial.q ?? '');
-  const [q, setQ] = useState(initial.q ?? '');
-  const [filter, setFilter] = useState<FilterId>(() => {
-    const asked = useUi.getState().exploreFilter;
-    return isFilter(asked) ? asked : (initial.filter ?? 'all');
-  });
-  const [sort, setSort] = useState<SortId>(initial.sort ?? 'trending');
+  const [input, setInput] = useState(start?.q ?? '');
+  const [q, setQ] = useState(start?.q ?? '');
+  const [filter, setFilter] = useState<FilterId>(isFilter(start?.filter) ? start.filter : 'all');
+  const [sort, setSort] = useState<SortId>(isSort(start?.sort) ? start.sort : 'trending');
+  // All the worlds (/explore), or a few rows of them (/).
+  const [all, setAll] = useState(!!start);
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  // The header slips away while scrolling down through the worlds and comes back on the way up.
-  const [tucked, setTucked] = useState(false);
-  const lastTop = useRef(0);
-  const headerRef = useRef<HTMLElement>(null);
-
-  // Opened again for a filter (e.g. "See more" → Remix): show that one.
-  const askedFilter = useUi((s) => s.exploreFilter);
-  const [seenAsk, setSeenAsk] = useState(askedFilter);
-  if (open && askedFilter !== seenAsk) {
-    setSeenAsk(askedFilter);
-    if (isFilter(askedFilter)) setFilter(askedFilter);
-  }
 
   // Debounce typing → query (250 ms).
   useEffect(() => {
@@ -291,218 +194,165 @@ function ExploreOverlay({
     if (!hidden && open && scrollRef.current && savedTop.current) scrollRef.current.scrollTop = savedTop.current;
   }, [hidden, open]);
 
-  // Asked for Explore (the Orb's tab, a world's back arrow, "See all"): at home, down to its worlds,
+  // Asked for Explore (a world's way back, a missing world's Explore, /explore): down to its worlds,
   // unless they were already further down (back from a world, where they left off). Once per ask.
   const exploreRequest = useUi((s) => s.exploreRequest);
   const handledAsk = useRef(0);
   useEffect(() => {
-    if (!exploreRequest || exploreRequest === handledAsk.current || !home || hidden) return;
+    if (!exploreRequest || exploreRequest === handledAsk.current || hidden) return;
     const t = setTimeout(() => {
       handledAsk.current = exploreRequest;
-      const el = scrollRef.current, header = headerRef.current;
-      if (el && header && el.scrollTop < header.offsetTop - 4) el.scrollTo({ top: header.offsetTop, behavior: 'smooth' });
+      const el = scrollRef.current;
+      const top = headerRef.current ? headerTop(headerRef.current) : 0;
+      // At once: anything that loads above afterwards (their own worlds' row) keeps them in place.
+      if (el && el.scrollTop < top - 4) el.scrollTo({ top });
     }, 80);
     return () => clearTimeout(t);
-  }, [exploreRequest, home, hidden]);
+  }, [exploreRequest, hidden]);
 
-  // A new result set starts at the top.
+  // A new result set starts right under the header, which stays where it is.
   useEffect(() => {
-    savedTop.current = 0;
-    scrollRef.current?.scrollTo({ top: 0 });
+    const el = scrollRef.current;
+    if (!el || !headerRef.current) return;
+    const top = Math.min(el.scrollTop, headerTop(headerRef.current));
+    savedTop.current = top;
+    el.scrollTo({ top });
   }, [q, filter, sort]);
 
-  // The address follows what's shown (while Explore is at /explore), and the shell knows it, to come
-  // back to it from a world.
+  // The address follows what's shown, while it's /explore's.
   useEffect(() => {
     const next = exploreAddress(sort, filter, q);
-    onPlace?.(next);
-    if (open && window.location.pathname.startsWith('/explore') && next !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', next);
-  }, [open, sort, filter, q, onPlace]);
+    if (open && location.pathname.startsWith('/explore') && next !== location.pathname + location.search) history.replaceState(history.state, '', next);
+  }, [open, sort, filter, q]);
 
-  // Focus: search on devices with a keyboard (not on touch, to avoid popping the keyboard), unless
-  // coming back to a scrolled feed; restore focus to whatever opened Explore when it closes.
-  useEffect(() => {
-    if (!open) return;
-    const root = rootRef.current;
-    const prev = document.activeElement as HTMLElement | null;
-    const atTop = (scrollRef.current?.scrollTop ?? 0) < 8;
-    // At home the composer has the focus.
-    if (home) return;
-    if (atTop && window.matchMedia('(pointer: fine)').matches) searchRef.current?.focus({ preventScroll: true });
-    else root?.focus({ preventScroll: true });
-    return () => {
-      if (prev && document.contains(prev) && !root?.contains(prev)) prev.focus({ preventScroll: true });
-    };
-  }, [open, home]);
-
-  // Esc: clear a focused, non-empty search first; otherwise close.
-  const onEscape = useEffectEvent((e: KeyboardEvent) => {
-    if (!open || e.key !== 'Escape' || e.defaultPrevented) return;
-    e.preventDefault();
-    if (input && document.activeElement === searchRef.current) {
-      setInput('');
-      setQ('');
-    } else if (!home) onClose();
-  });
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => onEscape(e);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  // Keep Tab inside the dialog.
-  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Tab' || !rootRef.current) return;
-    const els = focusables(rootRef.current);
-    if (!els.length) return;
-    const first = els[0];
-    const last = els[els.length - 1];
-    if (e.shiftKey && (document.activeElement === first || document.activeElement === rootRef.current)) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-
-  const frostRef = useRef<HTMLDivElement>(null);
   const onScroll = (el: HTMLDivElement) => {
-    const top = el.scrollTop;
-    // At home: frosted once the worlds' header is a little way up the screen.
-    if (home && frostRef.current) frostRef.current.style.opacity = String(Math.min(1, top / Math.max(1, (headerRef.current?.offsetTop ?? 400) * 0.6)));
-    if (open) savedTop.current = top;
-    const down = top > (home ? (headerRef.current?.offsetTop ?? 0) - 4 : 8);
+    if (open) savedTop.current = el.scrollTop;
+    const down = el.scrollTop > headerTop(headerRef.current!) - 4;
     setScrolled(down);
     useUi.getState().setExploreScrolled(down);
-    const dy = top - lastTop.current;
-    if (Math.abs(dy) > 6) {
-      // Not while typing a search: the field stays in reach.
-      setTucked(dy > 0 && top > (home ? (headerRef.current?.offsetTop ?? 0) + 160 : 160) && document.activeElement !== searchRef.current);
-      lastTop.current = top;
-    }
   };
 
-  const activeFilter = FILTERS.find((f) => f.id === filter)!;
-  const activeSort = SORTS.find((x) => x.id === sort)!;
-  const pickSort = (id: SortId) => {
-    setSort(id);
-    track('explore_sort', { sort: id, filter });
+  const clearSearch = () => {
+    setInput('');
+    setQ('');
+    searchRef.current?.focus({ preventScroll: true });
   };
+
+  const seeAll = (
+    <div className="mt-6 flex justify-center sm:mt-8">
+      <a
+        href={exploreAddress(sort, filter, q)}
+        // In place: the address says so, but the browser's back doesn't step through it.
+        onClick={onPlainClick(() => {
+          setAll(true);
+          history.replaceState(history.state, '', exploreAddress(sort, filter, q));
+        })}
+        className="glass-soft group inline-flex h-11 items-center gap-1 rounded-full pr-4 pl-5 text-[14.5px] font-medium text-ink transition-[background,transform] duration-200 ease-[var(--ease)] hover:bg-[var(--glass-bg)] focus-visible:rounded-full active:scale-[.97]"
+      >
+        See all worlds
+        <Icon name="chevron-right" size={16} className="text-ink-2 transition-transform duration-300 ease-[var(--ease)] group-hover:translate-x-0.5" />
+      </a>
+    </div>
+  );
 
   return (
     <div
-      ref={rootRef}
-      role={home ? 'region' : 'dialog'}
-      aria-modal={home ? undefined : true}
-      aria-labelledby="orb-explore-title"
-      tabIndex={-1}
       hidden={hidden}
       inert={!open}
-      onKeyDown={onKeyDown}
-      // At home it's the page, under the Orb and its panel; otherwise a sheet over everything.
-      className={`fixed inset-0 ${home ? 'z-[35]' : 'z-[60]'} outline-none transition-opacity ease-[var(--ease)] starting:opacity-0 ${closing ? 'pointer-events-none opacity-0 duration-[240ms]' : 'opacity-100 duration-[380ms]'}`}
+      // The page itself, under the Orb's panel; it fades as a world opens over it.
+      className={`fixed inset-0 z-[35] bg-paper transition-opacity ease-[var(--ease)] starting:opacity-0 ${open ? 'opacity-100 duration-[380ms]' : 'pointer-events-none opacity-0 duration-[240ms]'}`}
     >
-      {/* At home a light veil leaves the world behind the headline in view; the heavy frosted backdrop
-          (the world only glows through) comes in as the worlds scroll up. */}
-      {home && <div aria-hidden="true" className="absolute inset-0 bg-[color-mix(in_oklab,var(--paper)_30%,transparent)] backdrop-blur-[3px]" />}
-      <div
-        ref={frostRef}
-        aria-hidden="true"
-        style={home ? { opacity: 0 } : undefined}
-        className="absolute inset-0 bg-[color-mix(in_oklab,var(--paper)_62%,transparent)] backdrop-blur-[44px] backdrop-saturate-[1.6]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[360px] opacity-[.22] [background:radial-gradient(60%_100%_at_15%_0%,var(--iris-1),transparent_70%),radial-gradient(50%_90%_at_85%_0%,var(--iris-2),transparent_70%)] dark:opacity-[.14]"
-      />
-
       <div
         ref={scrollRef}
         onScroll={(e) => onScroll(e.currentTarget)}
-        className={`scroll-soft relative h-full overflow-x-hidden overflow-y-auto overscroll-contain transition-[transform] ease-[var(--ease)] starting:scale-[.985] ${closing ? 'scale-[.985] duration-[240ms]' : 'scale-100 duration-[420ms]'}`}
+        className={`scroll-soft relative h-full overflow-x-hidden overflow-y-auto overscroll-contain transition-[transform] ease-[var(--ease)] starting:scale-[.985] ${open ? 'scale-100 duration-[420ms]' : 'scale-[.985] duration-[240ms]'}`}
       >
-        {intro}
-        <header
-          ref={headerRef}
-          className={`sticky top-0 z-10 transition-[transform,background,box-shadow,backdrop-filter] duration-300 ease-[var(--ease)] ${tucked ? '-translate-y-full' : 'translate-y-0'} ${
-            scrolled ? 'bg-[color-mix(in_oklab,var(--paper)_60%,transparent)] shadow-[0_1px_0_color-mix(in_oklab,var(--ink)_7%,transparent)] backdrop-blur-[24px] backdrop-saturate-150' : ''
-          }`}
-        >
-          <div className="px-3 pt-[max(12px,env(safe-area-inset-top))] pb-3 sm:px-5 lg:px-6">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5 lg:flex-nowrap">
-              <h2 id="orb-explore-title" className="font-display order-1 pr-2 text-[30px] leading-none tracking-[-0.015em] text-ink sm:text-[34px]">
+        {/* Light: the sky with a soft iris glow, fading into the paper the worlds sit on. Dark: the
+            same glow, low, on the deep dark. */}
+        <div className="relative isolate">
+          <div aria-hidden="true" className="sky absolute inset-0 -z-10 [mask-image:linear-gradient(to_bottom,#000_55%,transparent)] dark:hidden" />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[360px] opacity-[.22] [background:radial-gradient(60%_100%_at_15%_0%,var(--iris-1),transparent_70%),radial-gradient(50%_90%_at_85%_0%,var(--iris-2),transparent_70%)] dark:opacity-[.12]"
+          />
+          <HomeHeader building={building} />
+          {intro}
+        </div>
+
+        {/* At least a screen tall, so the header can stay at the top over a few results. */}
+        <section aria-labelledby="orb-explore-title" className="min-h-full">
+          <header
+            ref={headerRef}
+            className={`sticky top-0 z-10 transition-[background-color,box-shadow] duration-300 ease-[var(--ease)] ${scrolled ? 'bg-paper shadow-[0_1px_0_color-mix(in_oklab,var(--ink)_8%,transparent)]' : ''}`}
+          >
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-2.5 px-3 pt-[max(12px,env(safe-area-inset-top))] pb-3 sm:gap-x-3 sm:px-5 lg:flex-nowrap lg:px-6">
+              <h2 id="orb-explore-title" className="font-display mr-auto pl-1 text-[30px] leading-none tracking-[-0.015em] text-ink sm:text-[34px] lg:mr-1">
                 Explore
               </h2>
-              <div className="order-5 -mx-3 flex min-w-0 basis-full items-center gap-1.5 overflow-x-auto px-3 [scrollbar-width:none] sm:order-4 sm:-mx-5 sm:px-5 lg:order-2 lg:mx-0 lg:basis-auto lg:px-0 [&::-webkit-scrollbar]:hidden">
-                <Chips
-                  value={filter}
-                  onChange={(f) => {
-                    setFilter(f);
-                    track('explore_filter', { filter: f });
+              {/* A search looks through all the worlds: no filter shows as picked, and picking one ends it. */}
+              <Chips
+                value={q ? null : filter}
+                onChange={(f) => {
+                  setFilter(f);
+                  if (input || q) {
+                    setInput('');
+                    setQ('');
+                  }
+                  track('explore_filter', { filter: f });
+                }}
+                className="order-2 basis-full lg:order-none lg:basis-auto"
+              />
+              <SortToggle
+                value={sort}
+                onChange={(id) => {
+                  setSort(id);
+                  track('explore_sort', { sort: id, filter });
+                }}
+                className="lg:ml-auto"
+              />
+              {/* Phones: search sits behind an icon until it's wanted, so the worlds get the screen. */}
+              {!searchOpen && !input && (
+                <IconButton
+                  icon="search"
+                  label="Search worlds"
+                  variant="glass"
+                  size={40}
+                  className="sm:hidden"
+                  onClick={() => {
+                    setSearchOpen(true);
+                    requestAnimationFrame(() => searchRef.current?.focus({ preventScroll: true }));
                   }}
                 />
-                <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-[color-mix(in_oklab,var(--ink)_12%,transparent)] lg:hidden" />
-                <div className="lg:hidden">
-                  <SortMenu value={sort} onChange={pickSort} />
-                </div>
+              )}
+              <div className={`sm:block sm:w-[min(280px,34vw)] lg:w-[min(320px,24vw)] ${searchOpen || input ? 'order-1 basis-full sm:order-none sm:basis-auto' : 'hidden'}`}>
+                <SearchField inputRef={searchRef} value={input} onChange={setInput} onSubmit={() => setQ(input.trim())} onClear={clearSearch} />
               </div>
-              <div className="hidden lg:order-3 lg:ml-auto lg:block">
-                <SortMenu value={sort} onChange={pickSort} />
-              </div>
-              {/* Phones: search sits behind an icon until it's wanted, so the worlds get the screen. */}
-              <div className={`order-4 basis-full sm:order-2 sm:ml-auto sm:block sm:basis-auto sm:w-[min(340px,40vw)] lg:order-4 lg:ml-0 lg:w-[min(320px,24vw)] ${searchOpen || input ? '' : 'hidden'}`}>
-                <SearchField inputRef={searchRef} value={input} onChange={setInput} onSubmit={() => setQ(input.trim())} />
-              </div>
-              <div className="order-2 ml-auto flex items-center gap-2 sm:order-3 sm:ml-0 lg:order-5">
-                {!searchOpen && !input && (
-                  <IconButton
-                    icon="search"
-                    label="Search worlds"
-                    variant="glass"
-                    size={40}
-                    className="sm:hidden"
-                    onClick={() => {
-                      setSearchOpen(true);
-                      requestAnimationFrame(() => searchRef.current?.focus());
-                    }}
-                  />
-                )}
-                {onNewWorld && !home && (
-                  <Button variant="primary" icon="sparkle" onClick={onNewWorld} className="shrink-0">
-                    New world
-                  </Button>
-                )}
-                {!home && <IconButton icon="x" label="Close Explore" variant="glass" size={40} onClick={onClose} />}
+              {/* The Orb, once the header row above has scrolled away. */}
+              <div className={`flex shrink-0 justify-end transition-[width,margin,opacity,visibility] duration-300 ease-[var(--ease)] ${scrolled ? 'w-10' : 'invisible -ml-2 w-0 opacity-0 sm:-ml-3'}`}>
+                <OrbButton building={building} />
               </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <main className={`px-3 pt-1 sm:px-5 lg:px-6 ${home ? 'pb-10' : 'pb-[max(40px,env(safe-area-inset-bottom))]'}`}>
-          <ResultsGrid
-            key={`${filter}|${sort}|${q}`}
-            queries={activeFilter.queries.map((p) => ({ ...(q && filter === 'all' ? {} : p), sort, ...(q ? { q } : {}) }))}
-            q={q}
-            lead={!q && sort === 'trending'}
-            sortLabel={sort === 'trending' ? null : activeSort.label}
-            filterLabel={filter === 'all' ? null : activeFilter.label}
-            scrollRef={scrollRef}
-            onOpen={(id) => {
-              track('world_open', { world_id: id, source: home ? 'home' : 'explore', filter, sort, q: q || undefined });
-              onOpenWorld(id);
-            }}
-            onRemix={onRemix}
-            onClear={() => {
-              setInput('');
-              setQ('');
-              setFilter('all');
-              setSort('trending');
-              searchRef.current?.focus();
-            }}
-          />
-        </main>
-        {home && <Footer onTop={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} />}
+          <div className="px-3 pt-1 pb-10 sm:px-5 lg:px-6">
+            <ResultsGrid
+              key={`${filter}|${sort}|${q}`}
+              filter={filter}
+              sort={sort}
+              q={q}
+              lead={!q && sort === 'trending'}
+              all={all}
+              seeAll={seeAll}
+              scrollRef={scrollRef}
+              onOpen={(id) => {
+                track('world_open', { world_id: id, source: 'home', filter: q ? 'all' : filter, sort, q: q || undefined });
+                onOpenWorld(id);
+              }}
+              onRemix={onRemix}
+            />
+          </div>
+        </section>
+        <Footer onTop={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} />
       </div>
     </div>
   );
@@ -538,7 +388,19 @@ function Footer({ onTop }: { onTop(): void }) {
 // ---------------------------------------------------------------------------------------------
 // Header bits
 
-function SearchField({ inputRef, value, onChange, onSubmit }: { inputRef: RefObject<HTMLInputElement | null>; value: string; onChange(v: string): void; onSubmit(): void }) {
+function SearchField({
+  inputRef,
+  value,
+  onChange,
+  onSubmit,
+  onClear,
+}: {
+  inputRef: RefObject<HTMLInputElement | null>;
+  value: string;
+  onChange(v: string): void;
+  onSubmit(): void;
+  onClear(): void;
+}) {
   return (
     <form
       role="search"
@@ -555,7 +417,13 @@ function SearchField({ inputRef, value, onChange, onSubmit }: { inputRef: RefObj
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search worlds, games, makers…"
+        // Esc clears a search first.
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape' || !value) return;
+          e.preventDefault();
+          onClear();
+        }}
+        placeholder="Search worlds…"
         aria-label="Search worlds"
         enterKeyHint="search"
         autoComplete="off"
@@ -567,11 +435,7 @@ function SearchField({ inputRef, value, onChange, onSubmit }: { inputRef: RefObj
         <button
           type="button"
           aria-label="Clear search"
-          onClick={() => {
-            onChange('');
-            onSubmit();
-            inputRef.current?.focus();
-          }}
+          onClick={onClear}
           className="absolute right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--field-bg)] text-ink-2 transition-colors hover:text-ink focus-visible:rounded-full"
         >
           <Icon name="x" size={14} strokeWidth={2.2} />
@@ -581,9 +445,9 @@ function SearchField({ inputRef, value, onChange, onSubmit }: { inputRef: RefObj
   );
 }
 
-function Chips({ value, onChange }: { value: FilterId; onChange(v: FilterId): void }) {
+function Chips({ value, onChange, className }: { value: FilterId | null; onChange(v: FilterId): void; className: string }) {
   return (
-    <div role="tablist" aria-label="Filter worlds" className="flex shrink-0 gap-1.5">
+    <div role="tablist" aria-label="Filter worlds" className={`flex flex-wrap gap-1.5 ${className}`}>
       {FILTERS.map((f) => {
         const on = f.id === value;
         return (
@@ -592,7 +456,7 @@ function Chips({ value, onChange }: { value: FilterId; onChange(v: FilterId): vo
             type="button"
             role="tab"
             aria-selected={on}
-            onClick={() => onChange(f.id)}
+            onClick={() => on || onChange(f.id)}
             className={`flex h-9 shrink-0 items-center rounded-full px-3.5 text-[13.5px] font-medium transition-[background,color,box-shadow,transform] duration-200 ease-[var(--ease)] focus-visible:rounded-full active:scale-[.97] ${
               on ? 'bg-ink text-paper shadow-[0_6px_18px_-8px_rgba(12,12,20,.5)]' : 'glass-soft text-ink-2 hover:text-ink'
             }`}
@@ -605,36 +469,43 @@ function Chips({ value, onChange }: { value: FilterId; onChange(v: FilterId): vo
   );
 }
 
-function SortMenu({ value, onChange }: { value: SortId; onChange(v: SortId): void }) {
-  const current = SORTS.find((x) => x.id === value)!;
+/** Trending or New, side by side (always in view: no menu to open). */
+function SortToggle({ value, onChange, className }: { value: SortId; onChange(v: SortId): void; className: string }) {
   return (
-    <Menu
-      align="end"
-      width={268}
-      className="shrink-0"
-      items={[
-        { kind: 'label', label: 'Sort by' },
-        ...SORTS.map((x) => ({ label: x.label, icon: x.icon, hint: x.hint, stacked: true, checked: x.id === value, onSelect: () => onChange(x.id) })),
-      ]}
-      renderTrigger={(props, open) => (
-        <button
-          type="button"
-          {...props}
-          aria-label={`Sort: ${current.label}`}
-          className={`glass-soft flex h-9 shrink-0 items-center gap-1.5 rounded-full pr-3 pl-3 text-[13.5px] font-medium text-ink transition-[background,transform] duration-200 ease-[var(--ease)] hover:text-ink focus-visible:rounded-full active:scale-[.97] ${open ? 'bg-[var(--glass-bg)]' : ''}`}
-        >
-          <Icon name={current.icon} size={14} strokeWidth={2} className="text-ink-2" />
-          {current.label}
-          <Icon name="chevron-down" size={14} strokeWidth={2} className={`text-ink-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-        </button>
-      )}
-    />
+    <div role="group" aria-label="Sort worlds" className={`flex h-9 shrink-0 items-center rounded-full bg-[var(--field-bg)] p-0.5 ${className}`}>
+      {SORTS.map((s) => {
+        const on = s.id === value;
+        return (
+          <button
+            key={s.id}
+            type="button"
+            aria-pressed={on}
+            onClick={() => on || onChange(s.id)}
+            className={`h-8 rounded-full px-3 text-[13.5px] font-medium transition-[background,color,box-shadow] duration-200 ease-[var(--ease)] focus-visible:rounded-full ${on ? 'bg-[var(--chip-bg-hover)] text-ink shadow-[0_1px_3px_rgba(12,12,20,.14)]' : 'text-ink-2 hover:text-ink'}`}
+          >
+            {s.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
-/** Tiles fill the width: as many ~340px columns as fit, so a wide screen shows more worlds, not wider margins. */
-function Grid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-flow-row-dense grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-2.5 sm:gap-3 xl:grid-cols-[repeat(auto-fill,minmax(340px,1fr))] 2xl:gap-4">{children}</div>;
+// ---------------------------------------------------------------------------------------------
+// Results
+
+/**
+ * At /, the worlds fill four rows (under the lead, which is two rows tall from md) at every width:
+ * 2 columns, 3 from md, 4 from xl, 5 from 1800px. The class that shows tile `i` only where it is in
+ * those rows, or null where it never is.
+ */
+function fourRows(i: number, lead: boolean): string | null {
+  const ends = lead ? [9, 9, 13, 17] : [8, 12, 16, 20];
+  if (i < ends[0]) return '';
+  if (i < ends[1]) return 'hidden md:block';
+  if (i < ends[2]) return 'hidden xl:block';
+  if (i < ends[3]) return 'hidden min-[112.5rem]:block';
+  return null;
 }
 
 function Skeletons({ n, lead = false }: { n: number; lead?: boolean }) {
@@ -648,28 +519,29 @@ function Skeletons({ n, lead = false }: { n: number; lead?: boolean }) {
 }
 
 function ResultsGrid({
-  queries,
+  filter,
+  sort,
   q,
   lead,
-  sortLabel,
-  filterLabel,
+  all,
+  seeAll,
   scrollRef,
   onOpen,
   onRemix,
-  onClear,
 }: {
-  queries: ListParams[];
+  filter: FilterId;
+  sort: SortId;
   q: string;
-  /** The first world leads, two columns by two rows (wide screens). */
+  /** The first world leads: two columns wide (and two rows tall from md). */
   lead: boolean;
-  sortLabel: string | null;
-  filterLabel: string | null;
+  /** All of them (endless), or four rows and then `seeAll` (a search always shows all it found). */
+  all: boolean;
+  seeAll: ReactNode;
   scrollRef: RefObject<HTMLDivElement | null>;
   onOpen(id: string): void;
   onRemix?(w: WorldCardData): void;
-  onClear(): void;
 }) {
-  const feed = useFeed(queries);
+  const feed = useFeed(q ? { sort, q } : { ...FILTERS.find((f) => f.id === filter)!.query, sort });
   const searched = useRef(false);
   useEffect(() => {
     if (!q || feed.loading || searched.current) return;
@@ -693,20 +565,18 @@ function ResultsGrid({
 
   if (!feed.loading && feed.items.length === 0)
     return q ? (
-      <EmptyState
-        icon="search"
-        title={`Nothing called “${q}” yet`}
-        body="Try another word, or ask the Orb to make it."
-        action={
-          <Button variant="glass" onClick={onClear}>
-            Clear search
-          </Button>
-        }
-      />
+      // Nothing found: one line, then what's trending.
+      <>
+        <p className="px-1 pt-1 pb-4 text-[15px] text-ink-2">
+          Nothing called <span className="text-ink">“{q}”</span> yet. Here’s what’s trending.
+        </p>
+        <ResultsGrid filter="all" sort="trending" q="" lead={false} all={all} seeAll={seeAll} scrollRef={scrollRef} onOpen={onOpen} onRemix={onRemix} />
+      </>
     ) : (
       <EmptyState icon="sparkle" title="Nothing here yet" body="Be the first to make one." />
     );
 
+  const rows = !all && !q;
   return (
     <div className="pt-1">
       {q && (
@@ -714,21 +584,24 @@ function ResultsGrid({
           <h3 className="font-display text-[26px] leading-none tracking-[-0.01em] text-ink">
             Results for <span className="italic">“{q}”</span>
           </h3>
-          {(filterLabel || sortLabel) && <span className="text-[13.5px] text-ink-2">{[filterLabel && `in ${filterLabel}`, sortLabel?.toLowerCase()].filter(Boolean).join(' · ')}</span>}
+          {sort === 'new' && <span className="text-[13.5px] text-ink-2">newest first</span>}
         </div>
       )}
-      <Grid>
+      {/* Tiles fill the width, so a wide screen shows more worlds, not wider margins. */}
+      <div className="grid grid-flow-row-dense grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:gap-4 min-[112.5rem]:grid-cols-5">
         {feed.loading ? (
           <Skeletons n={12} lead={lead} />
         ) : (
           feed.items.map((w, i) => {
-            const big = lead && i === 0;
-            return <ExploreTile key={w.id} world={w} big={big} onOpen={onOpen} onRemix={onRemix} className={big ? 'xl:col-span-2 xl:row-span-2' : ''} />;
+            const shown = rows ? fourRows(i, lead) : '';
+            return shown === null ? null : <ExploreTile key={w.id} world={w} big={lead && i === 0} priority={i < 3} className={shown} onOpen={onOpen} onRemix={onRemix} />;
           })
         )}
         {feed.loadingMore && <Skeletons n={4} />}
-      </Grid>
-      <MoreSentinel feed={feed} scrollRef={scrollRef} />
+      </div>
+      {!feed.loading && !rows && <MoreSentinel feed={feed} scrollRef={scrollRef} />}
+      {/* Only when there's more than the rows show at some width. */}
+      {!feed.loading && rows && (feed.hasMore || fourRows(feed.items.length - 1, lead) !== '') && seeAll}
     </div>
   );
 }

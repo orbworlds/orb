@@ -13,7 +13,7 @@ import { ago, CARD, duration, Fold, KINDS, num, Pre, Status, tokenLine, when } f
 // retries, versions saved, and how it ended.
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Trace', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'Trace' };
 
 function Fact({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
   return (
@@ -61,7 +61,7 @@ export default async function TracePage({ params }: { params: Promise<{ key: str
         </div>
       </div>
 
-      <h1 className="mt-5 font-display text-[34px] leading-none tracking-[-0.015em] text-ink sm:text-[40px]">Trace</h1>
+      <h1 className="mt-5 font-display text-[34px] leading-none text-ink sm:text-[40px]">Trace</h1>
       <div className="mt-3 flex flex-wrap items-center gap-x-2 text-[14px] text-ink-2">
         <span className="text-ink">
           <Status status={trace.status} />

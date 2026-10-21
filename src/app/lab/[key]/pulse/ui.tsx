@@ -4,7 +4,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 
 export const MAIN = 'mx-auto w-full max-w-[1100px] px-4 pt-[max(28px,env(safe-area-inset-top))] pb-[max(48px,env(safe-area-inset-bottom))] sm:px-8 sm:pt-10';
-export const TITLE = 'font-display text-[36px] leading-none tracking-[-0.015em] text-ink sm:text-[42px]';
+export const TITLE = 'font-display text-[36px] leading-none text-ink sm:text-[42px]';
 export const CARD = 'rounded-[18px] bg-[var(--glass-bg-strong)] p-5 shadow-[0_1px_2px_rgba(16,16,40,.05),0_8px_24px_-12px_rgba(16,16,40,.22),inset_0_0_0_1px_var(--glass-hairline)]';
 export const LINK = 'text-ink underline decoration-[var(--ink-4)] underline-offset-[3px] hover:decoration-[var(--ink-2)]';
 
@@ -45,7 +45,7 @@ export function countryName(code: string | null): string {
   }
 }
 
-export const deviceLabel = (mobile: boolean | null) => (mobile === null ? 'Unknown device' : mobile ? 'Phone' : 'Computer');
+const deviceLabel = (mobile: boolean | null) => (mobile === null ? 'Unknown device' : mobile ? 'Phone' : 'Computer');
 /** "Phone · Germany" (the country only when known). */
 export const seenOn = (mobile: boolean | null, country: string | null) => (country ? `${deviceLabel(mobile)} · ${countryName(country)}` : deviceLabel(mobile));
 export const personName = (p: { name: string | null; id: string }) => p.name ?? `Visitor ${p.id.slice(0, 8)}`;

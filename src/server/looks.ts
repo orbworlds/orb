@@ -6,9 +6,10 @@ import { cleanLook, cleanWear, isBlobColor, LOOK_ITEMS, lookItem, type Look } fr
 import type { LooksView } from '@/lib/types';
 import type { Viewer } from './auth';
 import type { Db } from './db';
+import { fail } from './http';
 import { ensureWallet, plansConfig, type PlansConfig } from './credits';
 import { charge, ownedIn } from './shop';
-import { fail, sessionUser } from './worlds';
+import { sessionUser } from './worlds';
 
 /** orb_purchases.world_id of Orb's looks (never a world's id). */
 export const LOOKS_SHOP = 'orb:looks';

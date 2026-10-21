@@ -26,17 +26,13 @@ import {
   type AuthenticationResponseJSON,
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server';
-import type { MeResponse } from '@/lib/types';
-import { accountOf, accountRoom, countAccount } from './accounts';
-import { clearSessionCookie, getViewer, linkDeviceToUser, randomId, readCookie, sessionCookie, type Viewer } from './auth';
+import { accountRoom, cleanText, countAccount, limited, signedIn } from './accounts';
+import { clearSessionCookie, getViewer, linkDeviceToUser, randomId, readCookie, type Viewer } from './auth';
 import { botCheck } from './botid';
-import type { Db } from './db';
-import { clientIp, error, json, readJson } from './http';
+import { isUniqueViolation, type Db } from './db';
+import { clientIp, error, json, readJson, withCookies } from './http';
 import { relyingParty } from './origins';
-import { rateLimit } from './ratelimit';
 import { ready } from './schema';
-
-export { requestOrigin } from './origins';
 
 const RP_NAME = 'Orb';
 const CHALLENGE_COOKIE = 'orb_chal';
@@ -54,13 +50,11 @@ const isProd = () => process.env.NODE_ENV === 'production';
 
 type ChallengeData = { kind: 'register'; userId: string; name: string } | { kind: 'login' };
 
-function challengeCookie(key: string): string {
-  return `${CHALLENGE_COOKIE}=${key}; Path=${CHALLENGE_PATH}; HttpOnly; SameSite=Strict; Max-Age=${CHALLENGE_TTL_SEC}${isProd() ? '; Secure' : ''}`;
+function challengeCookie(key: string, maxAge = CHALLENGE_TTL_SEC): string {
+  return `${CHALLENGE_COOKIE}=${key}; Path=${CHALLENGE_PATH}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${isProd() ? '; Secure' : ''}`;
 }
 
-function clearChallengeCookie(): string {
-  return `${CHALLENGE_COOKIE}=; Path=${CHALLENGE_PATH}; HttpOnly; SameSite=Strict; Max-Age=0${isProd() ? '; Secure' : ''}`;
-}
+const clearChallengeCookie = () => challengeCookie('', 0);
 
 /** Store a challenge and return the Set-Cookie value that points at it. */
 async function saveChallenge(db: Db, challenge: string, data: ChallengeData): Promise<string> {
@@ -99,51 +93,19 @@ async function takeChallenge(db: Db, req: Request, kind: ChallengeData['kind']):
 // ---------------------------------------------------------------------------------------------
 // Helpers
 
-/** Append Set-Cookie headers (several cookies can't be expressed with a header record). */
-function withCookies(res: Response, ...cookies: string[]): Response {
-  for (const c of cookies) res.headers.append('set-cookie', c);
-  return res;
-}
-
 /** Display name: printable, single-spaced, at most 40 characters (code points, never split emoji). */
 export function cleanName(raw: unknown): string {
-  if (typeof raw !== 'string') return '';
-  const cleaned = raw
-    .normalize('NFC')
-    // control chars, zero-width and bidi-override characters
-    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return Array.from(cleaned).slice(0, MAX_NAME_LENGTH).join('').trim();
+  return Array.from(cleanText(raw)).slice(0, MAX_NAME_LENGTH).join('').trim();
 }
 
-async function limited(db: Db, req: Request, viewer: Viewer): Promise<Response | null> {
-  // Options endpoints write a row per call; keep abuse bounded per IP and per device.
-  const checks = [`passkey:ip:${clientIp(req)}`, ...(viewer.deviceHash ? [`passkey:dev:${viewer.deviceHash}`] : [])];
-  for (const key of checks) {
-    const r = await rateLimit(db, key, 30, 600);
-    if (!r.ok) {
-      const retryAfter = Math.max(1, Math.ceil(r.retryAfter));
-      return json(
-        { error: 'rate_limited', message: 'Too many tries. Please wait a moment and try again.', retryAfter },
-        { status: 429, headers: { 'retry-after': String(retryAfter) } },
-      );
-    }
-  }
-  return null;
-}
-
-async function meResponse(db: Db, viewer: Viewer, user: { id: string; name: string }): Promise<MeResponse> {
-  const info = await accountOf(db, user.id);
-  return { user: info ?? { id: user.id, name: user.name }, deviceId: viewer.deviceId ?? '', name: user.name };
+/** Options endpoints write a row per call; keep abuse bounded per IP and per device. */
+function optionsLimited(db: Db, req: Request, viewer: Viewer): Promise<Response | null> {
+  const checks: Array<[string, number, number]> = [[`passkey:ip:${clientIp(req)}`, 30, 600], ...(viewer.deviceHash ? [[`passkey:dev:${viewer.deviceHash}`, 30, 600] as [string, number, number]] : [])];
+  return limited(db, checks, 'Too many tries. Please wait a moment and try again.');
 }
 
 function verifyFailed(): Response {
   return withCookies(error(400, 'passkey_failed', "We couldn't verify your passkey. Please try again."), clearChallengeCookie());
-}
-
-function isUniqueViolation(e: unknown): boolean {
-  return !!e && typeof e === 'object' && (e as { code?: unknown }).code === '23505';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -159,7 +121,7 @@ export async function registrationOptions(req: Request): Promise<Response> {
 
   const db = await ready();
   const viewer = getViewer(req);
-  const rl = (await limited(db, req, viewer)) ?? (await accountRoom(db, req));
+  const rl = (await optionsLimited(db, req, viewer)) ?? (await accountRoom(db, req));
   if (rl) return rl;
 
   const { rpID, home } = relyingParty(req);
@@ -231,7 +193,7 @@ export async function registrationVerify(req: Request): Promise<Response> {
 
   const viewer = getViewer(req);
   await linkDeviceToUser(db, viewer.deviceHash, userId);
-  return withCookies(json(await meResponse(db, viewer, { id: userId, name })), sessionCookie(userId), clearChallengeCookie());
+  return withCookies(await signedIn(db, viewer, userId), clearChallengeCookie());
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -241,7 +203,7 @@ export async function registrationVerify(req: Request): Promise<Response> {
 export async function authenticationOptions(req: Request): Promise<Response> {
   const db = await ready();
   const viewer = getViewer(req);
-  const rl = await limited(db, req, viewer);
+  const rl = await optionsLimited(db, req, viewer);
   if (rl) return rl;
 
   const { rpID, home } = relyingParty(req);
@@ -260,7 +222,6 @@ interface PasskeyRow {
   public_key: Uint8Array;
   counter: number | string;
   transports: string | null;
-  user_name: string;
 }
 
 /** POST /api/auth/passkey/login/verify — body: the browser's AuthenticationResponseJSON. */
@@ -275,7 +236,7 @@ export async function authenticationVerify(req: Request): Promise<Response> {
   if (!taken.ok) return taken.response;
 
   const rows = await db.query<PasskeyRow>(
-    `select p.id, p.user_id, p.public_key, p.counter, p.transports, u.name as user_name
+    `select p.id, p.user_id, p.public_key, p.counter, p.transports
        from orb_passkeys p join orb_users u on u.id = p.user_id
       where p.id = $1`,
     [response.id],
@@ -317,8 +278,7 @@ export async function authenticationVerify(req: Request): Promise<Response> {
   await db.query(`update orb_passkeys set counter = $2 where id = $1`, [row.id, verification.authenticationInfo.newCounter]);
   const viewer = getViewer(req);
   await linkDeviceToUser(db, viewer.deviceHash, row.user_id);
-  const user = { id: row.user_id, name: row.user_name };
-  return withCookies(json(await meResponse(db, viewer, user)), sessionCookie(user.id), clearChallengeCookie());
+  return withCookies(await signedIn(db, viewer, row.user_id), clearChallengeCookie());
 }
 
 // ---------------------------------------------------------------------------------------------

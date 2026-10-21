@@ -1,6 +1,7 @@
 // A build request: its limits, its validation, and the conversation it carries, made safe for
 // every provider (used by /api/agent/jobs; the agents' system prompts are in
-// src/server/agent/prompt.ts). Pure module: only type imports, no runtime dependencies.
+// src/server/agent/prompt.ts), and the default models for people's own keys. Pure module: only
+// type imports, no runtime dependencies.
 import type { ModelMessage, FilePart } from 'ai';
 import type { BuildRequest, ModelMessage as ChatModelMessage } from '../types';
 
@@ -17,7 +18,17 @@ export const BUILD_LIMITS = {
   worldId: 64,
 } as const;
 
+/** The model each provider runs when a person's own key names none (the page shows it; the server uses it). */
+export const KEY_DEFAULT_MODELS = {
+  anthropic: 'claude-sonnet-5-5',
+  openrouter: 'anthropic/claude-sonnet-5.5',
+  openai: 'gpt-6.1-sol',
+};
+
 const IMAGE_RE = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=\s]+)$/;
+
+/** A screenshot of the world a build may carry. */
+export const isBuildImage = (img: unknown): img is string => typeof img === 'string' && img.length <= BUILD_LIMITS.image && IMAGE_RE.test(img);
 
 /** Validate and normalize an untrusted BuildRequest body. */
 export function validateBuildRequest(body: unknown): { ok: true; req: BuildRequest } | { ok: false; message: string } {
@@ -37,8 +48,7 @@ export function validateBuildRequest(body: unknown): { ok: true; req: BuildReque
     return { ok: false, message: 'The last message must be a non-empty user message.' };
   let image: string | null = null;
   if (b.image != null) {
-    if (typeof b.image !== 'string' || b.image.length > BUILD_LIMITS.image || !IMAGE_RE.test(b.image))
-      return { ok: false, message: `\`image\` must be a jpeg/png/webp data URL under ${Math.round(BUILD_LIMITS.image / 1000)} KB.` };
+    if (!isBuildImage(b.image)) return { ok: false, message: `\`image\` must be a jpeg/png/webp/gif data URL under ${Math.round(BUILD_LIMITS.image / 1000)} KB.` };
     image = b.image;
   }
   let errors: string[] | undefined;

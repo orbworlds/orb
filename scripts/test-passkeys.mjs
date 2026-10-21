@@ -10,78 +10,36 @@
 // it at the end. Exit code 0 = all checks passed.
 //
 // Passkeys use Chrome's CDP virtual authenticator (ctap2, internal, resident keys, UV).
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { launch } from './pw.mjs';
+import { launch } from '../kit/lib/browser.mjs';
+import { addAuthenticator, check, finish, inPage, options, root, section, startNext, stopNext } from './harness.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+options.details = true;
 const BASE = (process.env.ORB_TEST_BASE || 'http://localhost:3104').replace(/\/$/, '');
 const PORT = new URL(BASE).port || '3104';
 const DATA_DIR = process.env.ORB_PGLITE_DIR || '.data/pglite-accounts';
 
 // ------------------------------------------------------------------------------------------
-// Tiny test framework
-
-const results = [];
-function check(name, ok, detail) {
-  results.push({ name, ok: !!ok });
-  console.log(`  ${ok ? '✓' : '✗'} ${name}${detail !== undefined ? ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}` : ''}`);
-}
-const ONLY = (process.env.ORB_TEST_ONLY || '').toLowerCase();
-async function section(title, fn) {
-  if (ONLY && !title.toLowerCase().includes(ONLY)) return;
-  console.log(`\n${title}`);
-  try {
-    await fn();
-  } catch (e) {
-    check(`${title}: unexpected exception`, false, e && e.stack ? e.stack.split('\n').slice(0, 4).join(' | ') : String(e));
-  }
-}
-
-// ------------------------------------------------------------------------------------------
 // Dev server
 
-async function reachable() {
-  try {
-    const res = await fetch(`${BASE}/dev/passkey`, { signal: AbortSignal.timeout(90_000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
 async function ensureServer() {
-  if (await reachable()) return null;
+  try {
+    if ((await fetch(`${BASE}/dev/passkey`, { signal: AbortSignal.timeout(90_000) })).ok) return null;
+  } catch {}
   fs.rmSync(path.join(root, DATA_DIR), { recursive: true, force: true });
   console.log(`Starting next dev on :${PORT} (data: ${DATA_DIR}) …`);
-  const child = spawn('npx', ['next', 'dev', '-p', PORT], {
-    cwd: root,
+  return startNext({
+    port: PORT,
+    ready: '/dev/passkey',
+    echo: true,
     env: {
-      ...process.env,
       ORB_MOCK_AI: '1',
       ORB_PGLITE_DIR: DATA_DIR,
       GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID || 'orb-test-client',
       GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET || 'orb-test-secret',
     },
-    stdio: ['ignore', 'ignore', 'inherit'],
-    detached: true,
   });
-  const until = Date.now() + 180_000;
-  while (Date.now() < until) {
-    if (await reachable()) return child;
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  stopServer(child);
-  throw new Error('next dev did not come up');
-}
-
-function stopServer(child) {
-  if (!child) return;
-  try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {}
 }
 
 // ------------------------------------------------------------------------------------------
@@ -91,18 +49,7 @@ function stopServer(child) {
 async function newDevice(browser) {
   const context = await browser.newContext();
   const page = await context.newPage();
-  const cdp = await context.newCDPSession(page);
-  await cdp.send('WebAuthn.enable', { enableUI: false });
-  const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: {
-      protocol: 'ctap2',
-      transport: 'internal',
-      hasResidentKey: true,
-      hasUserVerification: true,
-      isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
-  });
+  const { cdp, authenticatorId } = await addAuthenticator(context, page);
   page.on('pageerror', (e) => console.log('    [pageerror]', e.message));
   await openHarness(page);
   return { context, page, cdp, authenticatorId };
@@ -118,28 +65,9 @@ function serverSession(page) {
   return page.evaluate(() => window.__orbPasskey.session());
 }
 
-/** /api/me if that route exists in this checkout, else null. */
-async function apiMe(page) {
-  return page.evaluate(async () => {
-    const res = await fetch('/api/me', { headers: { 'x-orb-device': window.__orbPasskey.deviceKey() } });
-    if (!res.ok || !(res.headers.get('content-type') || '').includes('json')) return null;
-    return res.json();
-  });
-}
-
-/** Run a harness call in the page; returns { ok, value } or { ok: false, error }. */
-function inPage(page, fn, arg) {
-  return page.evaluate(
-    async ({ src, arg }) => {
-      try {
-        const value = await new Function('arg', `return (${src})(arg)`)(arg);
-        return { ok: true, value };
-      } catch (e) {
-        return { ok: false, error: e instanceof Error ? e.message : String(e) };
-      }
-    },
-    { src: fn.toString(), arg },
-  );
+/** /api/me, as this page's device. */
+function apiMe(page) {
+  return page.evaluate(async () => (await fetch('/api/me', { headers: { 'x-orb-device': window.__orbPasskey.deviceKey() } })).json());
 }
 
 async function postJson(page, url, body, headers = {}) {
@@ -160,12 +88,11 @@ async function postJson(page, url, body, headers = {}) {
   );
 }
 
-/** Create a world owned anonymously by this page's device: POST /api/worlds if implemented, else the dev seeding action. */
+/** A world this page's device makes without an account (its id). */
 async function createAnonymousWorld(page, name) {
   const viaApi = await postJson(page, '/api/worlds', { name, code: '<!doctype html><title>t</title>' });
-  if (viaApi.status >= 200 && viaApi.status < 300 && viaApi.json?.world?.id) return { id: viaApi.json.world.id, via: 'POST /api/worlds' };
-  const id = await page.evaluate((n) => window.__orbPasskey.seedWorld(n), name);
-  return { id, via: 'dev seed action' };
+  if (viaApi.status < 200 || viaApi.status >= 300) throw new Error(`POST /api/worlds → ${viaApi.status}`);
+  return viaApi.json.world.id;
 }
 
 // ------------------------------------------------------------------------------------------
@@ -190,9 +117,8 @@ async function main() {
 
     await section('Sign up claims the anonymous world', async () => {
       check('passkeysSupported()', await A.page.evaluate(() => window.__orbPasskey.supported()));
-      const w = await createAnonymousWorld(A.page, 'Anonymous castle');
-      worldA = w.id;
-      check(`anonymous world created (${w.via})`, typeof worldA === 'string' && worldA.length > 0, worldA);
+      worldA = await createAnonymousWorld(A.page, 'Anonymous castle');
+      check('anonymous world created', typeof worldA === 'string' && worldA.length > 0, worldA);
 
       const before = await serverSession(A.page);
       check('not signed in before sign-up', before.user === null);
@@ -212,8 +138,7 @@ async function main() {
       check('challenge cookie cleared', !cookies.some((c) => c.name === 'orb_chal' && c.value));
 
       const meApi = await apiMe(A.page);
-      if (meApi) check('/api/me shows the user', meApi.user?.id === userId, meApi);
-      else console.log('    (/api/me not implemented in this checkout — using /dev/passkey/state)');
+      check('/api/me shows the user', meApi.user?.id === userId, meApi);
       const s = await serverSession(A.page);
       check('server sees the session user', s.user?.id === userId && s.user?.name === 'Test Pilot 🚀', s.user);
       check('anonymous world now owned by the user', s.worlds.some((x) => x.id === worldA), s.worlds);
@@ -231,7 +156,7 @@ async function main() {
       check('server sees no session after logout', s.user === null);
       check('device unlinked from the user', s.deviceUser === null, s.deviceUser);
       const meApi = await apiMe(A.page);
-      if (meApi) check('/api/me shows no user after logout', meApi.user === null, meApi);
+      check('/api/me shows no user after logout', meApi.user === null, meApi);
 
       A.page.on('request', (r) => {
         if (r.url().endsWith('/api/auth/passkey/login/verify')) assertionBody = r.postData();
@@ -262,12 +187,12 @@ async function main() {
       check('virtual authenticator holds a resident credential', credentials.length === 1 && credentials[0].isResidentCredential, credentials.length);
       await B.cdp.send('WebAuthn.addCredential', { authenticatorId: B.authenticatorId, credential: credentials[0] });
 
-      const w = await createAnonymousWorld(B.page, 'Phone world');
+      const phoneWorld = await createAnonymousWorld(B.page, 'Phone world');
       const res = await inPage(B.page, () => window.__orbPasskey.signIn());
       check('device B signs in as the same user', res.ok && res.value?.user?.id === userId, res.ok ? res.value?.user : res.error);
       check('device B has its own deviceId', /^[0-9a-f]{12}$/.test(res.value?.deviceId || '') && res.value.deviceId !== deviceIdA, res.value?.deviceId);
       const s = await serverSession(B.page);
-      check("device B's anonymous world is claimed too", s.worlds.some((x) => x.id === w.id) && s.worlds.some((x) => x.id === worldA), s.worlds.map((x) => x.name));
+      check("device B's anonymous world is claimed too", s.worlds.some((x) => x.id === phoneWorld) && s.worlds.some((x) => x.id === worldA), s.worlds.map((x) => x.name));
 
       // A cancelled/dismissed system prompt surfaces as Error('cancelled').
       const cancelled = await inPage(B.page, async () => {
@@ -330,12 +255,9 @@ async function main() {
     await A.context.close();
   } finally {
     await browser.close();
-    stopServer(server);
+    await stopNext(server);
   }
-
-  const failed = results.filter((r) => !r.ok);
-  console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-  process.exit(failed.length ? 1 : 0);
+  finish();
 }
 
 main().catch((e) => {

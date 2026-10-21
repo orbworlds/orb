@@ -3,8 +3,9 @@
 //   - accepts only messages whose event.source is that iframe's window,
 //   - persists the world's shimmed localStorage per world per device (debounced, capped),
 //   - serves orb.store (server API; an in-memory map for unsaved drafts),
-//   - relays orb.room to ./realtime.ts,
-//   - answers capture requests, and forwards ready / error / toast / title / capture,
+//   - relays orb.room to ./realtime.ts, and counts who is in the world's own room (onPeople),
+//   - serves orb.shop (Orb's copy of the list, purchases through onPurchase) and orb.room.invite,
+//   - answers capture requests, records clips, and forwards ready / error / toast / title / capture,
 //   - runs probes (the builder playing the world and looking at it) and cleans up their results.
 
 import { api } from '../api';
@@ -12,7 +13,7 @@ import { getWorldStorage, localKeys, setWorldStorage } from '../local';
 import { cleanProbeResult } from '../probe';
 import type { ProbeRequest, ProbeResult, ProbeUnavailable, RoomEvent, RuntimeContext, StoreOp, StoreRequest, WorldRuntimeError } from '../types';
 import { joinRoom, type RoomMembership } from './realtime';
-import { ROOM_NAME_RE, STORE_VALUE_LIMIT, WORLD_STORAGE_LIMIT } from './sdk';
+import { ROOM_NAME_RE, ROOMS_PER_WORLD, SHOP_ITEM_RE, STORE_VALUE_LIMIT, WORLD_STORAGE_LIMIT } from './sdk';
 
 export interface BridgeHandlers {
   /** The world finished loading (load + 2 animation frames). */
@@ -32,11 +33,13 @@ export interface BridgeHandlers {
 }
 
 export interface BridgeOptions extends BridgeHandlers {
-  /** Runtime context; a getter is read on every message, so id / player changes apply at once. */
-  ctx: RuntimeContext | (() => RuntimeContext);
+  /** Runtime context, read on every message, so id / player changes apply at once. */
+  ctx(): RuntimeContext;
 }
 
 type Msg = { __orb: 1; type: string } & Record<string, unknown>;
+/** What orb.store and orb.shop requests are answered with. */
+type Reply = { ok: true; value: unknown } | { ok: false; error: string };
 
 const isMsg = (d: unknown): d is Msg => !!d && typeof d === 'object' && (d as { __orb?: unknown }).__orb === 1 && typeof (d as { type?: unknown }).type === 'string';
 
@@ -114,11 +117,10 @@ export function getLiveWorldStorage(worldId: string, seed?: Record<string, strin
  * Take over a world's storage saved elsewhere (the account's copy, src/lib/savesync.ts) for the
  * next frame of it. Not while this page has changes of its own to save (they are newer).
  */
-export function adoptWorldStorage(worldId: string, data: Record<string, string>, at: number): boolean {
-  if (dirtyWorlds.has(worldId)) return false;
+export function adoptWorldStorage(worldId: string, data: Record<string, string>, at: number): void {
+  if (dirtyWorlds.has(worldId)) return;
   setWorldStorage(worldId, data, { at, quiet: true });
   liveStorage.delete(worldId);
-  return true;
 }
 
 /** Write pending world storage to the parent's localStorage now. */
@@ -169,8 +171,6 @@ export function moveWorldStorage(fromId: string, toId: string): void {
     liveStorage.set(toId, toLive(from.data));
     scheduleFlush(toId);
   }
-  const mem = memStores.get(fromId);
-  if (mem && !memStores.has(toId)) memStores.set(toId, mem);
   // The draft (e.g. the Paint canvas) starts empty next time instead of carrying this world's data.
   if (from.size) {
     from.data = Object.create(null) as Record<string, string>;
@@ -228,6 +228,25 @@ function memStore(worldId: string, req: StoreRequest): unknown {
   }
 }
 
+/** orb.store of a world: the server's, or for a draft the in-memory one. */
+async function realStore(worldId: string, req: StoreRequest): Promise<unknown> {
+  return isDraftWorldId(worldId) ? memStore(worldId, req) : (await api.store(worldId, req)).value;
+}
+
+/** orb.store while the builder plays the world: writes go to a trial copy, which shows over the real values. */
+async function trialStore(worldId: string, req: StoreRequest): Promise<unknown> {
+  const trial = `probe:${worldId}`;
+  const tried = memStores.get(trial);
+  if (req.op === 'get') return tried?.has(req.key) ? tried.get(req.key) : realStore(worldId, req);
+  if (req.op === 'list') return { ...((await realStore(worldId, req)) as Record<string, unknown>), ...(memStore(trial, req) as Record<string, unknown>) };
+  if (req.op === 'merge' && !tried?.has(req.key)) {
+    // a trial merge starts from what's really stored
+    const real = await realStore(worldId, { op: 'get', key: req.key });
+    if (real != null) memStore(trial, { op: 'set', key: req.key, value: real });
+  }
+  return memStore(trial, req);
+}
+
 /** Keys one orb.store.list call returns at most (same as the server). */
 const STORE_LIST_KEYS = 200;
 const STORE_OPS: readonly StoreOp[] = ['get', 'set', 'incr', 'push', 'merge', 'list'];
@@ -241,13 +260,12 @@ function parseStoreRequest(d: Msg): StoreRequest | string {
   const req: StoreRequest = { op, key: d.key };
   if (op === 'merge' && (!d.value || typeof d.value !== 'object' || Array.isArray(d.value))) return 'The patch must be an object';
   if (op === 'set' || op === 'push' || op === 'merge') {
-    let json: string | undefined;
+    let json: string;
     try {
       json = JSON.stringify(d.value ?? null);
     } catch {
-      json = undefined;
+      return 'Value must be JSON';
     }
-    if (json === undefined) return 'Value must be JSON';
     if (json.length > STORE_VALUE_LIMIT) return 'Value is too large (max 8 KB)';
     req.value = JSON.parse(json);
   }
@@ -276,15 +294,12 @@ const MAX_DATA_URL = 3_000_000;
 const MAX_CLIP_BYTES = 40_000_000;
 /** How long after its length a clip may take to come back (encoding, handing the bytes over). */
 const CLIP_GRACE_MS = 15_000;
-const MAX_ROOMS = 4; // rooms one world may be in at once
 const ROOM_JOINS_PER_30S = 8; // new rooms per frame; beyond that a room is solo (each one is a realtime channel)
 const INVITE_MIN_INTERVAL_MS = 1500;
 
 let reqCounter = 0;
 
 export class WorldBridge {
-  private readonly opts: BridgeOptions;
-  private listening = false;
   private destroyed = false;
   /** Joined rooms by name ('' = the world's own room). */
   private readonly rooms = new Map<string, RoomMembership>();
@@ -305,34 +320,24 @@ export class WorldBridge {
   private toastTimes: number[] = [];
   private storageFullReported = false;
 
+  /** Listens at once, so create it before the iframe gets its srcdoc. */
   constructor(
     readonly iframe: HTMLIFrameElement,
-    opts: BridgeOptions,
+    private readonly opts: BridgeOptions,
   ) {
-    this.opts = opts;
+    window.addEventListener('message', this.onMessage);
   }
 
-  /** Start listening for the iframe's messages (attach before the iframe loads). */
-  start(): this {
-    if (!this.listening && !this.destroyed) {
-      this.listening = true;
-      window.addEventListener('message', this.onMessage);
-    }
-    return this;
-  }
-
-  /** Stop listening, leave the room, resolve pending captures with null. Idempotent. */
+  /** Stop listening, leave every room, settle pending captures, clips and probes. Idempotent. */
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
     window.removeEventListener('message', this.onMessage);
     for (const r of this.rooms.values()) r.leave();
     this.rooms.clear();
-    for (const done of this.captures.values()) done(null);
+    for (const done of [...this.captures.values()]) done(null);
     for (const done of [...this.clips.values()]) done({ error: 'gone' });
-    this.captures.clear();
-    for (const done of this.probes.values()) done({ unavailable: 'The world was replaced while it was being looked at.' });
-    this.probes.clear();
+    for (const done of [...this.probes.values()]) done({ unavailable: 'The world was replaced while it was being looked at.' });
   }
 
   /**
@@ -341,17 +346,10 @@ export class WorldBridge {
    */
   probe(req: ProbeRequest, timeoutMs: number): Promise<ProbeResult | ProbeUnavailable> {
     if (this.destroyed || !this.iframe.contentWindow) return Promise.resolve({ unavailable: 'The world is not running.' });
-    const reqId = `p${++reqCounter}_${Date.now().toString(36)}`;
     this.probing++;
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => done({ unavailable: "The world didn't answer (it may be frozen in an endless loop)." }), timeoutMs);
-      const done = (r: ProbeResult | ProbeUnavailable) => {
-        clearTimeout(timer);
-        if (this.probes.delete(reqId)) this.probing--;
-        resolve(r);
-      };
-      this.probes.set(reqId, done);
-      this.post({ type: 'probe', reqId, actions: req.actions, opts: { size: req.size, shots: req.shots } });
+    const late = { unavailable: "The world didn't answer (it may be frozen in an endless loop)." };
+    return this.request(this.probes, timeoutMs, late, { type: 'probe', actions: req.actions, opts: { size: req.size, shots: req.shots } }).finally(() => {
+      this.probing--;
     });
   }
 
@@ -361,38 +359,32 @@ export class WorldBridge {
    */
   recordClip(ms: number, label: string): Promise<{ blob: Blob } | { error: string }> {
     if (this.destroyed || !this.iframe.contentWindow) return Promise.resolve({ error: 'gone' });
-    const reqId = `v${++reqCounter}_${Date.now().toString(36)}`;
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => done({ error: 'timeout' }), ms + CLIP_GRACE_MS);
-      const done = (r: { blob: Blob } | { error: string }) => {
-        clearTimeout(timer);
-        this.clips.delete(reqId);
-        resolve(r);
-      };
-      this.clips.set(reqId, done);
-      this.post({ type: 'clip-request', reqId, ms, label });
-    });
+    return this.request(this.clips, ms + CLIP_GRACE_MS, { error: 'timeout' }, { type: 'clip-request', ms, label });
   }
 
   /** Ask the world for a thumbnail (~640x400 webp/jpeg data URL); null if none within the timeout. */
-  capture(timeoutMs = 1500): Promise<string | null> {
+  capture(timeoutMs: number): Promise<string | null> {
     if (this.destroyed || !this.iframe.contentWindow) return Promise.resolve(null);
-    const reqId = `c${++reqCounter}_${Date.now().toString(36)}`;
+    return this.request(this.captures, timeoutMs, null, { type: 'capture-request' });
+  }
+
+  /** Post a request the world answers with its reqId (in `pending` until then); `late` if no answer comes within `ms`. */
+  private request<T>(pending: Map<string, (r: T) => void>, ms: number, late: NoInfer<T>, msg: { type: string } & Record<string, unknown>): Promise<T> {
+    const reqId = `r${++reqCounter}`;
     return new Promise((resolve) => {
-      const timer = setTimeout(() => done(null), timeoutMs);
-      const done = (url: string | null) => {
+      const timer = setTimeout(() => done(late), ms);
+      const done = (r: T) => {
         clearTimeout(timer);
-        this.captures.delete(reqId);
-        resolve(url);
+        pending.delete(reqId);
+        resolve(r);
       };
-      this.captures.set(reqId, done);
-      this.post({ type: 'capture-request', reqId });
+      pending.set(reqId, done);
+      this.post({ ...msg, reqId });
     });
   }
 
   private get ctx(): RuntimeContext {
-    const c = this.opts.ctx;
-    return typeof c === 'function' ? c() : c;
+    return this.opts.ctx();
   }
 
   private post(msg: { type: string } & Record<string, unknown>): void {
@@ -424,17 +416,7 @@ export class WorldBridge {
         return;
       case 'error': {
         const message = clip(d.message, 1000);
-        if (!message) return;
-        const e: WorldRuntimeError = { message };
-        const stack = clip(d.stack, 4000);
-        const source = clip(d.source, 500);
-        const line = num(d.line);
-        const col = num(d.col);
-        if (stack) e.stack = stack;
-        if (line) e.line = line;
-        if (col) e.col = col;
-        if (source) e.source = source;
-        o.onError?.(e);
+        if (message) o.onError?.({ message, stack: clip(d.stack, 4000), line: num(d.line), col: num(d.col), source: clip(d.source, 500) });
         return;
       }
       case 'storage':
@@ -512,32 +494,25 @@ export class WorldBridge {
     return true;
   }
 
-  private async serveStore(d: Msg): Promise<void> {
+  /** How to answer a request of the world (by its reqId; nothing after destroy()), or null when it has none. */
+  private replyTo<R extends Record<string, unknown>>(d: Msg, type: string): ((r: R) => void) | null {
     const reqId = typeof d.reqId === 'string' ? d.reqId.slice(0, 64) : null;
-    if (!reqId) return;
-    const reply = (r: { ok: true; value: unknown } | { ok: false; error: string }) => {
-      if (!this.destroyed) this.post({ type: 'store-result', reqId, ...r });
+    if (!reqId) return null;
+    return (r) => {
+      if (!this.destroyed) this.post({ type, reqId, ...r });
     };
+  }
+
+  private async serveStore(d: Msg): Promise<void> {
+    const reply = this.replyTo<Reply>(d, 'store-result');
+    if (!reply) return;
     const req = parseStoreRequest(d);
     if (typeof req === 'string') return reply({ ok: false, error: req });
     if (!this.takeToken()) return reply({ ok: false, error: 'Too many orb.store requests — slow down a little' });
     const { worldId } = this.ctx;
-    const trial = `probe:${worldId}`;
     try {
-      if (this.probing) {
-        if (req.op === 'merge' && !memStores.get(trial)?.has(req.key)) {
-          // a trial merge starts from what's really stored
-          const real = isDraftWorldId(worldId) ? memStore(worldId, { op: 'get', key: req.key }) : (await api.store(worldId, { op: 'get', key: req.key })).value;
-          if (real != null) memStore(trial, { op: 'set', key: req.key, value: real });
-        }
-        if (req.op !== 'get' && req.op !== 'list') return reply({ ok: true, value: memStore(trial, req) ?? null });
-        const tried = memStores.get(trial);
-        if (req.op === 'get' && tried?.has(req.key)) return reply({ ok: true, value: tried.get(req.key) ?? null });
-      }
-      let value = isDraftWorldId(worldId) ? memStore(worldId, req) : (await api.store(worldId, req)).value;
-      // While the builder plays, what it wrote shows over the real values.
-      if (this.probing && req.op === 'list') value = { ...(value as Record<string, unknown>), ...(memStore(trial, req) as Record<string, unknown>) };
-      reply({ ok: true, value: value === undefined ? null : value });
+      const value = await (this.probing ? trialStore(worldId, req) : realStore(worldId, req));
+      reply({ ok: true, value: value ?? null });
     } catch (e) {
       reply({ ok: false, error: e instanceof Error && e.message ? e.message : 'orb.store request failed' });
     }
@@ -554,7 +529,7 @@ export class WorldBridge {
         // while the builder plays the world, which must never turn up as a silent ghost in someone's real game.
         const now = Date.now();
         this.roomJoins = this.roomJoins.filter((t) => now - t < 30_000);
-        const busy = this.rooms.size >= MAX_ROOMS || this.roomJoins.length >= ROOM_JOINS_PER_30S;
+        const busy = this.rooms.size >= ROOMS_PER_WORLD || this.roomJoins.length >= ROOM_JOINS_PER_30S;
         if (!busy) this.roomJoins.push(now);
         this.rooms.set(
           name,
@@ -608,14 +583,11 @@ export class WorldBridge {
   private shopBuying = false;
   private shopSeen: { at: number; value: Promise<{ items: unknown[]; owned: string[] }> } | null = null;
   private async serveShop(d: Msg): Promise<void> {
-    const reqId = typeof d.reqId === 'string' ? d.reqId.slice(0, 64) : null;
-    if (!reqId) return;
-    const reply = (r: { ok: true; value: unknown } | { ok: false; error: string }) => {
-      if (!this.destroyed) this.post({ type: 'shop-result', reqId, ...r });
-    };
+    const reply = this.replyTo<Reply>(d, 'shop-result');
+    if (!reply) return;
     const { worldId } = this.ctx;
     if (d.op === 'buy') {
-      const item = typeof d.item === 'string' && /^[a-z0-9][a-z0-9-]{0,39}$/.test(d.item) ? d.item : null;
+      const item = typeof d.item === 'string' && SHOP_ITEM_RE.test(d.item) ? d.item : null;
       const no = (reason: string) => reply({ ok: true, value: { ok: false, item, reason } });
       if (!item) return reply({ ok: false, error: 'orb.shop.buy: unknown item' });
       // The builder playing the world never buys anything, nor does an unsaved draft.
@@ -649,23 +621,15 @@ export class WorldBridge {
   }
 
   private async serveInvite(d: Msg): Promise<void> {
-    const reqId = typeof d.reqId === 'string' ? d.reqId.slice(0, 64) : null;
-    if (!reqId) return;
-    const reply = (url: string | null) => {
-      if (!this.destroyed) this.post({ type: 'invite-result', reqId, url });
-    };
+    const reply = this.replyTo<{ url: string | null }>(d, 'invite-result');
+    if (!reply) return;
     const now = Date.now();
-    if (typeof d.room !== 'string' || !ROOM_NAME_RE.test(d.room) || this.probing || now - this.lastInviteAt < INVITE_MIN_INTERVAL_MS) return reply(null);
+    if (typeof d.room !== 'string' || !ROOM_NAME_RE.test(d.room) || this.probing || now - this.lastInviteAt < INVITE_MIN_INTERVAL_MS) return reply({ url: null });
     this.lastInviteAt = now;
     try {
-      reply((await this.opts.onInvite?.(d.room)) ?? null);
+      reply({ url: (await this.opts.onInvite?.(d.room)) ?? null });
     } catch {
-      reply(null);
+      reply({ url: null });
     }
   }
-}
-
-/** Convenience: create a bridge for an iframe and start listening. Call `destroy()` when done. */
-export function createBridge(iframe: HTMLIFrameElement, opts: BridgeOptions): WorldBridge {
-  return new WorldBridge(iframe, opts).start();
 }

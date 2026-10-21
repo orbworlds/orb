@@ -111,18 +111,12 @@ export function contentType(path: string): string {
   return TYPES[ext] ?? 'application/octet-stream';
 }
 
-const TEXT_EXT = /\.(html?|m?js|cjs|jsx?|tsx?|css|json|map|txt|md|csv|xml|svg|glsl|vert|frag|wgsl|obj|mtl|gltf|yml|yaml|toml|ini|sh|py|gitignore|license|vue|svelte)$/i;
-
-/** Whether a file should be treated as editable text (by extension, else by sniffing). */
-export function isText(path: string, data?: Uint8Array): boolean {
-  if (TEXT_EXT.test(path) || !/\.[^/]+$/.test(path)) {
-    if (!data) return true;
-  } else if (!data) return false;
-  // Sniff: no NUL bytes in the first 8 KB and valid UTF-8.
-  const head = data!.subarray(0, 8192);
+/** Whether bytes are text: no NUL in the first 8 KB, and valid UTF-8. */
+export function isText(data: Uint8Array): boolean {
+  const head = data.subarray(0, 8192);
   if (head.includes(0)) return false;
   try {
-    new TextDecoder('utf-8', { fatal: true }).decode(head.length < data!.length ? head.subarray(0, lastBoundary(head)) : head);
+    new TextDecoder('utf-8', { fatal: true }).decode(head.length < data.length ? head.subarray(0, lastBoundary(head)) : head);
     return true;
   } catch {
     return false;
@@ -182,12 +176,6 @@ const blobCache = new Lru<Uint8Array>(48_000_000);
 
 // -- blobs --------------------------------------------------------------------------------------
 
-function asBytes(v: unknown): Uint8Array {
-  if (v instanceof Uint8Array) return v;
-  if (typeof v === 'string' && v.startsWith('\\x')) return Uint8Array.from(Buffer.from(v.slice(2), 'hex'));
-  throw new Error('unexpected blob value');
-}
-
 /** Store bytes (or text) and return their sha. */
 export async function putBlob(db: Db, data: Uint8Array | string): Promise<{ sha: string; size: number }> {
   const bytes = toBytes(data);
@@ -205,9 +193,9 @@ export async function putBlob(db: Db, data: Uint8Array | string): Promise<{ sha:
 export async function getBlob(db: Db, sha: string): Promise<Uint8Array | null> {
   const hit = blobCache.get(sha);
   if (hit) return hit;
-  const rows = await db.query<{ data: unknown }>(`select data from orb_blobs where sha = $1`, [sha]);
+  const rows = await db.query<{ data: Uint8Array }>(`select data from orb_blobs where sha = $1`, [sha]);
   if (!rows[0]) return null;
-  const bytes = asBytes(rows[0].data);
+  const bytes = rows[0].data;
   blobCache.set(sha, bytes, bytes.length);
   return bytes;
 }
@@ -231,9 +219,6 @@ export async function blobSizes(db: Db, shas: string[]): Promise<Map<string, num
 
 export class FileError extends Error {}
 
-/** The id a tree gets when stored (sha256 of its canonical manifest JSON). */
-export const treeSha = (tree: Tree): string => sha256(canonical(tree));
-
 function canonical(tree: Tree): string {
   const sorted: Tree = {};
   for (const k of Object.keys(tree).sort()) sorted[k] = tree[k];
@@ -249,15 +234,10 @@ export async function putTree(db: Db, tree: Tree): Promise<string> {
   if (treeCache.get(sha)) return sha;
   const exists = await db.query(`select 1 from orb_trees where sha = $1`, [sha]);
   if (!exists.length) {
+    // One size per blob: a file at two paths is stored once.
     const sizes = await blobSizes(db, Object.values(tree));
-    let total = 0;
-    const seen = new Set<string>();
-    for (const [p, b] of Object.entries(tree)) {
-      const s = sizes.get(b);
-      if (s === undefined) throw new Error(`missing blob for ${p}`);
-      if (!seen.has(b)) total += s; // a file at two paths is stored once
-      seen.add(b);
-    }
+    for (const [p, b] of Object.entries(tree)) if (!sizes.has(b)) throw new Error(`missing blob for ${p}`);
+    const total = [...sizes.values()].reduce((n, size) => n + size, 0);
     if (total > FILE_LIMITS.total) throw new FileError(`This world would be too big (over ${Math.round(FILE_LIMITS.total / 1e6)} MB of files).`);
     await db.query(`insert into orb_trees (sha, files, size, count) values ($1, $2::jsonb, $3, $4) on conflict (sha) do nothing`, [sha, json, total, paths.length]);
   }
@@ -269,9 +249,9 @@ export async function getTree(db: Db, sha: string): Promise<Tree | null> {
   if (!isSha(sha)) return null;
   const hit = treeCache.get(sha);
   if (hit) return hit;
-  const rows = await db.query<{ files: Tree | string }>(`select files from orb_trees where sha = $1`, [sha]);
+  const rows = await db.query<{ files: Tree }>(`select files from orb_trees where sha = $1`, [sha]);
   if (!rows[0]) return null;
-  const files = typeof rows[0].files === 'string' ? (JSON.parse(rows[0].files) as Tree) : rows[0].files;
+  const files = rows[0].files;
   treeCache.set(sha, files, 1);
   return files;
 }

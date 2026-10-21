@@ -13,8 +13,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { launch } from './pw.mjs';
-import { serve } from '../kit/lib/server.mjs';
+import { launch } from '../kit/lib/browser.mjs';
+import { serve, TREE } from '../kit/lib/server.mjs';
 import { appLogin, gitAs } from './org-app.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -22,7 +22,6 @@ const catalog = JSON.parse(fs.readFileSync(path.join(root, 'src/data/originals.j
 const arg = (name) => (process.argv.includes(`--${name}`) ? process.argv[process.argv.indexOf(`--${name}`) + 1] : null);
 const only = arg('only'), dry = process.argv.includes('--dry');
 const W = 1280, H = 800;
-const TREE = '0'.repeat(64);
 
 execFileSync(process.execPath, [path.join(root, 'scripts/publish-kit.mjs'), '--runtime'], { stdio: 'ignore' }); // the kit's runtime
 const app = await appLogin(catalog.org);

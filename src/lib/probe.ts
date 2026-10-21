@@ -84,11 +84,10 @@ export function cleanProbeResult(raw: unknown): ProbeResult {
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
 const pos = (v: unknown): number => Math.min(1, Math.max(0, num(v) ?? 0.5));
 const ms = (v: unknown, def: number): number => Math.min(PROBE_LIMITS.ms, Math.max(0, num(v) ?? def));
-const str = (v: unknown, n: number): string => (typeof v === 'string' ? v.slice(0, n) : '');
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 /** A part of the screen to zoom into (fractions), at least 5% of it on each side; null for the whole screen. */
-export function cleanZoom(v: unknown): ProbeZoom | null {
+function cleanZoom(v: unknown): ProbeZoom | null {
   if (!v || typeof v !== 'object') return null;
   const z = v as Record<string, unknown>;
   const w = Math.min(1, Math.max(0.05, num(z.w) ?? 1));
@@ -118,7 +117,7 @@ export function cleanProbeActions(raw: unknown): { actions: ProbeAction[]; skipp
         actions.push({ type: 'wait', ms: ms(a.ms, 500) });
         break;
       case 'key': {
-        const key = str(a.key, 40);
+        const key = clipStr(a.key, 40);
         if (!key) {
           skipped++;
           break;
@@ -128,7 +127,7 @@ export function cleanProbeActions(raw: unknown): { actions: ProbeAction[]; skipp
         break;
       }
       case 'type': {
-        const text = str(a.text, PROBE_LIMITS.text);
+        const text = clipStr(a.text, PROBE_LIMITS.text);
         if (text) actions.push({ type: 'type', text });
         else skipped++;
         break;
@@ -151,11 +150,11 @@ export function cleanProbeActions(raw: unknown): { actions: ProbeAction[]; skipp
         break;
       case 'screenshot': {
         const zoom = cleanZoom(a.zoom);
-        actions.push({ type: 'screenshot', ...(str(a.label, 60) ? { label: str(a.label, 60) } : {}), ...(zoom ? { zoom } : {}) });
+        actions.push({ type: 'screenshot', ...(clipStr(a.label, 60) ? { label: clipStr(a.label, 60) } : {}), ...(zoom ? { zoom } : {}) });
         break;
       }
       case 'eval': {
-        const js = str(a.js, PROBE_LIMITS.js);
+        const js = clipStr(a.js, PROBE_LIMITS.js);
         if (js.trim()) actions.push({ type: 'eval', js });
         else skipped++;
         break;

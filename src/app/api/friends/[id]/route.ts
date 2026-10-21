@@ -3,30 +3,20 @@
 
 import { getViewer } from '@/server/auth';
 import { acceptFriend, accountId, friendsData, isUserId, removeFriend } from '@/server/friends';
-import { json } from '@/server/http';
+import { fail, handle, json } from '@/server/http';
 import { ready } from '@/server/schema';
-import { fail, limitOrThrow, route, type IdContext } from '@/server/worlds';
+import { limitOrThrow, type IdContext } from '@/server/worlds';
 
-async function other(ctx: IdContext): Promise<string> {
-  const { id } = await ctx.params;
-  if (!isUserId(id)) fail(404, 'not_found', 'That friend request isn’t there anymore.');
-  return id;
-}
+const answer = (act: typeof acceptFriend) =>
+  handle(async (req: Request, ctx: IdContext) => {
+    const { id } = await ctx.params;
+    if (!isUserId(id)) fail(404, 'not_found', 'That friend request isn’t there anymore.');
+    const db = await ready();
+    const me = await accountId(db, getViewer(req));
+    await limitOrThrow(db, `friends:act:${me}`, 60, 60);
+    await act(db, me, id);
+    return json({ friends: await friendsData(db, me) });
+  });
 
-export const POST = route(async (req: Request, ctx: IdContext) => {
-  const id = await other(ctx);
-  const db = await ready();
-  const me = await accountId(db, getViewer(req));
-  await limitOrThrow(db, `friends:act:${me}`, 60, 60);
-  await acceptFriend(db, me, id);
-  return json({ friends: await friendsData(db, me) });
-});
-
-export const DELETE = route(async (req: Request, ctx: IdContext) => {
-  const id = await other(ctx);
-  const db = await ready();
-  const me = await accountId(db, getViewer(req));
-  await limitOrThrow(db, `friends:act:${me}`, 60, 60);
-  await removeFriend(db, me, id);
-  return json({ friends: await friendsData(db, me) });
-});
+export const POST = answer(acceptFriend);
+export const DELETE = answer(removeFriend);

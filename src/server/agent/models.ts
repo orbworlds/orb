@@ -7,7 +7,7 @@ import { mockAgentModel } from './mock';
 
 /** 'mock' is the scripted test model (./mock.ts): locally, or for admins checking production. */
 export type AgentProvider = 'free' | 'anthropic' | 'openai' | 'openrouter' | 'cursor' | 'mock';
-/** 'cursor' works on the world's GitHub repository with a Cursor agent (see ./cursor.ts). */
+/** 'cursor' runs a Cursor Cloud Agent on the person's key, through the job's files link (./cursor.ts, ./sync.ts). */
 export const AGENT_PROVIDERS: AgentProvider[] = ['free', 'anthropic', 'openai', 'openrouter', 'cursor'];
 
 export const DEFAULT_AGENT_MODELS: Record<Exclude<AgentProvider, 'free' | 'mock' | 'cursor'>, string> = {

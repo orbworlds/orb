@@ -14,9 +14,10 @@
 // link answers the agent with what the page saw: the report and the screenshots as files.
 
 import crypto from 'node:crypto';
+import { setTimeout as sleep } from 'node:timers/promises';
 import type { ModelMessage } from 'ai';
 import type { Db } from '../db';
-import { cleanProbeResult } from '../../lib/probe';
+import { cleanProbeResult, PROBE_LIMITS } from '../../lib/probe';
 import type { ProbeAction, ProbeResult } from '../../lib/types';
 
 /** Looks at the world per job (each one is a screenshot or a few for the model to read). */
@@ -24,7 +25,7 @@ export const MAX_LOOKS = 300;
 /** On top of its actions, a look needs this long: the page loads the files, restarts the world (20 s or more for a heavy one on a slow device), the answer comes back. */
 export const LOOK_OVERHEAD_MS = 40_000;
 /** Longest side of a look's screenshots: enough to judge details (zoomed shots show more). */
-export const LOOK_SIZE = 1024;
+const LOOK_SIZE = 1024;
 
 /** What a look can do before its last screenshot, in order (the look tool's and `sh .orb/look`'s). */
 export const LOOK_ACTIONS = `- {"type":"key","key":"w","ms":800} holds a key ("Space", "Enter", "ArrowUp", chords like "Shift+w"; "times":3 taps it 3 times)
@@ -47,17 +48,6 @@ export const KEEP_IMAGES = 4;
 const REF = 'orb-look:';
 const REF_RE = /^orb-look:([\w-]{6,40}):(\d{1,2})$/;
 
-const sleep = (ms: number, signal?: AbortSignal) =>
-  new Promise<void>((resolve) => {
-    const t = setTimeout(done, ms);
-    function done() {
-      clearTimeout(t);
-      signal?.removeEventListener('abort', done);
-      resolve();
-    }
-    signal?.addEventListener('abort', done, { once: true });
-  });
-
 export const isLookId = (s: unknown): s is string => typeof s === 'string' && /^[\w-]{6,40}$/.test(s);
 
 export async function markWatched(db: Db, jobId: string): Promise<void> {
@@ -69,10 +59,27 @@ export async function isWatched(db: Db, jobId: string): Promise<boolean> {
   return rows[0]?.live === true;
 }
 
-export async function openLook(db: Db, jobId: string): Promise<string> {
+/** A new look: the look tool's (./runner.ts), or what a Cursor agent asked to see (`request`). */
+export async function openLook(db: Db, jobId: string, request?: LookRequest): Promise<string> {
   const id = crypto.randomBytes(9).toString('base64url');
-  await db.query(`insert into orb_agent_looks (job_id, id) values ($1, $2)`, [jobId, id]);
+  await db.query(`insert into orb_agent_looks (job_id, id, request) values ($1, $2, $3::jsonb)`, [jobId, id, request ? JSON.stringify(request) : null]);
   return id;
+}
+
+/** Why the agent can't look now (it used up its looks, or nobody has the world open), or null. */
+export async function lookRefusal(db: Db, jobId: string, looks: number): Promise<string | null> {
+  if (looks >= MAX_LOOKS) return `You have looked ${looks} times in this build, which is the limit. Check your work by reading the code instead.`;
+  if (!(await isWatched(db, jobId))) return "Nobody has the world open right now, so you can't see it run. Check your work carefully by reading the code instead, and look again later.";
+  return null;
+}
+
+/** The frames that ask the watching pages to look. */
+export function lookFrames(jobId: string, lookId: string, l: { tree: string; actions: ProbeAction[]; viewport?: unknown }): Array<Record<string, unknown>> {
+  const phone = l.viewport === 'phone';
+  return [
+    { t: 'status', phase: 'thinking', text: phone ? 'Trying it on a phone…' : 'Trying it out…' },
+    { t: 'look', job: jobId, id: lookId, tree: l.tree, actions: l.actions, size: LOOK_SIZE, shots: PROBE_LIMITS.shots, ...(phone ? { viewport: 'phone' } : {}) },
+  ];
 }
 
 /** Screenshots of this many recent looks stay stored (only the newest few are shown to the model). */
@@ -114,7 +121,8 @@ export async function answerLook(db: Db, jobId: string, lookId: string, body: { 
 
 export type LookAnswer = { result: ProbeResult } | { unavailable: string } | { timeout: true };
 
-const parsed = (v: unknown): ProbeResult | null => (v ? ((typeof v === 'string' ? JSON.parse(v) : v) as ProbeResult) : null);
+/** A jsonb value (or its JSON text). */
+const parsed = <T>(v: unknown): T | null => (v ? ((typeof v === 'string' ? JSON.parse(v) : v) as T) : null);
 
 /** Wait for a page to answer (or for every page that answered to say it can't). */
 export async function waitForLook(db: Db, jobId: string, lookId: string, opts: { timeoutMs: number; signal?: AbortSignal }): Promise<LookAnswer> {
@@ -125,7 +133,7 @@ export async function waitForLook(db: Db, jobId: string, lookId: string, opts: {
     const rows = await db.query<{ status: string; result: unknown; declined: string | null }>(`select status, result, declined from orb_agent_looks where job_id = $1 and id = $2`, [jobId, lookId]);
     const r = rows[0];
     if (!r) break;
-    const result = r.status === 'done' ? parsed(r.result) : null;
+    const result = r.status === 'done' ? parsed<ProbeResult>(r.result) : null;
     if (result) return { result };
     if (r.declined) {
       declinedAt ||= Date.now();
@@ -135,11 +143,23 @@ export async function waitForLook(db: Db, jobId: string, lookId: string, opts: {
       }
     }
     if (Date.now() >= end) break;
-    await sleep(POLL_MS, opts.signal);
+    await sleep(POLL_MS, undefined, { signal: opts.signal }).catch(() => undefined);
   }
   // Answers that come in now are too late.
   await db.query(`update orb_agent_looks set status = 'over' where job_id = $1 and id = $2 and status = 'pending'`, [jobId, lookId]).catch(() => undefined);
   return answer;
+}
+
+/** Why a look saw nothing (no answer in time, interrupted, or no page could look), for the agent. */
+export function missedLook(answer: { timeout: true } | { unavailable: string }, aborted: boolean): string {
+  if ('unavailable' in answer) return `Couldn't look: ${answer.unavailable} Continue carefully, and look again later.`;
+  return aborted ? 'The look was interrupted.' : "The person's browser didn't answer in time (it may be busy, or the world is very slow to start). Continue carefully, and look again later.";
+}
+
+/** A word to the agent when its looks run low. */
+export function looksLeft(left: number): string | null {
+  if (left > 3) return null;
+  return left > 0 ? `(${left} look${left === 1 ? '' : 's'} left in this build: keep one for a last check and one on a phone.)` : '(That was your last look in this build.)';
 }
 
 // -- a Cursor agent's looks -----------------------------------------------------------------------
@@ -153,21 +173,13 @@ export interface LookRequest {
   viewport?: 'phone';
 }
 
-const request = (v: unknown): LookRequest => (typeof v === 'string' ? JSON.parse(v) : v) as LookRequest;
-
-export async function requestLook(db: Db, jobId: string, req: LookRequest): Promise<string> {
-  const id = crypto.randomBytes(9).toString('base64url');
-  await db.query(`insert into orb_agent_looks (job_id, id, request) values ($1, $2, $3::jsonb)`, [jobId, id, JSON.stringify(req)]);
-  return id;
-}
-
 /** Looks a Cursor agent asked for that no page was told about yet, oldest first: each is handed out once. */
 export async function takeLookRequests(db: Db, jobId: string): Promise<Array<{ id: string; request: LookRequest }>> {
   const rows = await db.query<{ id: string; request: unknown; created_at: Date | string }>(
     `update orb_agent_looks set asked_at = now() where job_id = $1 and status = 'pending' and request is not null and asked_at is null returning id, request, created_at`,
     [jobId],
   );
-  return rows.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).map((r) => ({ id: r.id, request: request(r.request) }));
+  return rows.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()).map((r) => ({ id: r.id, request: parsed<LookRequest>(r.request)! }));
 }
 
 /** A look the pages were told about that is over: what it was, what came of it and how long it took. */
@@ -190,8 +202,8 @@ export async function closeLooks(db: Db, jobId: string): Promise<ClosedLook[]> {
     [jobId],
   );
   return rows.map((r) => {
-    const result = r.status === 'done' ? parsed(r.result) : null;
-    return { id: r.id, request: request(r.request), answer: result ? { result } : r.declined ? { unavailable: r.declined } : { timeout: true }, ms: Number(r.ms) || 0 };
+    const result = r.status === 'done' ? parsed<ProbeResult>(r.result) : null;
+    return { id: r.id, request: parsed<LookRequest>(r.request)!, answer: result ? { result } : r.declined ? { unavailable: r.declined } : { timeout: true }, ms: Number(r.ms) || 0 };
   });
 }
 
@@ -300,7 +312,8 @@ export function seenFiles(lookId: string, r: ProbeResult, skipped: number, left:
   });
   const lines = [formatLook(lookId, r, skipped).text];
   if (shots.length) lines.push(`Open each screenshot to see it: ${shots.map((s) => `${SEEN_DIR}/${s.name}`).join(', ')}`);
-  if (left <= 3) lines.push(left > 0 ? `(${left} look${left === 1 ? '' : 's'} left in this build: keep one for a last check and one on a phone.)` : '(That was your last look in this build.)');
+  const low = looksLeft(left);
+  if (low) lines.push(low);
   return [{ name: 'report.txt', data: Buffer.from(`${lines.join('\n')}\n`) }, ...shots];
 }
 
@@ -397,7 +410,7 @@ export async function resolveLookImages(db: Db, jobId: string, messages: ModelMe
     let result = m ? cache.get(m[1]) : null;
     if (m && result === undefined) {
       const rows = await db.query<{ result: unknown }>(`select result from orb_agent_looks where job_id = $1 and id = $2`, [jobId, m[1]]);
-      result = parsed(rows[0]?.result);
+      result = parsed<ProbeResult>(rows[0]?.result);
       cache.set(m[1], result);
     }
     const url = m && result ? result.shots[Number(m[2])]?.dataUrl : null;

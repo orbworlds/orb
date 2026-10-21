@@ -12,7 +12,7 @@ export const MAX_SAVE_CHARS = WORLD_STORAGE_LIMIT + 256 * 1024;
 export const MAX_ACCOUNT_CHARS = 30_000_000;
 export const MAX_ACCOUNT_SAVES = 400;
 
-export type SaveData = Record<string, string>;
+type SaveData = Record<string, string>;
 
 /** `{ key: value }` with string values within the world storage cap, or null. */
 export function cleanSave(raw: unknown): SaveData | null {
@@ -28,7 +28,7 @@ export function cleanSave(raw: unknown): SaveData | null {
   return out;
 }
 
-export interface SaveInfo {
+interface SaveInfo {
   worldId: string;
   /** When the browser saved it (epoch ms). */
   at: number;
@@ -46,7 +46,7 @@ export async function getSave(db: Db, userId: string, worldId: string): Promise<
   return { data: (cleanSave(JSON.parse(rows[0].data)) ?? {}) as SaveData, at: Number(rows[0].at) };
 }
 
-export type PutResult = { saved: true; at: number } | { saved: false; reason: 'older' | 'full' | 'no_world'; at?: number };
+type PutResult = { saved: true; at: number } | { saved: false; reason: 'older' | 'full' | 'no_world'; at?: number };
 
 /**
  * Keep this save for the account, unless the copy it has is as new or newer (`older`), the

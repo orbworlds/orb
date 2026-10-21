@@ -12,15 +12,16 @@
 import type { Friend, FriendNote, FriendNoteKind, FriendRequest, FriendRoom, FriendsData, FriendState, Person, Profile, WorldCard } from '@/lib/types';
 import type { Viewer } from './auth';
 import type { Db } from './db';
+import { fail } from './http';
 import { isPathPart, RESERVED, slugify } from './paths';
-import { fail, isWorldId, publicCards, sessionUser, worldsBy } from './worlds';
+import { isWorldId, iso, publicCards, sessionUser, worldsBy } from './worlds';
 
-export const ONLINE_SECONDS = 90;
+const ONLINE_SECONDS = 90;
 const NOTES_DAYS = 30;
 const NOTES_SHOWN = 30;
 /** The same friend isn't invited to the same world twice within this many minutes. */
 const INVITE_AGAIN_MINUTES = 10;
-export const INVITE_MAX = 50;
+const INVITE_MAX = 50;
 
 const NOBODY = 'No one has that username — check the spelling.';
 const ONLINE = `(not p.away and p.at > now() - interval '${ONLINE_SECONDS} seconds')`;
@@ -29,22 +30,6 @@ const HANDLE_OF = (user: string) => `(select h.handle from orb_handles h where h
 const pair = (x: string, y: string): [string, string] => (x < y ? [x, y] : [y, x]);
 
 export const isUserId = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(v);
-
-/** A jsonb column as the driver hands it over (parsed, or as text). */
-function jsonValue(v: unknown): unknown {
-  if (typeof v !== 'string') return v;
-  try {
-    return JSON.parse(v);
-  } catch {
-    return null;
-  }
-}
-
-function iso(v: Date | string | null): string | null {
-  if (v === null) return null;
-  const d = v instanceof Date ? v : new Date(String(v));
-  return Number.isNaN(d.getTime()) ? String(v) : d.toISOString();
-}
 
 /** The signed-in account's id, or a 401: friends are accounts. */
 export async function accountId(db: Db, viewer: Viewer): Promise<string> {
@@ -119,10 +104,10 @@ export async function removeFriend(db: Db, me: string, other: string): Promise<v
 const ROOM_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/;
 /** A page's peer id in a room: `<player id>:<6 random>` (src/lib/runtime/realtime.ts). */
 const PEER_RE = /^[A-Za-z0-9_-]{1,40}:[a-z0-9]{6}$/;
-export const ROOMS_MAX = 8;
+const ROOMS_MAX = 8;
 
 /** The rooms a heartbeat names, [{ room, peer }] ('' is the world's own room); anything else is dropped. */
-export function cleanRooms(v: unknown): FriendRoom[] {
+function cleanRooms(v: unknown): FriendRoom[] {
   if (!Array.isArray(v)) return [];
   const out: FriendRoom[] = [];
   for (const r of v.slice(0, ROOMS_MAX)) {
@@ -208,12 +193,12 @@ export async function friendsData(db: Db, me: string): Promise<FriendsData> {
   for (const r of rows) {
     const person: Person = { id: r.id, name: r.name, handle: r.handle };
     if (r.status !== 'friends') {
-      (r.requested_by === me ? outgoing : incoming).push({ ...person, at: iso(r.since)! });
+      (r.requested_by === me ? outgoing : incoming).push({ ...person, at: iso(r.since) });
       continue;
     }
     const world = r.online && r.world_id ? (cards.get(r.world_id) ?? null) : null;
-    const rooms = world ? cleanRooms(jsonValue(r.rooms)) : [];
-    friends.push({ ...person, online: !!r.online, seenAt: iso(r.seen_at), world, own: !!world && !!r.own, rooms });
+    const rooms = world ? cleanRooms(r.rooms) : [];
+    friends.push({ ...person, online: !!r.online, seenAt: r.seen_at ? iso(r.seen_at) : null, world, own: !!world && !!r.own, rooms });
   }
   const seen = (f: Friend) => (f.seenAt ? Date.parse(f.seenAt) : 0);
   friends.sort((x, y) => Number(!!y.world) - Number(!!x.world) || Number(y.online) - Number(x.online) || seen(y) - seen(x) || x.name.localeCompare(y.name));
@@ -231,11 +216,11 @@ export async function friendsData(db: Db, me: string): Promise<FriendsData> {
       // Who bought things isn't the maker's business: a sale comes from "someone".
       from: n.kind === 'sale' ? { id: '', name: 'Someone', handle: null } : { id: n.from_id ?? '', name: n.from_name?.trim() || 'Someone', handle: n.from_handle },
       world,
-      at: iso(n.created_at)!,
+      at: iso(n.created_at),
       read: !!n.read,
     };
     if (n.kind === 'sale') {
-      const d = (jsonValue(n.detail) ?? {}) as { count?: unknown; credits?: unknown; item?: unknown };
+      const d = (n.detail ?? {}) as { count?: unknown; credits?: unknown; item?: unknown };
       note.sale = { count: Math.max(1, Number(d.count) || 1), credits: Math.max(0, Number(d.credits) || 0), item: typeof d.item === 'string' ? d.item : '' };
     }
     shown.push(note);
@@ -292,7 +277,7 @@ export async function profile(db: Db, viewer: Viewer, raw: string): Promise<Prof
   if (!row) fail(404, 'not_found', NOBODY);
   const worlds = await worldsBy(db, { handle }, 24);
   const name = row.user_name?.trim() || row.device_name?.trim() || worlds[0]?.authorName || handle;
-  const out: Profile = { handle, name, id: row.user_id, friend: 'none', friendCount: 0, since: iso(row.created_at), online: false, world: null, own: false, rooms: [], worlds };
+  const out: Profile = { handle, name, id: row.user_id, friend: 'none', friendCount: 0, since: row.created_at ? iso(row.created_at) : null, online: false, world: null, own: false, rooms: [], worlds };
   if (!row.user_id) return out;
 
   out.friendCount = (await db.query<{ n: number }>(`select count(*)::int as n from orb_friends where status = 'friends' and (a = $1 or b = $1)`, [row.user_id]))[0]?.n ?? 0;
@@ -310,7 +295,7 @@ export async function profile(db: Db, viewer: Viewer, raw: string): Promise<Prof
       out.online = true;
       out.world = p.world_id ? ((await publicCards(db, [p.world_id])).get(p.world_id) ?? null) : null;
       out.own = !!out.world && !!p.own;
-      out.rooms = out.world ? cleanRooms(jsonValue(p.rooms)) : [];
+      out.rooms = out.world ? cleanRooms(p.rooms) : [];
     }
   }
   return out;

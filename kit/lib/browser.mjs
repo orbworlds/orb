@@ -1,15 +1,14 @@
 // The Orb kit's browser helpers, for tests of worlds (the kit's `orb test`, a game's own suite, Orb's
 // scripts): Chrome with software WebGL, and three.js from node_modules instead of a CDN (for machines
 // that can't reach one). Playwright and three.js come from the project that uses the kit. Usage:
-//   import { launch, routeCdn } from 'orb-kit/browser'
+//   import { launch, routeCdn } from '@orbworlds/kit/browser'
 //   const browser = await launch(); const page = await browser.newPage(); await routeCdn(page)
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const requireHere = createRequire(path.join(process.cwd(), 'package.json'));
-const pw = await import(requireHere.resolve('playwright'));
-const chromium = pw.chromium ?? pw.default.chromium;
+const { chromium } = requireHere('playwright');
 // three.js wherever Node finds it from the project using the kit (only routeCdn needs it).
 const three = () => { try { return path.resolve(path.dirname(requireHere.resolve('three')), '..'); } catch { return null; } };
 // A Chrome on the machine (GitHub's runners have one), else Playwright's own (`npx playwright install chromium`).

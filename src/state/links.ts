@@ -1,28 +1,19 @@
 'use client';
-// Links from the open-source games' repositories on GitHub (scripts/publish-games.mjs, the kit's
-// `orb share`). Both leave the address at once, so they aren't passed on or acted on twice, and
-// both end in a tap of the person's own, never in a copy made by just opening a link:
-//   ?remix             on a world's page: its chat opens, where the welcome line offers Make my own copy
+// Links from Orb Originals' repositories on GitHub (their READMEs) and the kit's `orb share`. Both
+// leave the address at once, so they aren't passed on or acted on twice, and both end in a tap of
+// the person's own, never in a copy made by just opening a link:
+//   ?remix             on a world's page: its chat opens, under the world bar's Remix
 //   ?import=<repo>     anywhere: the You tab opens with the repository in its import form
 import { useEffect, useRef } from 'react';
 import { track } from '@/lib/analytics';
+import { takeParams } from './share';
 import { useUi } from './ui';
 import { useWorld } from './world';
 
 function take(): { remix: boolean; repo: string | null } {
-  const url = new URL(window.location.href);
-  const remix = url.searchParams.has('remix');
-  const raw = url.searchParams.get('import');
-  if (!remix && raw === null) return { remix: false, repo: null };
-  url.searchParams.delete('remix');
-  url.searchParams.delete('import');
-  try {
-    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
-  } catch {
-    /* acted on anyway */
-  }
+  const [remix, raw] = takeParams('remix', 'import');
   const repo = raw?.trim().replace(/^(https?:\/\/)?(www\.)?github\.com\//i, '').replace(/\/+$/, '') ?? '';
-  return { remix, repo: /^[\w.-]{1,100}\/[\w.-]{1,100}(\/tree\/[^\s?#]{1,200})?$/.test(repo) ? `https://github.com/${repo}` : null };
+  return { remix: remix !== null, repo: /^[\w.-]{1,100}\/[\w.-]{1,100}(\/tree\/[^\s?#]{1,200})?$/.test(repo) ? `https://github.com/${repo}` : null };
 }
 
 export function useGitHubLinks(): void {
@@ -51,6 +42,7 @@ export function useGitHubLinks(): void {
     a.remix = false;
     if (isExternal || canEdit || !world.forkable) return;
     track('remix_link', { world_id: world.id });
-    useUi.getState().openPanel('chat', 'half');
+    // Full height: on a phone the world bar, and its Remix, shows only there.
+    useUi.getState().openPanel('chat', 'full');
   }, [status, world, canEdit, isExternal]);
 }

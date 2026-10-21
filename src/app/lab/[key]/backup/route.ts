@@ -1,6 +1,7 @@
 import { LAB_KEY } from '@/server/lab';
 import { pulse } from '@/server/pulse';
 import { ready } from '@/server/schema';
+import { ndjson, plain } from '../ndjson';
 
 // GET /lab/<key>/backup — what the nightly backup (scripts/backup.mjs) copies besides the traces
 // (those come from ../traces/export and ../traces/blob): Pulse's numbers as of now, every recorded
@@ -11,7 +12,6 @@ import { ready } from '@/server/schema';
 export const maxDuration = 300;
 
 const DAY = 86_400_000;
-const plain = (status: number, text: string) => new Response(text, { status, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
 
 export async function GET(req: Request, ctx: { params: Promise<{ key: string }> }): Promise<Response> {
   const { key } = await ctx.params;
@@ -20,9 +20,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ key: string }> 
   if (since && !/^\d{4}-\d{2}-\d{2}$/.test(since)) return plain(400, 'Bad since (YYYY-MM-DD).');
   const db = await ready();
 
-  async function* lines(): AsyncGenerator<unknown> {
-    yield { type: 'pulse', ...(await pulse(db)) };
-    yield { type: 'problems', rows: await db.query(`select kind, message, detail, path, count, first_at, last_at from orb_errors order by last_at desc`) };
+  const line = (value: unknown) => `${JSON.stringify(value)}\n`;
+  async function* lines(): AsyncGenerator<string> {
+    yield line({ type: 'pulse', ...(await pulse(db)) });
+    yield line({ type: 'problems', rows: await db.query(`select kind, message, detail, path, count, first_at, last_at from orb_errors order by last_at desc`) });
     const [first] = await db.query<{ day: string | null }>(`select to_char(min(at) at time zone 'utc', 'YYYY-MM-DD') as day from orb_events`);
     if (!first?.day) return;
     for (let t = Math.max(Date.parse(`${since ?? first.day}T00:00:00Z`), Date.parse(`${first.day}T00:00:00Z`)); t <= Date.now(); t += DAY) {
@@ -32,23 +33,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ key: string }> 
          where at >= $1::timestamptz and at < $1::timestamptz + interval '1 day' order by id`,
         [`${day}T00:00:00Z`],
       );
-      if (rows.length) yield { type: 'events', day, rows };
+      if (rows.length) yield line({ type: 'events', day, rows });
     }
   }
 
-  const it = lines();
-  const enc = new TextEncoder();
-  const body = new ReadableStream<Uint8Array>({
-    async pull(c) {
-      try {
-        const next = await it.next();
-        if (next.done) c.close();
-        else c.enqueue(enc.encode(`${JSON.stringify(next.value)}\n`));
-      } catch (e) {
-        console.error('[orb] backup export failed', e);
-        c.error(e);
-      }
-    },
-  });
-  return new Response(body, { headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } });
+  return ndjson(lines(), 'backup export');
 }

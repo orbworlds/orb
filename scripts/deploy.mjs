@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // In sandboxes, run with NODE_USE_ENV_PROXY=1 so fetch honours HTTPS_PROXY (see package.json "deploy").
 // Deploy the current git-tracked tree to Vercel via the REST API (remote build).
-// Usage: node scripts/deploy.mjs [--prod] [--include-untracked]
+// Usage: node scripts/deploy.mjs [--prod]
 // Auth: api.vercel.com credentials are injected by the environment's proxy (or set VERCEL_TOKEN).
 
 import { execSync } from 'node:child_process';
@@ -12,14 +12,12 @@ import path from 'node:path';
 const PROJECT = process.env.VERCEL_PROJECT || 'orb';
 const API = 'https://api.vercel.com';
 const prod = process.argv.includes('--prod');
-const includeUntracked = process.argv.includes('--include-untracked');
 const headers = process.env.VERCEL_TOKEN ? { Authorization: `Bearer ${process.env.VERCEL_TOKEN}` } : {};
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-const list = execSync(`git ls-files ${includeUntracked ? '--others --exclude-standard --cached' : ''}`, { cwd: root, encoding: 'utf8' })
+const list = execSync('git ls-files', { cwd: root, encoding: 'utf8' })
   .split('\n')
-  .filter(Boolean)
-  .filter((f) => !f.startsWith('.data/') && !f.startsWith('worlds/') && fs.existsSync(path.join(root, f)) && fs.statSync(path.join(root, f)).isFile());
+  .filter((f) => f && fs.existsSync(path.join(root, f)) && fs.statSync(path.join(root, f)).isFile());
 
 async function api(method, url, body, extra = {}) {
   for (let attempt = 0; attempt < 4; attempt++) {

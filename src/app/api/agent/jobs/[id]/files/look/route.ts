@@ -1,14 +1,14 @@
-// POST /api/agent/jobs/:id/files/look?t=…&base=… — a Cursor agent working without GitHub looks at
-// the world (sh .orb/look, see src/server/agent/sync.ts). It sends its files the way it saves them,
-// with what to do first; they are shown, not saved. The job's tick asks a page that watches the
-// build to play them (src/server/agent/look.ts), and this answers with what the page saw: a
-// .tar.gz of report.txt and the screenshots, or plain words when there is nothing to see.
+// POST /api/agent/jobs/:id/files/look?t=…&base=… — a Cursor agent looks at the world (sh .orb/look,
+// see src/server/agent/sync.ts). It sends its files the way it saves them, with what to do first;
+// they are shown, not saved. The job's tick asks a page that watches the build to play them
+// (src/server/agent/look.ts), and this answers with what the page saw: a .tar.gz of report.txt and
+// the screenshots, or plain words when there is nothing to see.
 
 import { cleanProbeActions, probeDuration } from '@/lib/probe';
 import { FileError, getTree, isSha } from '@/server/files';
 import { handle } from '@/server/http';
 import { rateLimit } from '@/server/ratelimit';
-import { isWatched, LOOK_OVERHEAD_MS, lookCount, MAX_LOOKS, requestLook, seenFiles, trimLooks, waitForLook } from '@/server/agent/look';
+import { LOOK_OVERHEAD_MS, lookCount, lookRefusal, MAX_LOOKS, missedLook, openLook, seenFiles, trimLooks, waitForLook } from '@/server/agent/look';
 import { linkedJob, packSeen, readSave, sayText as say } from '@/server/agent/sync';
 
 export const maxDuration = 150;
@@ -54,12 +54,11 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
   const { actions, skipped } = cleanProbeActions(asked.input.actions);
 
   const looks = await lookCount(db, id);
-  if (looks >= MAX_LOOKS) return say(200, `You have looked ${looks} times in this build, which is the limit. Check your work by reading the code instead.`);
-  if (!(await isWatched(db, id))) return say(200, "Nobody has the world open right now, so you can't see it run. Check your work carefully by reading the code instead, and look again later.");
-  const lookId = await requestLook(db, id, { tree: sent.tree, actions, skipped, ...(asked.input.viewport === 'phone' ? { viewport: 'phone' as const } : {}) });
+  const refused = await lookRefusal(db, id, looks);
+  if (refused) return say(200, refused);
+  const lookId = await openLook(db, id, { tree: sent.tree, actions, skipped, ...(asked.input.viewport === 'phone' ? { viewport: 'phone' as const } : {}) });
   const answer = await waitForLook(db, id, lookId, { timeoutMs: probeDuration(actions) + LOOK_OVERHEAD_MS + PICKUP_MS, signal: req.signal });
-  if ('timeout' in answer) return say(200, req.signal.aborted ? 'The look was interrupted.' : "The person's browser didn't answer in time (it may be busy, or the world is very slow to start). Continue carefully, and look again later.");
-  if ('unavailable' in answer) return say(200, `Couldn't look: ${answer.unavailable} Continue carefully, and look again later.`);
+  if (!('result' in answer)) return say(200, missedLook(answer, req.signal.aborted));
   await trimLooks(db, id).catch((e) => console.error('[orb] agent looks trim failed', e));
   const seen = packSeen(seenFiles(lookId, answer.result, skipped, MAX_LOOKS - looks - 1));
   return new Response(new Uint8Array(seen), { headers: { 'content-type': 'application/gzip', 'cache-control': 'no-store' } });

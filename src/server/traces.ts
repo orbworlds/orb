@@ -13,23 +13,23 @@
 // (orb_trace_blobs), stored once and referenced from payloads as "orb-blob:<sha>".
 //
 // Recording never gets in a build's way: writes go on a queue per trace (in order, off the build's
-// path), and failures are logged, never thrown. Builds await flush() only where their function
-// may end (a tick handing over, a request finishing), and never for long.
+// path), and failures are logged, never thrown. Builds await handOver() or end() only where their
+// function may end (a tick handing over, a request finishing), and never for long.
 
-import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { gunzip, gzip } from 'node:zlib';
 import type { Db } from './db';
+import { sha256 } from './files';
 
 const zip = promisify(gzip);
 const unzip = promisify(gunzip);
 
 export type TraceKind = 'agent' | 'cursor' | 'build' | 'direct';
 export type TraceStatus = 'running' | 'done' | 'failed' | 'cancelled';
-export const TRACE_KINDS: readonly string[] = ['agent', 'cursor', 'build', 'direct'];
-export const TRACE_STATUSES: readonly string[] = ['running', 'done', 'failed', 'cancelled'];
+const TRACE_KINDS: readonly string[] = ['agent', 'cursor', 'build', 'direct'];
+const TRACE_STATUSES: readonly string[] = ['running', 'done', 'failed', 'cancelled'];
 
-export const BLOB_REF = 'orb-blob:';
+const BLOB_REF = 'orb-blob:';
 const REF_RE = /^orb-blob:([a-f0-9]{64})$/;
 /** The sha of an "orb-blob:<sha>" reference (null for anything else). */
 export const blobSha = (s: unknown): string | null => (typeof s === 'string' ? (REF_RE.exec(s)?.[1] ?? null) : null);
@@ -79,7 +79,6 @@ export interface TraceBlob {
   type: string | null;
 }
 
-const sha256 = (data: Uint8Array | string) => createHash('sha256').update(data).digest('hex');
 /** A jsonb value as the driver gives it (parsed already, or as text). */
 const json = <T>(v: unknown, fallback: T): T => (v == null ? fallback : typeof v === 'string' ? (JSON.parse(v) as T) : (v as T));
 const ref = (sha: string) => `${BLOB_REF}${sha}`;
@@ -182,7 +181,7 @@ export function stash(v: unknown, blobs: TraceBlob[], refs: Map<string, string> 
 }
 
 /** `v` with every string passed through `fn` (deep). */
-export function mapStrings(v: unknown, fn: (s: string) => string): unknown {
+function mapStrings(v: unknown, fn: (s: string) => string): unknown {
   if (typeof v === 'string') return fn(v);
   if (Array.isArray(v)) return v.map((x) => mapStrings(x, fn));
   if (!v || typeof v !== 'object') return v;
@@ -227,7 +226,7 @@ function enqueue(id: string, what: string, task: () => Promise<unknown>): void {
 }
 
 /** Wait for a trace's queued writes (for a little while at most). */
-export function flushTrace(id: string): Promise<void> {
+function flushTrace(id: string): Promise<void> {
   const q = state.queues.get(id);
   if (!q) return Promise.resolve();
   return new Promise((resolve) => {
@@ -276,7 +275,6 @@ export interface TraceHead {
   mode?: string;
   prompt?: string;
   meta?: Record<string, unknown>;
-  startedAt?: Date | string | number;
 }
 
 export interface TraceInput {
@@ -286,14 +284,10 @@ export interface TraceInput {
   messages?: unknown[];
   /** The world's files when the build started (a tree, see ./files.ts). */
   tree?: string | null;
-  /** Anything else worth keeping with the input. */
-  extra?: Record<string, unknown>;
 }
 
 export interface Trace {
   readonly id: string;
-  /** The trace's row (once) and what the build was given. */
-  start(head: TraceHead, input?: TraceInput): void;
   event(type: string, summary: Record<string, unknown>, payload?: unknown): void;
   /** One model call: the messages it added (words, thinking, tool calls and results), usage, timing. */
   step(s: { step?: number; messages: unknown[]; usage?: UsageLike; finishReason?: string; ms: number; modelId?: string }): void;
@@ -310,10 +304,9 @@ export interface Trace {
   handOver(detail?: Record<string, unknown>): Promise<void>;
   /** How it ended (the first end counts), then flush. `meta.tree`: the world's files at the end. */
   end(status: TraceStatus, error?: string | null, meta?: Record<string, unknown>): Promise<void>;
-  flush(): Promise<void>;
 }
 
-/** Record events on a trace (its row is made by start(), see startTrace). */
+/** Record events on a trace (its row is made by startTrace). */
 export function openTrace(db: Db, id: string): Trace {
   /** "orb-look:<look>:<n>" → that screenshot's blob, for the step that shows it. */
   const looks = new Map<string, string>();
@@ -329,29 +322,6 @@ export function openTrace(db: Db, id: string): Trace {
 
   const t: Trace = {
     id,
-    start(head, input) {
-      const startedAt = head.startedAt ? new Date(head.startedAt) : new Date();
-      enqueue(id, 'start', () =>
-        db.query(
-          `insert into orb_traces (id, group_id, kind, world_id, owner_device, owner_user, provider, model, mode, prompt, meta, started_at)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::timestamptz) on conflict (id) do nothing`,
-          [id, head.group ?? null, head.kind, head.worldId ?? null, head.owner?.deviceHash ?? null, head.owner?.userId ?? null, head.provider, head.model ?? null, head.mode ?? 'build', (head.prompt ?? '').slice(0, PROMPT_MAX), JSON.stringify(head.meta ?? {}), startedAt],
-        ),
-      );
-      if (!input) return;
-      const blobs: TraceBlob[] = [];
-      const system = input.system ? toBlob(Buffer.from(input.system), 'text/plain') : null;
-      if (system) blobs.push(system);
-      const messages = input.messages ? (stash(input.messages, blobs, looks) as unknown[]) : undefined;
-      const extra = input.extra ? (stash(input.extra, blobs, looks) as Record<string, unknown>) : {};
-      enqueue(id, 'input', async () => {
-        const files = input.tree ? await putTreeBlobs(db, input.tree) : null;
-        await putBlobs(db, blobs);
-        const images = blobs.filter((b) => b.type?.startsWith('image/')).length;
-        const summary = { messages: messages?.length, system: input.system?.length, files: files ? Object.keys(files).length : undefined, images: images || undefined };
-        await insertEvent(db, id, startedAt, 'input', summary, { system: system ? ref(system.sha) : undefined, messages, tree: input.tree ?? undefined, files: files ?? undefined, ...extra });
-      });
-    },
     event(type, summary, payload) {
       const blobs: TraceBlob[] = [];
       add(type, summary, payload === undefined ? undefined : stash(payload, blobs, looks), blobs);
@@ -424,16 +394,35 @@ export function openTrace(db: Db, id: string): Trace {
       });
       return flush();
     },
-    flush,
   };
   return t;
 }
 
-/** Begin a trace: its row and its input (all queued; nothing here waits on the database). */
+/** Begin a trace: its row and what the build was given (all queued; nothing here waits on the database). */
 export function startTrace(db: Db, head: TraceHead, input?: TraceInput): Trace {
-  const t = openTrace(db, head.id);
-  t.start(head, input);
-  return t;
+  const { id } = head;
+  const startedAt = new Date();
+  enqueue(id, 'start', () =>
+    db.query(
+      `insert into orb_traces (id, group_id, kind, world_id, owner_device, owner_user, provider, model, mode, prompt, meta, started_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::timestamptz) on conflict (id) do nothing`,
+      [id, head.group ?? null, head.kind, head.worldId ?? null, head.owner?.deviceHash ?? null, head.owner?.userId ?? null, head.provider, head.model ?? null, head.mode ?? 'build', (head.prompt ?? '').slice(0, PROMPT_MAX), JSON.stringify(head.meta ?? {}), startedAt],
+    ),
+  );
+  if (input) {
+    const blobs: TraceBlob[] = [];
+    const system = input.system ? toBlob(Buffer.from(input.system), 'text/plain') : null;
+    if (system) blobs.push(system);
+    const messages = input.messages ? (stash(input.messages, blobs) as unknown[]) : undefined;
+    enqueue(id, 'input', async () => {
+      const files = input.tree ? await putTreeBlobs(db, input.tree) : null;
+      await putBlobs(db, blobs);
+      const images = blobs.filter((b) => b.type?.startsWith('image/')).length;
+      const summary = { messages: messages?.length, system: input.system?.length, files: files ? Object.keys(files).length : undefined, images: images || undefined };
+      await insertEvent(db, id, startedAt, 'input', summary, { system: system ? ref(system.sha) : undefined, messages, tree: input.tree ?? undefined, files: files ?? undefined });
+    });
+  }
+  return openTrace(db, id);
 }
 
 /** One stretch of a Cursor run's event stream (./agent/cursor.ts), recorded as a step when it ends. */
@@ -509,12 +498,6 @@ const ROWS = `select t.*, w.name as world_name, coalesce(nullif(btrim(u.name), '
 
 const iso = (v: unknown) => new Date(v as string).toISOString();
 
-function asBytes(v: unknown): Uint8Array {
-  if (v instanceof Uint8Array) return v;
-  if (typeof v === 'string' && v.startsWith('\\x')) return Uint8Array.from(Buffer.from(v.slice(2), 'hex'));
-  throw new Error('unexpected bytes value');
-}
-
 function toRow(r: Record<string, unknown>): TraceRow {
   const n = (k: string) => Number(r[k]) || 0;
   return {
@@ -575,23 +558,17 @@ export async function listTraces(db: Db, f: TraceFilter = {}, page = 0, limit = 
 }
 
 /** How many traces match, their tokens, and the space all traces take. */
-export async function traceTotals(db: Db, f: TraceFilter = {}): Promise<{ traces: number; tokens: Tokens; bytes: number | null }> {
+export async function traceTotals(db: Db, f: TraceFilter = {}): Promise<{ traces: number; tokens: Tokens; bytes: number }> {
   const params: unknown[] = [];
   const rows = await db.query<Record<string, unknown>>(
     `select count(*)::int as n, coalesce(sum(input_tokens), 0)::float8 as i, coalesce(sum(output_tokens), 0)::float8 as o, coalesce(sum(cache_read_tokens), 0)::float8 as cr,
-       coalesce(sum(cache_write_tokens), 0)::float8 as cw, coalesce(sum(reasoning_tokens), 0)::float8 as r
+       coalesce(sum(cache_write_tokens), 0)::float8 as cw, coalesce(sum(reasoning_tokens), 0)::float8 as r,
+       (pg_total_relation_size('orb_traces') + pg_total_relation_size('orb_trace_events') + pg_total_relation_size('orb_trace_blobs'))::float8 as b
      from orb_traces t ${where(f, params)}`,
     params,
   );
   const r = rows[0] ?? {};
-  let bytes: number | null = null;
-  try {
-    const s = await db.query<{ b: number }>(`select (pg_total_relation_size('orb_traces') + pg_total_relation_size('orb_trace_events') + pg_total_relation_size('orb_trace_blobs'))::float8 as b`);
-    bytes = Number(s[0]?.b) || 0;
-  } catch {
-    /* the size functions aren't available */
-  }
-  return { traces: Number(r.n) || 0, tokens: { in: Number(r.i) || 0, out: Number(r.o) || 0, cacheRead: Number(r.cr) || 0, cacheWrite: Number(r.cw) || 0, reasoning: Number(r.r) || 0 }, bytes };
+  return { traces: Number(r.n) || 0, tokens: { in: Number(r.i) || 0, out: Number(r.o) || 0, cacheRead: Number(r.cr) || 0, cacheWrite: Number(r.cw) || 0, reasoning: Number(r.r) || 0 }, bytes: Number(r.b) || 0 };
 }
 
 /** The providers traces were made with (for the lab's filters). */
@@ -606,13 +583,13 @@ export async function getTrace(db: Db, id: string): Promise<TraceRow | null> {
 
 /** A trace's events in order, payloads decoded. */
 export async function traceEvents(db: Db, id: string): Promise<TraceEvent[]> {
-  const rows = await db.query<{ seq: number; at: unknown; type: string; summary: unknown; payload: unknown; size: number }>(`select seq, at, type, summary, payload, size from orb_trace_events where trace_id = $1 order by seq`, [id]);
+  const rows = await db.query<{ seq: number; at: unknown; type: string; summary: unknown; payload: Uint8Array | null; size: number }>(`select seq, at, type, summary, payload, size from orb_trace_events where trace_id = $1 order by seq`, [id]);
   return Promise.all(
     rows.map(async (r) => {
       let payload: unknown = null;
       if (r.payload != null) {
         try {
-          payload = JSON.parse((await unzip(asBytes(r.payload))).toString('utf8'));
+          payload = JSON.parse((await unzip(r.payload)).toString('utf8'));
         } catch (e) {
           payload = { unreadable: e instanceof Error ? e.message : String(e) };
         }
@@ -629,8 +606,8 @@ export async function traceRounds(db: Db, group: string): Promise<Array<{ id: st
 }
 
 export async function traceBlob(db: Db, sha: string): Promise<{ data: Uint8Array; type: string | null } | null> {
-  const rows = await db.query<{ data: unknown; media_type: string | null }>(`select data, media_type from orb_trace_blobs where sha = $1`, [sha]);
-  return rows[0] ? { data: asBytes(rows[0].data), type: rows[0].media_type } : null;
+  const rows = await db.query<{ data: Uint8Array; media_type: string | null }>(`select data, media_type from orb_trace_blobs where sha = $1`, [sha]);
+  return rows[0] ? { data: rows[0].data, type: rows[0].media_type } : null;
 }
 
 /** `v` with its blob references inlined: text always, images (as data URLs) when asked. */
@@ -642,13 +619,13 @@ async function inlineBlobs(db: Db, v: unknown, images: boolean): Promise<unknown
     return s;
   });
   if (!shas.size) return v;
-  const rows = await db.query<{ sha: string; media_type: string | null; data: unknown }>(
+  const rows = await db.query<{ sha: string; media_type: string | null; data: Uint8Array }>(
     `select sha, media_type, data from orb_trace_blobs where sha = any($1::text[]) and (media_type like 'text/%' or ($2::boolean and media_type like 'image/%'))`,
     [[...shas], images],
   );
   const inline = new Map<string, string>();
   for (const r of rows) {
-    const bytes = Buffer.from(asBytes(r.data));
+    const bytes = Buffer.from(r.data);
     inline.set(ref(r.sha), r.media_type?.startsWith('text/') ? bytes.toString('utf8') : `data:${r.media_type};base64,${bytes.toString('base64')}`);
   }
   return mapStrings(v, (s) => inline.get(s) ?? s);

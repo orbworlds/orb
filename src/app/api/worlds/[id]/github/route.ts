@@ -7,10 +7,10 @@
 
 import { getViewer } from '@/server/auth';
 import { GitHubError } from '@/server/github';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, fail, handle, json, readJson } from '@/server/http';
 import { getLink, keepOnGitHub, pullRepo, pushRepo, SyncError, tokenOf, unlinkRepo } from '@/server/reposync';
 import { ready } from '@/server/schema';
-import { actorKey, fail, getWorldForViewer, limitOrThrow, route, worldIdParam, type IdContext } from '@/server/worlds';
+import { actorKey, getWorldForViewer, limitOrThrow, worldIdParam, type IdContext } from '@/server/worlds';
 import type { Db } from '@/server/db';
 import type { Viewer } from '@/server/auth';
 
@@ -24,13 +24,13 @@ async function ownWorld(db: Db, viewer: Viewer, id: string) {
   return world;
 }
 
-export const POST = route(async (req: Request, ctx: IdContext) => {
+export const POST = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const viewer = getViewer(req);
   const body = await readJson<{ action?: unknown }>(req, 2000);
   const db = await ready();
   await limitOrThrow(db, `github:${actorKey(viewer, clientIp(req))}`, 20, 600, 'That was a lot of GitHub at once — try again in a few minutes.');
-  const world = await ownWorld(db, viewer, id);
+  await ownWorld(db, viewer, id);
   try {
     if (body?.action === 'sync') {
       if (!(await getLink(db, id))) fail(400, 'bad_request', 'This world isn’t linked to a GitHub repository.');
@@ -49,7 +49,7 @@ export const POST = route(async (req: Request, ctx: IdContext) => {
   return json({ world: await getWorldForViewer(db, viewer, id) });
 });
 
-export const DELETE = route(async (req: Request, ctx: IdContext) => {
+export const DELETE = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const viewer = getViewer(req);
   const db = await ready();

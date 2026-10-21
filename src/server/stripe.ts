@@ -6,6 +6,7 @@
 // get their own.
 
 import crypto from 'node:crypto';
+import { sameString } from './auth';
 import type { Db } from './db';
 
 const API = (process.env.ORB_STRIPE_API || 'https://api.stripe.com').replace(/\/+$/, '');
@@ -103,24 +104,19 @@ export function verifySignature(payload: string, header: string | null, secret: 
   }
   const ts = Number(t);
   if (!t || !Number.isFinite(ts) || !sigs.length || Math.abs(now / 1000 - ts) > toleranceSec) return false;
-  const expected = Buffer.from(crypto.createHmac('sha256', secret).update(`${t}.${payload}`, 'utf8').digest('hex'));
-  return sigs.some((s) => {
-    const got = Buffer.from(s);
-    return got.length === expected.length && crypto.timingSafeEqual(got, expected);
-  });
-}
-
-/** A Stripe-Signature header for `payload` (the fake Stripe in tests signs this way too). */
-export function signPayload(payload: string, secret: string, at = Math.floor(Date.now() / 1000)): string {
-  return `t=${at},v1=${crypto.createHmac('sha256', secret).update(`${at}.${payload}`, 'utf8').digest('hex')}`;
+  const expected = crypto.createHmac('sha256', secret).update(`${t}.${payload}`, 'utf8').digest('hex');
+  return sigs.some((s) => sameString(s, expected));
 }
 
 // -- what Orb sets up in the account ----------------------------------------------------------------
 
 /** Short fingerprint of the secret key: what Orb made in one Stripe account is kept apart from another's. */
-function account(): string {
+export function keyTag(): string {
   return crypto.createHash('sha256').update(stripeKey() ?? '').digest('hex').slice(0, 12);
 }
+
+/** The webhook secret set by hand (STRIPE_WEBHOOK_SECRET), or ''. */
+export const envSecret = (): string => (process.env.STRIPE_WEBHOOK_SECRET ?? '').trim();
 
 async function getMeta(db: Db, key: string): Promise<{ value: string; at: Date } | null> {
   const rows = await db.query<{ value: string; at: Date | string }>(`select value, at from orb_meta where key = $1`, [key]);
@@ -137,7 +133,7 @@ const prices = new Map<string, string>();
 export async function proPrice(usd: number): Promise<string> {
   const cents = Math.round(usd * 100);
   const lookup = `orb_pro_month_usd_${cents}`;
-  const cacheKey = `${account()}:${lookup}`;
+  const cacheKey = `${keyTag()}:${lookup}`;
   const known = prices.get(cacheKey);
   if (known) return known;
   const found = await stripe<{ data?: Array<{ id: string }> }>('GET', '/v1/prices', { lookup_keys: [lookup], active: true, limit: 1 });
@@ -157,7 +153,7 @@ export async function proPrice(usd: number): Promise<string> {
 
 /** The customer portal's settings for Orb: cancel at the period's end, cards, invoices. */
 export async function portalConfiguration(db: Db): Promise<string | null> {
-  const key = `stripe:portal:${account()}`;
+  const key = `stripe:portal:${keyTag()}`;
   const known = await getMeta(db, key);
   if (known) return known.value;
   try {
@@ -201,33 +197,25 @@ interface Endpoint {
 /** How Orb's own webhook endpoints are described in Stripe (how Orb knows them again). */
 const ORB_ENDPOINT = 'Orb plans and credits';
 
-/** The secrets webhook deliveries may be signed with: STRIPE_WEBHOOK_SECRET, and the endpoint Orb registered. */
-export async function webhookSecrets(db: Db): Promise<string[]> {
-  const out: string[] = [];
-  const fromEnv = (process.env.STRIPE_WEBHOOK_SECRET ?? '').trim();
-  if (fromEnv) out.push(fromEnv);
-  if (stripeKey()) {
-    const known = await getMeta(db, `stripe:webhook:${account()}`);
-    try {
-      const ep = known ? (JSON.parse(known.value) as Partial<Endpoint>) : null;
-      if (ep?.secret) out.push(ep.secret);
-    } catch {
-      /* 'pending' */
-    }
+/** The webhook endpoint Orb registered in this key's account, if it has one (not while one is being registered). */
+async function storedEndpoint(db: Db): Promise<Partial<Endpoint> | null> {
+  if (!stripeKey()) return null;
+  const known = await getMeta(db, `stripe:webhook:${keyTag()}`);
+  try {
+    return known ? (JSON.parse(known.value) as Partial<Endpoint>) : null;
+  } catch {
+    return null; // 'pending'
   }
-  return out;
 }
 
-/** The webhook endpoint Orb registered in this key's account (its address), if it has one. */
-export async function registeredWebhook(db: Db): Promise<{ id: string; url: string } | null> {
-  if (!stripeKey()) return null;
-  const known = await getMeta(db, `stripe:webhook:${account()}`);
-  try {
-    const ep = known ? (JSON.parse(known.value) as Partial<Endpoint>) : null;
-    return ep?.id && ep.url ? { id: ep.id, url: ep.url } : null;
-  } catch {
-    return null;
-  }
+/** The secrets webhook deliveries may be signed with: STRIPE_WEBHOOK_SECRET, and the endpoint Orb registered. */
+export async function webhookSecrets(db: Db): Promise<string[]> {
+  return [envSecret(), (await storedEndpoint(db))?.secret].filter((s): s is string => !!s);
+}
+
+/** The address of the webhook endpoint Orb registered in this key's account, if it has one. */
+export async function registeredWebhook(db: Db): Promise<string | null> {
+  return (await storedEndpoint(db))?.url ?? null;
 }
 
 /**
@@ -236,8 +224,8 @@ export async function registeredWebhook(db: Db): Promise<{ id: string; url: stri
  * themselves when people come back, and Pro renewals are looked up when a period ends.
  */
 export async function ensureWebhook(db: Db, url: string | null): Promise<void> {
-  if (!url || (process.env.STRIPE_WEBHOOK_SECRET ?? '').trim() || !stripeKey()) return;
-  const key = `stripe:webhook:${account()}`;
+  if (!url || envSecret() || !stripeKey()) return;
+  const key = `stripe:webhook:${keyTag()}`;
   const known = await getMeta(db, key);
   let previous: Endpoint | null = null;
   if (known) {

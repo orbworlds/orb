@@ -4,12 +4,12 @@
 import { getViewer } from '@/server/auth';
 import { createPortal, currentWallet, forgetCustomer, missingCustomer } from '@/server/billing';
 import { returnTo } from '@/server/billingurls';
-import { json, readJson } from '@/server/http';
+import { fail, handle, json, readJson } from '@/server/http';
 import { ready } from '@/server/schema';
 import { paymentsOn } from '@/server/stripe';
-import { fail, limitOrThrow, route, sessionUser } from '@/server/worlds';
+import { limitOrThrow, sessionUser } from '@/server/worlds';
 
-export const POST = route(async (req: Request) => {
+export const POST = handle(async (req: Request) => {
   if (!paymentsOn()) fail(503, 'payments_off', 'Payments aren’t open yet.');
   const body = await readJson<{ from?: unknown }>(req, 10_000);
   const db = await ready();

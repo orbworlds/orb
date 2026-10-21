@@ -4,18 +4,18 @@
 
 import { getViewer } from '@/server/auth';
 import { accountId, addFriend, friendsData } from '@/server/friends';
-import { json, readJson } from '@/server/http';
+import { handle, json, readJson } from '@/server/http';
 import { ready } from '@/server/schema';
-import { limitOrThrow, route } from '@/server/worlds';
+import { limitOrThrow } from '@/server/worlds';
 
-export const GET = route(async (req: Request) => {
+export const GET = handle(async (req: Request) => {
   const db = await ready();
   const me = await accountId(db, getViewer(req));
   await limitOrThrow(db, `friends:read:${me}`, 60, 60);
   return json(await friendsData(db, me));
 });
 
-export const POST = route(async (req: Request) => {
+export const POST = handle(async (req: Request) => {
   const db = await ready();
   const me = await accountId(db, getViewer(req));
   const body = await readJson<{ username?: unknown }>(req, 10_000);

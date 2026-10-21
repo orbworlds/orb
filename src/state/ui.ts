@@ -2,18 +2,18 @@
 // UI state of the app shell: the Orb (position, panel, tabs), the sheets layered over the world,
 // the shared composer draft and a few cross-component signals (focus requests, unread).
 // Nothing here is persisted except the Orb's position (lib/local) and the world-name cache.
-import { useSyncExternalStore } from 'react';
+import { useEffect, useEffectEvent, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { getOrbPosition, readJSON, setOrbPosition, writeJSON } from '@/lib/local';
 import { PHONE_MEDIA } from '@/lib/keyboard';
 
 export type PanelTab = 'chat' | 'you';
-/** Mobile bottom-sheet height: 'half' keeps the world visible (e.g. while building). */
-export type SheetDetent = 'half' | 'full';
+/** Mobile bottom sheet: 'half' holds the chat (up to ~3/4 of the screen), 'full' adds the world's row (up to nearly all of it). */
+type SheetDetent = 'half' | 'full';
 export type OrbSide = 'left' | 'right';
 
 /** Warm lead-in shown at the top of a fresh chat (e.g. right after picking a template). */
-export interface ChatIntro {
+interface ChatIntro {
   text: string;
   suggestions: string[];
   /** chatKey the intro belongs to; it disappears when the world changes. */
@@ -24,10 +24,8 @@ interface UiState {
   panelOpen: boolean;
   tab: PanelTab;
   detent: SheetDetent;
-  exploreOpen: boolean;
   /** The filter Explore opens on (e.g. 'remix'); its own default otherwise. */
-  exploreFilter: string | null;
-  /** Someone asked for Explore (the Orb's tab, "See all"…): the home page, down at its worlds. */
+  /** Someone asked for Explore (a world's "Explore", "See all"…): the home page, down at its worlds. */
   exploreRequest: number;
   /** Explore is scrolled down to its worlds (at home: past the invitation to make one). */
   exploreScrolled: boolean;
@@ -57,12 +55,10 @@ interface UiState {
 
   openPanel(tab?: PanelTab, detent?: SheetDetent): void;
   closePanel(): void;
-  togglePanel(): void;
   setTab(tab: PanelTab): void;
   setDetent(d: SheetDetent): void;
-  setExplore(open: boolean, filter?: string): void;
   /** Go to Explore, which is the home page's worlds (on `filter`, e.g. 'remix'). The shell does it. */
-  requestExplore(filter?: string): void;
+  requestExplore(): void;
   setShare(open: boolean): void;
   setHistory(open: boolean): void;
   setPlans(open: boolean): void;
@@ -87,9 +83,7 @@ const clamp01 = (n: number) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n))
 export const useUi = create<UiState>((set, get) => ({
   panelOpen: false,
   tab: 'chat',
-  detent: 'full',
-  exploreOpen: false,
-  exploreFilter: null,
+  detent: 'half',
   exploreRequest: 0,
   exploreScrolled: false,
   shareOpen: false,
@@ -111,11 +105,7 @@ export const useUi = create<UiState>((set, get) => ({
     set({ panelOpen: true, unread: false, ...(tab ? { tab } : {}), ...(detent ? { detent } : {}) });
   },
   closePanel() {
-    set({ panelOpen: false, detent: 'full' });
-  },
-  togglePanel() {
-    if (get().panelOpen) get().closePanel();
-    else get().openPanel();
+    set({ panelOpen: false, detent: 'half' });
   },
   setTab(tab) {
     set({ tab });
@@ -123,11 +113,8 @@ export const useUi = create<UiState>((set, get) => ({
   setDetent(detent) {
     set({ detent });
   },
-  setExplore(exploreOpen, filter) {
-    set({ exploreOpen, exploreFilter: exploreOpen ? (filter ?? null) : null });
-  },
-  requestExplore(filter) {
-    set({ exploreRequest: Date.now(), exploreFilter: filter ?? null });
+  requestExplore() {
+    set({ exploreRequest: Date.now() });
   },
   setShare(shareOpen) {
     set({ shareOpen });
@@ -187,12 +174,11 @@ export const useUi = create<UiState>((set, get) => ({
 function mediaStore(query: string) {
   return {
     subscribe(fn: () => void) {
-      if (typeof window === 'undefined') return () => {};
-      const mq = window.matchMedia(query);
+      const mq = matchMedia(query);
       mq.addEventListener('change', fn);
       return () => mq.removeEventListener('change', fn);
     },
-    get: () => (typeof window === 'undefined' ? false : window.matchMedia(query).matches),
+    get: () => matchMedia(query).matches,
   };
 }
 const mobileMq = mediaStore('(max-width: 639px)');
@@ -210,8 +196,73 @@ export function usePhone(): boolean {
 export function useReducedMotion(): boolean {
   return useSyncExternalStore(reducedMq.subscribe, reducedMq.get, () => false);
 }
-export function prefersReducedMotion(): boolean {
-  return reducedMq.get();
+/** Below the 640px breakpoint, right now (outside React). */
+export const isMobile = () => mobileMq.get();
+
+/** Once the element `id` is on screen (a tab mounting), do `then` with it; gives up after 20 frames. */
+export function whenShown(id: string, then: (el: HTMLElement) => void): void {
+  let tries = 0;
+  const look = () => {
+    const el = document.getElementById(id);
+    if (el) then(el);
+    else if (++tries < 20) requestAnimationFrame(look);
+  };
+  requestAnimationFrame(look);
+}
+
+// --- phones: the system Back closes the sheet, then a profile, before it leaves the page ----------
+// Opening one adds a history entry at the same address; Back pops it and the layer closes (Shell's
+// popstate asks popLayer first). Closing it in the page takes its entry back; going to another page
+// from inside it reuses the entry (world.ts navigate), so Back then returns to where it was opened.
+
+interface BackLayer {
+  id: number;
+  close(): void;
+  /** Its history entry is still there. */
+  entry: boolean;
+}
+const layers: BackLayer[] = [];
+let layerSeq = 0;
+/** The next popstate is the page taking a layer's entry back. */
+let ownPop = false;
+
+/** While `open`, the system Back closes this layer (`close`). */
+export function useBackCloses(open: boolean, close: () => void): void {
+  const onBack = useEffectEvent(close);
+  useEffect(() => {
+    if (!open) return;
+    const layer: BackLayer = { id: ++layerSeq, close: () => onBack(), entry: true };
+    history.pushState({ ...history.state, orbLayer: layer.id }, '');
+    layers.push(layer);
+    return () => {
+      layers.splice(layers.indexOf(layer), 1);
+      if (layer.entry && history.state?.orbLayer === layer.id) {
+        ownPop = true;
+        history.back();
+      }
+    };
+  }, [open]);
+}
+
+/** On popstate: whether it was a layer's entry (that layer is now closed), not a page to show. */
+export function popLayer(): boolean {
+  if (ownPop) {
+    ownPop = false;
+    return true;
+  }
+  const top = layers.findLast((l) => l.entry);
+  if (!top || (history.state?.orbLayer ?? 0) >= top.id) return false;
+  top.entry = false;
+  top.close();
+  return true;
+}
+
+/** Going to another page from inside a layer: true when it should take that layer's entry. */
+export function takeLayerEntry(): boolean {
+  const top = layers.findLast((l) => l.entry);
+  if (!top || history.state?.orbLayer !== top.id) return false;
+  top.entry = false;
+  return true;
 }
 
 // --- world names (for "recent chats in other worlds") --------------------------------------------

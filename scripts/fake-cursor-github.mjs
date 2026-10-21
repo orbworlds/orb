@@ -336,7 +336,6 @@ export function startFake(port = 0) {
         repos,
         agents,
         log,
-        headFiles,
         /** A public repository with these files ({ path: string }), as codeload serves it. */
         addRepo: (name, files) => {
           repos.set(name, { refs: {} });

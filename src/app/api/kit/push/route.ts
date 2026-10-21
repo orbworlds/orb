@@ -5,16 +5,16 @@
 import { after } from 'next/server';
 import { getViewer } from '@/server/auth';
 import { FileError } from '@/server/files';
-import { clientIp, json } from '@/server/http';
+import { clientIp, fail, handle, json } from '@/server/http';
 import { pushWorld } from '@/server/kit';
 import { requestOrigin } from '@/server/origins';
 import { pushRepo } from '@/server/reposync';
 import { ready } from '@/server/schema';
-import { actorKey, fail, isWorldId, limitOrThrow, route } from '@/server/worlds';
+import { actorKey, isWorldId, limitOrThrow } from '@/server/worlds';
 
 export const maxDuration = 120;
 
-export const POST = route(async (req: Request) => {
+export const POST = handle(async (req: Request) => {
   const viewer = getViewer(req);
   if (!viewer.deviceHash && !viewer.userId) fail(401, 'kit_login', 'Sign in first: orb push asks you to.');
   if (!req.body) fail(400, 'bad_request', 'Send the world’s files as a .tar.gz.');

@@ -346,6 +346,7 @@ function Look({ e, lab }: { e: TraceEvent; lab: string }) {
   const evals = arr(r.evals).map(obj);
   const notes = arr(r.notes).filter((n): n is string => typeof n === 'string');
   const actions = arr(p.actions);
+  const rest = without(r, ['shots', 'errors', 'logs', 'evals', 'notes']);
   return (
     <>
       <Head title="Look">
@@ -374,9 +375,9 @@ function Look({ e, lab }: { e: TraceEvent; lab: string }) {
         </Fold>
       )}
       {notes.length > 0 && <p className="mt-1.5 text-[12.5px] text-ink-2">{notes.join(' · ')}</p>}
-      {Object.keys(r).length > 0 && (
+      {Object.keys(rest).length > 0 && (
         <Fold summary="Everything else it reported">
-          <Pre>{JSON.stringify(without(r, ['shots', 'errors', 'logs', 'evals', 'notes']), null, 2)}</Pre>
+          <Pre>{JSON.stringify(rest, null, 2)}</Pre>
         </Fold>
       )}
     </>

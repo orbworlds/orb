@@ -9,7 +9,7 @@
 //
 // External worlds (`externalUrl`): one plain cross-origin iframe, no runtime.
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type CSSProperties, type Ref } from 'react';
-import { createBridge, getLiveWorldStorage, isDraftWorldId, moveWorldStorage, type BridgeHandlers, type WorldBridge } from '@/lib/runtime/bridge';
+import { getLiveWorldStorage, isDraftWorldId, moveWorldStorage, WorldBridge, type BridgeHandlers } from '@/lib/runtime/bridge';
 import { injectRuntime } from '@/lib/runtime/sdk';
 import { probeDuration } from '@/lib/probe';
 import type { ProbeRequest, ProbeResult, ProbeUnavailable, RuntimeContext, WorldRuntimeError } from '@/lib/types';
@@ -51,18 +51,17 @@ export interface WorldFrameProps {
   onPeople?(people: { count: number; friends: number }): void;
   /** The world called `orb.shop.buy(item)`: ask the player in Orb's own sheet; whether they got it. */
   onPurchase?(item: string): Promise<{ ok: boolean; reason?: string }>;
-  className?: string;
   ref?: Ref<WorldFrameHandle>;
 }
 
 /** Native worlds: scripts but never allow-same-origin (opaque origin, no access to Orb). */
-export const WORLD_SANDBOX = 'allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals allow-downloads';
+const WORLD_SANDBOX = 'allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals allow-downloads';
 /** External worlds are cross-origin sites; they keep their own origin. */
-export const EXTERNAL_SANDBOX = `${WORLD_SANDBOX} allow-same-origin`;
+const EXTERNAL_SANDBOX = `${WORLD_SANDBOX} allow-same-origin`;
 // No camera / microphone: browsers remember a grant for the whole site (Orb), so allowing it once
 // in one world would let every other world use it too.
 // `gpu` is WebGPU in a cross-origin iframe (Unity WebGPU builds, e.g. The Little Prince).
-export const WORLD_ALLOW = 'fullscreen; autoplay; gamepad; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; clipboard-write; midi; screen-wake-lock; gpu';
+const WORLD_ALLOW = 'fullscreen; autoplay; gamepad; accelerometer; gyroscope; magnetometer; xr-spatial-tracking; clipboard-write; midi; screen-wake-lock; gpu';
 
 const FADE_MS = 450;
 const FADE_MS_REDUCED = 160;
@@ -121,11 +120,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const Z: Record<SlotStatus, string> = { loading: '1', shown: '2', leaving: '3' };
 
 function fadeMs(): number {
-  try {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? FADE_MS_REDUCED : FADE_MS;
-  } catch {
-    return FADE_MS;
-  }
+  return matchMedia('(prefers-reduced-motion: reduce)').matches ? FADE_MS_REDUCED : FADE_MS;
 }
 
 /** Imperative manager of the iframes of one native world viewport. */
@@ -303,7 +298,7 @@ class FrameStack {
 
     const slot: Slot = { html, worldId: ctx.worldId, iframe, bridge: null as unknown as WorldBridge, status: 'loading', createdAt: Date.now(), shownAt: null, readyAt: null, timers: [] };
     const isNewest = () => slot === this.newest;
-    slot.bridge = createBridge(iframe, {
+    slot.bridge = new WorldBridge(iframe, {
       // Live ctx (player, name), but always this frame's own world id: a frame still on screen while
       // the next world loads must not write that world's storage / store or join its room.
       ctx: () => ({ ...this.getCtx(), worldId: slot.worldId }),
@@ -372,7 +367,7 @@ class FrameStack {
   }
 }
 
-export default function WorldFrame({ html, externalUrl, ctx, onReady, onError, onToast, onTitle, onCapture, onInvite, onPeople, onPurchase, className, ref }: WorldFrameProps) {
+export default function WorldFrame({ html, externalUrl, ctx, onReady, onError, onToast, onTitle, onCapture, onInvite, onPeople, onPurchase, ref }: WorldFrameProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const externalRef = useRef<HTMLIFrameElement>(null);
   const stackRef = useRef<FrameStack | null>(null);
@@ -437,7 +432,7 @@ export default function WorldFrame({ html, externalUrl, ctx, onReady, onError, o
   );
 
   return (
-    <div className={className} style={FILL} data-orb-world="">
+    <div style={FILL} data-orb-world="">
       {external ? (
         <iframe
           key={externalKey}

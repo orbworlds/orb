@@ -1,6 +1,6 @@
 'use client';
 // Under the Orb's first message on a new world: three popular worlds that can be remixed, so
-// starting from one is as close as describing one, and the way to all of them (Explore's Remix).
+// starting from one is as close as describing one, and the way to more of them (Explore).
 // From the start screen's local copy of the popular feed right away, then the remixable feed.
 
 import { useEffect, useMemo, useState } from 'react';
@@ -12,10 +12,11 @@ import { Icon } from '@/components/ui/Icon';
 import type { WorldCard } from '@/lib/types';
 import { Thumb, useHydrated } from './WorldCard';
 
-const POPULAR_KEY = 'orb:home-popular';
+/** The start screen's local copy of the trending feed (src/components/orb/WorldStrip.tsx keeps it fresh). */
+export const POPULAR_KEY = 'orb:home-popular';
 const SHOWN = 3;
 
-const startable = (worlds: WorldCard[] | null) => (worlds ?? []).filter((w) => w.forkable && w.kind === 'native' && !!w.name && w.name !== 'Untitled world').slice(0, SHOWN);
+const startable = (worlds: WorldCard[] | null) => (worlds ?? []).filter((w) => w.forkable && w.kind === 'native').slice(0, SHOWN);
 
 export function StartFrom({ onStart }: { onStart(id: string): void }) {
   const hydrated = useHydrated();
@@ -43,7 +44,7 @@ export function StartFrom({ onStart }: { onStart(id: string): void }) {
           type="button"
           onClick={() => {
             track('start_from_more');
-            useUi.getState().requestExplore('remix');
+            useUi.getState().requestExplore();
           }}
           className="group -mr-1 inline-flex h-7 items-center gap-0.5 rounded-full pr-1 pl-2 text-[13px] font-medium text-ink-2 transition-colors hover:text-ink"
         >

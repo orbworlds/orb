@@ -12,12 +12,12 @@ import { setChatSync } from './chatsync';
 // passkey home instead: a full-page round trip through /move that comes back signed in (the
 // promise never settles, the page is leaving).
 
-import { browserSupportsWebAuthn, platformAuthenticatorIsAvailable, startAuthentication, startRegistration, WebAuthnError } from '@simplewebauthn/browser';
+import { browserSupportsWebAuthn, startAuthentication, startRegistration, WebAuthnError } from '@simplewebauthn/browser';
 import type { PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
 import { ApiError, deviceHeaders } from './api';
 import type { MeResponse } from './types';
 
-export const CANCELLED = 'cancelled';
+const CANCELLED = 'cancelled';
 
 type Kind = 'signup' | 'signin';
 
@@ -25,16 +25,6 @@ type Kind = 'signup' | 'signin';
 export function passkeysSupported(): boolean {
   try {
     return typeof window !== 'undefined' && window.isSecureContext !== false && browserSupportsWebAuthn();
-  } catch {
-    return false;
-  }
-}
-
-/** True if a built-in authenticator (Face ID, Touch ID, Windows Hello…) is available. */
-export async function platformPasskeyAvailable(): Promise<boolean> {
-  if (!passkeysSupported()) return false;
-  try {
-    return await platformAuthenticatorIsAvailable();
   } catch {
     return false;
   }
@@ -124,7 +114,6 @@ async function post<T>(path: string, body: unknown, ownDevice: boolean): Promise
     res = await fetch(path, {
       method: 'POST',
       headers: ownDevice ? deviceHeaders({ 'content-type': 'application/json' }) : { 'content-type': 'application/json' },
-      credentials: 'same-origin',
       body: JSON.stringify(body),
     });
   } catch {

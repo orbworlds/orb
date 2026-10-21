@@ -4,7 +4,7 @@
 // come back to after paying (/api/billing/return), and a lookup when a Pro period is over. So the
 // plans work even before the webhook is set up.
 
-import type { BillingInfo } from '@/lib/types';
+import type { BillingInfo, CreditPack } from '@/lib/types';
 import type { Db } from './db';
 import {
   allowanceOf,
@@ -12,21 +12,22 @@ import {
   ensureWallet,
   grantTopup,
   markSynced,
+  monthOf,
   plansConfig,
   readWallet,
   setCustomer,
   setProPeriod,
-  toMicros as toMicrosOf,
+  toMicros,
   TYPICAL_BUILD_CREDITS,
   userOfPayer,
   walletOfCustomer,
   type PlansConfig,
-  type TopUp,
   type Wallet,
 } from './credits';
-import { connectReady, rememberCard, reverseBuyer } from './payouts';
+import { webhookUrl } from './billingurls';
+import { connectReady, rememberCard, reverseBuyer, withPayouts } from './payouts';
 import { shopShare } from './shop';
-import { ensureWebhook, paymentsOn, portalConfiguration, proPrice, registeredWebhook, stripe, StripeError, stripeTestMode } from './stripe';
+import { ensureWebhook, envSecret, paymentsOn, portalConfiguration, proPrice, registeredWebhook, stripe, StripeError, stripeTestMode } from './stripe';
 
 /** How long a Pro period Stripe hasn't renewed stays Pro after its end (a renewal may come late). */
 const GRACE_MS = 3 * 86400_000;
@@ -86,7 +87,7 @@ export function billingInfo(w: Wallet | null, cfg: PlansConfig = plansConfig(), 
       used: Math.round((w?.usedMonthly ?? 0) * 100) / 100,
       topup: Math.round((w?.topup ?? 0) * 100) / 100,
       bonus: Math.round((w?.bonus ?? 0) * 100) / 100,
-      periodEnd: w?.periodEnd ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString(),
+      periodEnd: w?.periodEnd ?? monthOf(now).end.toISOString(),
       cancelAt: w?.cancelAt ?? null,
       pastDue: w?.status === 'past_due',
     },
@@ -95,6 +96,11 @@ export function billingInfo(w: Wallet | null, cfg: PlansConfig = plansConfig(), 
     earnings: w && w.payer.startsWith('u:') ? { credits: Math.round(w.earned * 100) / 100, total: Math.round(w.earnedTotal * 100) / 100 } : null,
     plans: { free: cfg.free, pro: cfg.pro, topups: cfg.topups, typicalBuild: TYPICAL_BUILD_CREDITS, shopShare: shopShare() },
   };
+}
+
+/** The billing answer for a payer, with their payouts in it (GET /api/billing and the earnings routes). */
+export async function billingView(db: Db, wallet: Wallet | null, payer: string, cfg: PlansConfig, req: Request): Promise<BillingInfo> {
+  return withPayouts(db, billingInfo(wallet, cfg, new Date(), await paymentsForPayer(db, payer)), payer, req);
 }
 
 // -- Stripe objects → wallets -----------------------------------------------------------------------
@@ -128,8 +134,11 @@ interface CheckoutSession {
 
 const getSubscription = (id: string) => stripe<StripeSubscription>('GET', `/v1/subscriptions/${encodeURIComponent(id)}`);
 
-async function accountExists(db: Db, userId: string): Promise<boolean> {
-  return (await db.query(`select 1 from orb_users where id = $1`, [userId])).length > 0;
+/** The Orb account behind a Stripe object: the id it names, else its customer's; only one that exists. */
+async function accountFor(db: Db, userId: string | null | undefined, customer: string | null): Promise<string | null> {
+  let id = userId || null;
+  if (!id && customer) id = userOfPayer((await walletOfCustomer(db, customer))?.payer ?? '');
+  return id && (await db.query(`select 1 from orb_users where id = $1`, [id])).length ? id : null;
 }
 
 /**
@@ -138,9 +147,8 @@ async function accountExists(db: Db, userId: string): Promise<boolean> {
  */
 export async function applySubscription(db: Db, sub: StripeSubscription, cfg: PlansConfig = plansConfig(), userHint: string | null = null): Promise<Wallet | null> {
   const customer = idOf(sub.customer);
-  let userId = sub.metadata?.orb_user || userHint || null;
-  if (!userId && customer) userId = userOfPayer((await walletOfCustomer(db, customer))?.payer ?? '');
-  if (!userId || !(await accountExists(db, userId))) {
+  const userId = await accountFor(db, sub.metadata?.orb_user || userHint, customer);
+  if (!userId) {
     console.error('[orb] a Stripe subscription that belongs to no Orb account', sub.id);
     return null;
   }
@@ -174,8 +182,8 @@ export interface Applied {
 
 /** A finished checkout: Pro starts, or the bought credits are added (once). */
 export async function applyCheckoutSession(db: Db, session: CheckoutSession, cfg: PlansConfig = plansConfig()): Promise<Applied> {
-  const userId = session.client_reference_id || session.metadata?.orb_user || null;
-  if (!userId || !(await accountExists(db, userId))) return { kind: null, done: false };
+  const userId = await accountFor(db, session.client_reference_id || session.metadata?.orb_user, null);
+  if (!userId) return { kind: null, done: false };
   const payer = `u:${userId}`;
   const customer = idOf(session.customer);
   if (session.mode === 'subscription') {
@@ -232,10 +240,8 @@ export async function applyChargeTrouble(db: Db, chargeId: string, why: 'refund'
   if (why === 'refund' && !(charge.amount_refunded && charge.amount_refunded > 0)) return;
   if (why === 'dispute' && !charge.disputed) return;
   const pi = typeof charge.payment_intent === 'object' ? charge.payment_intent : null;
-  let userId = pi?.metadata?.orb_user ?? null;
-  const customer = idOf(charge.customer);
-  if (!userId && customer) userId = userOfPayer((await walletOfCustomer(db, customer))?.payer ?? '');
-  if (!userId || !(await accountExists(db, userId))) return;
+  const userId = await accountFor(db, pi?.metadata?.orb_user, idOf(charge.customer));
+  if (!userId) return;
   const payer = `u:${userId}`;
   const credits = Number(pi?.metadata?.credits);
   if (pi?.metadata?.kind === 'topup' && credits > 0 && charge.amount) {
@@ -246,7 +252,7 @@ export async function applyChargeTrouble(db: Db, chargeId: string, why: 'refund'
          on conflict (kind, ref) where ref is not null do nothing returning micros
        )
        update orb_wallets set topup_micros = topup_micros - (select micros from logged), updated_at = now() where payer = $1 and exists (select 1 from logged)`,
-      [payer, Math.round(toMicrosOf(credits) * share), charge.id],
+      [payer, Math.round(toMicros(credits) * share), charge.id],
     );
   }
   const reversed = await reverseBuyer(db, userId, `${why} ${charge.id}`);
@@ -291,10 +297,10 @@ export async function handleStripeEvent(db: Db, event: { type?: string; data?: {
       if (id) await fromStripe(() => applyChargeTrouble(db, id, 'refund'));
       return;
     case 'charge.dispute.created': {
-      const charge = typeof obj.charge === 'string' ? obj.charge : idOf(obj.charge as Ref);
+      const charge = idOf(obj.charge as Ref);
       // The dispute as Stripe has it, then its charge.
       const dispute = id ? await fromStripe(() => stripe<{ charge?: Ref }>('GET', `/v1/disputes/${encodeURIComponent(id)}`)) : null;
-      const chargeId = idOf(dispute?.charge) ?? null;
+      const chargeId = idOf(dispute?.charge);
       if (chargeId && (!charge || charge === chargeId)) await fromStripe(() => applyChargeTrouble(db, chargeId, 'dispute'));
       return;
     }
@@ -310,14 +316,12 @@ export async function handleStripeEvent(db: Db, event: { type?: string; data?: {
 
 // -- checkouts and the portal -----------------------------------------------------------------------
 
-export type CheckoutItem = { kind: 'pro' } | { kind: 'topup'; pack: TopUp };
+export type CheckoutItem = { kind: 'pro' } | { kind: 'topup'; pack: CreditPack };
 
 export interface CheckoutUrls {
   /** Where Stripe sends people after paying ({CHECKOUT_SESSION_ID} is filled in). */
   success: string;
   cancel: string;
-  /** Orb's webhook address, registered with Stripe on first use (null: don't). */
-  webhook: string | null;
 }
 
 /** Stripe doesn't know this customer: one of another Stripe account's (Orb's key changed since). */
@@ -332,7 +336,7 @@ export async function forgetCustomer(db: Db, payer: string, customer: string): P
 export async function createCheckout(db: Db, w: Wallet, item: CheckoutItem, urls: CheckoutUrls, cfg: PlansConfig = plansConfig()): Promise<string> {
   const userId = userOfPayer(w.payer);
   if (!userId) throw new StripeError(400, 'Checkouts need an account.');
-  await ensureWebhook(db, urls.webhook).catch((e) => console.error('[orb] Stripe webhook setup failed', e));
+  await ensureWebhook(db, webhookUrl()).catch((e) => console.error('[orb] Stripe webhook setup failed', e));
   const open = async (customer: string | null) => {
     const common = { client_reference_id: userId, success_url: urls.success, cancel_url: urls.cancel, ...(customer ? { customer } : {}) };
     return item.kind === 'pro'
@@ -394,7 +398,7 @@ interface StripeAccount {
  * price, the portal's settings and (from the production deployment) the webhook endpoint. For
  * checking a new key (POST /api/admin/stripe). What doesn't work is listed, not thrown.
  */
-export async function stripeSetup(db: Db, webhook: string | null, cfg: PlansConfig = plansConfig()): Promise<StripeStatus> {
+export async function stripeSetup(db: Db, cfg: PlansConfig = plansConfig()): Promise<StripeStatus> {
   const problems: string[] = [];
   const out: StripeStatus = { live: paymentsOn() && !stripeTestMode(), account: null, price: null, portal: null, webhook: null, connect: false, problems };
   if (!paymentsOn()) {
@@ -426,10 +430,11 @@ export async function stripeSetup(db: Db, webhook: string | null, cfg: PlansConf
   out.price = await step('Pro price', () => proPrice(cfg.pro.usd));
   out.portal = await step('portal settings', () => portalConfiguration(db));
   if (!out.portal) problems.push('portal settings: couldn’t be made (the account’s own default portal settings apply).');
-  if ((process.env.STRIPE_WEBHOOK_SECRET ?? '').trim()) out.webhook = 'STRIPE_WEBHOOK_SECRET';
+  if (envSecret()) out.webhook = 'STRIPE_WEBHOOK_SECRET';
   else {
+    const webhook = webhookUrl();
     await step('webhook', () => ensureWebhook(db, webhook));
-    out.webhook = (await registeredWebhook(db))?.url ?? null;
+    out.webhook = await registeredWebhook(db);
     if (!out.webhook) problems.push(webhook ? 'webhook: couldn’t be registered (see the logs)' : 'webhook: only the production deployment registers one');
   }
   out.connect = await connectReady();

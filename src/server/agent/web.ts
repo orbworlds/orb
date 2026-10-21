@@ -14,7 +14,7 @@ const MAX_MATCHES = 80;
 
 export const DOC_HOSTS = [...HOSTS];
 
-export function allowedUrl(raw: string): URL | null {
+function allowedUrl(raw: string): URL | null {
   let u: URL;
   try {
     u = new URL(raw.trim());
@@ -28,7 +28,7 @@ export function allowedUrl(raw: string): URL | null {
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'" };
 
 /** An HTML page as readable text: scripts, styles and tags removed, blocks on their own lines. */
-export function htmlToText(html: string): string {
+function htmlToText(html: string): string {
   const main = /<main\b[^>]*>([\s\S]*?)<\/main>/i.exec(html)?.[1] ?? /<article\b[^>]*>([\s\S]*?)<\/article>/i.exec(html)?.[1] ?? html;
   return main
     .replace(/<(script|style|noscript|svg|template|head)\b[\s\S]*?<\/\1\s*>/gi, '')
@@ -72,15 +72,18 @@ async function readCapped(res: Response): Promise<{ text: string; cut: boolean }
 
 const TEXTUAL = /^(text\/|application\/(javascript|ecmascript|json|xml|x-javascript|ld\+json|manifest\+json)|image\/svg\+xml)/i;
 
+/** A page read from the web (`cut`: only its first MAX_BYTES). */
+export type Doc = { url: string; text: string; cut: boolean };
+
 /** The text at an allowed URL (following redirects only to allowed hosts). */
-export async function fetchText(raw: string, fetcher: typeof fetch = fetch): Promise<{ url: string; text: string; cut: boolean; html: boolean } | { error: string }> {
+export async function fetchText(raw: string): Promise<Doc | { error: string }> {
   const first = allowedUrl(raw);
   if (!first) return { error: `Only https pages on ${DOC_HOSTS.join(', ')} can be read.` };
   let u: URL = first;
   for (let hop = 0; ; hop++) {
     let res: Response;
     try {
-      res = await fetcher(u.href, { redirect: 'manual', headers: { accept: 'text/*, application/javascript, application/json;q=0.9, */*;q=0.1', 'user-agent': `OrbWorldBuilder/1.0 (+${SITE})` }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      res = await fetch(u.href, { redirect: 'manual', headers: { accept: 'text/*, application/javascript, application/json;q=0.9, */*;q=0.1', 'user-agent': `OrbWorldBuilder/1.0 (+${SITE})` }, signal: AbortSignal.timeout(TIMEOUT_MS) });
     } catch (e) {
       return { error: `Couldn't reach ${u.hostname} (${e instanceof Error ? e.message : String(e)}).` };
     }
@@ -96,7 +99,7 @@ export async function fetchText(raw: string, fetcher: typeof fetch = fetch): Pro
     if (type && !TEXTUAL.test(type)) return { error: `${u.href} is not text (${type.split(';')[0]}).` };
     const { text, cut } = await readCapped(res);
     const html = /html/i.test(type) || (!type && /^\s*<(!doctype|html)/i.test(text));
-    return { url: u.href, text: html ? htmlToText(text) : text, cut, html };
+    return { url: u.href, text: html ? htmlToText(text) : text, cut };
   }
 }
 

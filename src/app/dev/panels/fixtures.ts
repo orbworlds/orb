@@ -1,5 +1,5 @@
 // Dev-only fixtures for /dev/panels: procedural "world" thumbnails (SVG), realistic world
-// cards, versions, sample world code, and an in-page mock of the /api routes the panels use.
+// cards, versions, and an in-page mock of the /api routes the panels use.
 
 import type { ApiConfig, MeResponse, WorldCard, WorldFull, WorldVersionInfo } from '@/lib/types';
 
@@ -47,7 +47,7 @@ function cube(x: number, y: number, s: number, top: string, left: string, right:
   return `<path d="M${x} ${y} l${s} ${-h} l${s} ${h} l${-s} ${h}Z" fill="${top}"/><path d="M${x} ${y} l${s} ${h} v${s * 1.15} l${-s} ${-h}Z" fill="${left}"/><path d="M${x + s} ${y + h} l${s} ${-h} v${s * 1.15} l${-s} ${h}Z" fill="${right}"/>`;
 }
 
-export function sceneSvg(scene: Scene, seed: number): string {
+function sceneSvg(scene: Scene, seed: number): string {
   const r = mulberry32(seed);
   const parts: string[] = [];
   const defs: string[] = ['<filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="18"/></filter>', '<filter id="s" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>'];
@@ -264,7 +264,7 @@ function makeCard(s: Seed, i: number): WorldCard {
   };
 }
 
-export const WORLDS: WorldCard[] = SEEDS.map(makeCard);
+const WORLDS: WorldCard[] = SEEDS.map(makeCard);
 
 const MINE_SEEDS: Seed[] = [
   ['Pink Castle', 'Misty Otter', 'clouds', ['world'], 42, 6, { visibility: 'public' }],
@@ -273,9 +273,9 @@ const MINE_SEEDS: Seed[] = [
   ['Untitled world', 'Misty Otter', null, [], 0, 0, { visibility: 'private' }],
   ['Rainy Window', 'Misty Otter', 'room', ['art'], 3, 0, { visibility: 'public' }],
 ];
-export const MY_WORLDS: WorldCard[] = MINE_SEEDS.map((s, i) => ({ ...makeCard(s, 100 + i), updatedAt: new Date(NOW - [0.08, 0.9, 3, 6, 21][i] * DAY).toISOString() }));
+const MY_WORLDS: WorldCard[] = MINE_SEEDS.map((s, i) => ({ ...makeCard(s, 100 + i), updatedAt: new Date(NOW - [0.08, 0.9, 3, 6, 21][i] * DAY).toISOString() }));
 
-export const VERSIONS: WorldVersionInfo[] = [
+const VERSIONS: WorldVersionInfo[] = [
   [12, 'Make the castle pink and add a moat with tiny glowing fish swimming around it', 0.02],
   [11, 'Add fireflies at night', 0.2],
   [10, null, 0.21],
@@ -290,139 +290,10 @@ export const VERSIONS: WorldVersionInfo[] = [
   [1, null, 9.02],
 ].map(([version, prompt, daysAgo]) => ({ version: version as number, prompt: prompt as string | null, createdAt: new Date(Date.now() - (daysAgo as number) * DAY).toISOString() }));
 
-export const SAMPLE_CODE = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cloud Castle</title>
-  <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #ffe3ef; }
-    #hint {
-      position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
-      padding: 8px 14px; border-radius: 999px; font: 500 13px system-ui, sans-serif;
-      color: #3a2a40; background: rgba(255, 255, 255, .6); backdrop-filter: blur(16px);
-      transition: opacity .8s ease;
-    }
-  </style>
-  <script type="importmap">{"imports":{
-    "three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
-    "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
-</head>
-<body>
-  <div id="hint">Drag to look · WASD to move</div>
-  <script type="module">
-    import * as THREE from 'three';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-    // === CONFIG ===
-    const CONFIG = {
-      skyTop: 0xffc6e0,
-      skyBottom: 0xfff4e8,
-      castle: 0xf4b6d2,
-      roofs: 0x9b8cff,
-      cloudCount: 24,
-      fireflies: 120,
-    };
-
-    // === SCENE ===
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.setSize(innerWidth, innerHeight);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.shadowMap.enabled = true;
-    document.body.appendChild(renderer.domElement);
-
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(CONFIG.skyBottom, 40, 140);
-    const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500);
-    camera.position.set(18, 12, 26);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.maxPolarAngle = Math.PI * 0.48;
-    controls.target.set(0, 4, 0);
-
-    // === SKY & LIGHT ===
-    const sky = new THREE.Mesh(
-      new THREE.SphereGeometry(300, 32, 16),
-      new THREE.ShaderMaterial({
-        side: THREE.BackSide,
-        uniforms: { top: { value: new THREE.Color(CONFIG.skyTop) }, bottom: { value: new THREE.Color(CONFIG.skyBottom) } },
-        vertexShader: \`varying vec3 vPos; void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }\`,
-        fragmentShader: \`uniform vec3 top; uniform vec3 bottom; varying vec3 vPos;
-          void main(){ float h = normalize(vPos).y * .5 + .5; gl_FragColor = vec4(mix(bottom, top, pow(h, 1.4)), 1.0); }\`,
-      }),
-    );
-    scene.add(sky);
-    scene.add(new THREE.HemisphereLight(0xffe7f3, 0xc9b6ff, 1.1));
-    const sun = new THREE.DirectionalLight(0xfff1dc, 2.2);
-    sun.position.set(20, 30, 10);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    scene.add(sun);
-
-    // === WORLD ===
-    const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, flatShading: true });
-    const cloud = new THREE.Group();
-    for (let i = 0; i < CONFIG.cloudCount; i++) {
-      const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(2 + Math.random() * 2.5, 1), cloudMat);
-      puff.position.set((Math.random() - 0.5) * 16, Math.random() * 1.5, (Math.random() - 0.5) * 10);
-      puff.receiveShadow = true;
-      cloud.add(puff);
-    }
-    scene.add(cloud);
-
-    const castleMat = new THREE.MeshStandardMaterial({ color: CONFIG.castle, roughness: 0.7 });
-    const roofMat = new THREE.MeshStandardMaterial({ color: CONFIG.roofs, roughness: 0.6, flatShading: true });
-    function tower(x, z, h) {
-      const t = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.3, h, 12), castleMat);
-      t.position.set(x, 2 + h / 2, z);
-      t.castShadow = true;
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(1.6, 2.6, 12), roofMat);
-      roof.position.set(x, 2 + h + 1.3, z);
-      roof.castShadow = true;
-      scene.add(t, roof);
-    }
-    tower(-4, -2, 7);
-    tower(4, -2, 7);
-    tower(0, -4, 10);
-
-    // Fireflies drift around the towers at dusk.
-    const flyGeo = new THREE.BufferGeometry();
-    const pos = new Float32Array(CONFIG.fireflies * 3);
-    for (let i = 0; i < pos.length; i++) pos[i] = (Math.random() - 0.5) * 30;
-    flyGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const flies = new THREE.Points(flyGeo, new THREE.PointsMaterial({ color: 0xffe28a, size: 0.25, transparent: true, opacity: 0.9 }));
-    scene.add(flies);
-
-    // === LOOP ===
-    const timer = new THREE.Timer();
-    renderer.setAnimationLoop(() => {
-      timer.update();
-      const t = timer.getElapsed();
-      cloud.position.y = Math.sin(t * 0.6) * 0.3;
-      flies.rotation.y = t * 0.05;
-      controls.update();
-      renderer.render(scene, camera);
-    });
-
-    addEventListener('resize', () => {
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    });
-    setTimeout(() => (document.getElementById('hint').style.opacity = '0'), 4000);
-  </script>
-</body>
-</html>
-`;
-
 export function sampleWorld(): WorldFull {
   return {
     ...MY_WORLDS[0],
-    code: SAMPLE_CODE,
+    code: '<!doctype html><title>Cloud Castle</title>',
     template: null,
     version: 12,
     tree: null,
@@ -436,13 +307,13 @@ export function sampleWorld(): WorldFull {
 // ---------------------------------------------------------------------------------------------
 // Mock /api
 
-export interface MockOptions {
+interface MockOptions {
   latency: number;
   signedIn: boolean;
   oauth: boolean;
   /** Return no worlds / versions. */
   empty: boolean;
-  /** Make list/versions/me/config requests fail. */
+  /** Make list/versions/me requests fail. */
   error: boolean;
 }
 

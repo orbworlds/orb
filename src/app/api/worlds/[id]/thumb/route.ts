@@ -4,9 +4,9 @@
 // to their curated thumbnail URL.
 
 import { getViewer } from '@/server/auth';
-import { clientIp, json } from '@/server/http';
+import { clientIp, fail, handle, json } from '@/server/http';
 import { ready } from '@/server/schema';
-import { actorKey, fail, getThumb, LIMITS, limitOrThrow, putThumb, route, thumbContentType, worldIdParam, type IdContext } from '@/server/worlds';
+import { actorKey, getThumb, LIMITS, limitOrThrow, putThumb, thumbContentType, worldIdParam, type IdContext } from '@/server/worlds';
 
 /** Read the request body, giving up (null) as soon as it exceeds `max` bytes. */
 async function readBody(req: Request, max: number): Promise<Uint8Array | null> {
@@ -26,16 +26,10 @@ async function readBody(req: Request, max: number): Promise<Uint8Array | null> {
     }
     chunks.push(value);
   }
-  const out = new Uint8Array(total);
-  let offset = 0;
-  for (const c of chunks) {
-    out.set(c, offset);
-    offset += c.byteLength;
-  }
-  return out;
+  return Buffer.concat(chunks, total);
 }
 
-export const PUT = route(async (req: Request, ctx: IdContext) => {
+export const PUT = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const viewer = getViewer(req);
   const type = thumbContentType(req.headers.get('content-type'));
@@ -56,7 +50,7 @@ function etagMatches(header: string | null, etag: string): boolean {
   });
 }
 
-export const GET = route(async (req: Request, ctx: IdContext) => {
+export const GET = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const db = await ready();
   const thumb = await getThumb(db, getViewer(req), id);

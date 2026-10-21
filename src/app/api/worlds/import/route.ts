@@ -5,15 +5,15 @@
 
 import { getViewer } from '@/server/auth';
 import { FileError } from '@/server/files';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, fail, handle, json, readJson } from '@/server/http';
 import { importRepo, parseRepoUrl } from '@/server/importer';
 import { linkRepo, remoteHead, SyncError, tokenOf } from '@/server/reposync';
 import { ready } from '@/server/schema';
-import { actorKey, createRemixFromTree, createWorldFromTree, fail, limitOrThrow, route } from '@/server/worlds';
+import { actorKey, createRemixFromTree, createWorldFromTree, limitOrThrow } from '@/server/worlds';
 
 export const maxDuration = 120;
 
-export const POST = route(async (req: Request) => {
+export const POST = handle(async (req: Request) => {
   const body = await readJson<{ url?: unknown }>(req, 4000);
   const ref = typeof body?.url === 'string' ? parseRepoUrl(body.url) : null;
   if (!ref) fail(400, 'bad_request', 'Paste a link to a GitHub repository, like https://github.com/owner/repo.');

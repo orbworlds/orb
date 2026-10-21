@@ -4,13 +4,14 @@ import { notFound } from 'next/navigation';
 import { LAB_KEY } from '@/server/lab';
 import { ready } from '@/server/schema';
 import { listTraces, traceProviders, traceTotals, type TraceFilter, type TraceKind } from '@/server/traces';
+import { TITLE } from '../pulse/ui';
 import { ago, bytes, CARD, duration, KINDS, num, short, Status, tokenLine, when } from './ui';
 
 // Every AI build's trace (src/server/traces.ts), newest first: who asked for what, with which
 // model, how it went and what it cost. Each opens on its whole timeline; all export as JSON lines.
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Traces', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'Traces' };
 
 const PER_PAGE = 50;
 const STATUSES: Array<[string | undefined, string]> = [
@@ -70,21 +71,16 @@ export default async function TracesPage({ params, searchParams }: { params: Pro
   const page = Math.max(1, Math.floor(Number(one('page')) || 1));
   const { traces, more, totals, providers, now } = await load(filter, page);
   const lab = `/lab/${key}/traces`;
-  const query = (change: Record<string, string | undefined>) => {
+  const href = (change: Record<string, string | undefined>, path = lab) => {
     const q = new URLSearchParams();
     for (const [k, v] of Object.entries({ status: filter.status, kind: filter.kind, provider: filter.provider, q: filter.q, ...change })) if (v) q.set(k, v);
-    return q.toString();
-  };
-  const href = (change: Record<string, string | undefined>) => {
-    const q = query(change);
-    return q ? `${lab}?${q}` : lab;
+    const s = q.toString();
+    return s ? `${path}?${s}` : path;
   };
   const filtered = Boolean(filter.status || filter.kind || filter.provider || filter.q);
-  const exportQuery = query({});
-  const exportHref = `${lab}/export${exportQuery ? `?${exportQuery}` : ''}`;
   return (
     <main className="mx-auto w-full max-w-[1240px] px-4 pt-[max(28px,env(safe-area-inset-top))] pb-[max(48px,env(safe-area-inset-bottom))] sm:px-8 sm:pt-10">
-      <h1 className="font-display text-[36px] leading-none tracking-[-0.015em] text-ink sm:text-[42px]">Traces</h1>
+      <h1 className={TITLE}>Traces</h1>
       <p className="mt-3 max-w-[720px] text-[14.5px] text-ink-2">Every AI build, step by step: what it was asked, what it saw and what it did, with the tokens it took. Newest first.</p>
 
       <section className={`${CARD} mt-8 flex flex-wrap items-end gap-x-10 gap-y-4`}>
@@ -93,10 +89,10 @@ export default async function TracesPage({ params, searchParams }: { params: Pro
         <Fact label="Tokens out" value={short(totals.tokens.out)} sub={totals.tokens.reasoning ? `${short(totals.tokens.reasoning)} thinking` : undefined} />
         <Fact label="Stored" value={totals.bytes == null ? '—' : bytes(totals.bytes)} sub="all traces, with screenshots" />
         <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-2">
-          <a href={exportHref} download className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-[13.5px] font-medium text-paper">
+          <a href={href({}, `${lab}/export`)} download className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-[13.5px] font-medium text-paper">
             Export JSONL
           </a>
-          <a href={`${exportHref}${exportQuery ? '&' : '?'}images=1`} download className="text-[12.5px] text-ink-2 underline decoration-[var(--ink-4)] underline-offset-2 hover:text-ink">
+          <a href={href({ images: '1' }, `${lab}/export`)} download className="text-[12.5px] text-ink-2 underline decoration-[var(--ink-4)] underline-offset-2 hover:text-ink">
             with screenshots
           </a>
         </div>

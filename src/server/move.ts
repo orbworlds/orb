@@ -16,15 +16,16 @@
 // makes its passkey at the passkey home instead. POST /api/move/passkey starts the same round
 // trip there with ?passkey=…, and only the signed-in session comes back.
 
-import crypto from 'node:crypto';
 import { MAX_BUNDLE, MOVED_COOKIE, safeTo } from '@/lib/move';
-import { getViewer, linkDeviceToUser, randomId, readCookie, sessionCookie } from './auth';
+import { getViewer, linkDeviceToUser, randomId, readCookie, sameString, sessionCookie } from './auth';
 import type { Db } from './db';
-import { clientIp, error, json, readJson } from './http';
+import { sha256 } from './files';
+import { clientIp, error, json, readJson, retryLater, withCookies } from './http';
 import { originForHost, originsConfig, requestOrigin } from './origins';
 import { cleanName } from './passkeys';
 import { rateLimit } from './ratelimit';
 import { ready } from './schema';
+import { sessionUser } from './worlds';
 
 const STATE_COOKIE = 'orb_move_';
 /** Only the claim needs the state cookie. */
@@ -37,27 +38,12 @@ const KEY = /^[0-9A-Za-z]{10}$/;
 const SECRET = /^[0-9A-Za-z]{32}$/;
 
 const secure = () => (process.env.NODE_ENV === 'production' ? '; Secure' : '');
-const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
-
-function sameString(a: string, b: string): boolean {
-  const x = Buffer.from(a);
-  const y = Buffer.from(b);
-  return x.length === y.length && crypto.timingSafeEqual(x, y);
-}
-
-function withCookies(res: Response, ...cookies: string[]): Response {
-  for (const c of cookies) res.headers.append('set-cookie', c);
-  return res;
-}
 
 function redirect(location: string, ...cookies: string[]): Response {
   return withCookies(new Response(null, { status: 302, headers: { location, 'cache-control': 'no-store' } }), ...cookies);
 }
 
-function tooMany(retryAfter: number): Response {
-  const s = Math.max(1, Math.ceil(retryAfter));
-  return json({ error: 'rate_limited', message: 'Too many tries. Please wait a moment and try again.', retryAfter: s }, { status: 429, headers: { 'retry-after': String(s) } });
-}
+const tooMany = (retryAfter: number) => retryLater(429, 'rate_limited', 'Too many tries. Please wait a moment and try again.', retryAfter);
 
 /**
  * Begin a hand-off from `source` that ends at `target` (this address): the URL of the source's
@@ -198,7 +184,7 @@ export async function claimHandoff(req: Request): Promise<Response> {
   const viewer = getViewer(req);
   if (row.device_hash && viewer.deviceHash && row.device_hash !== viewer.deviceHash) await adoptDevice(db, viewer.deviceHash, row.device_hash);
   const device = row.device_hash ?? viewer.deviceHash;
-  const userId = row.user_id ?? (viewer.userId && (await db.query(`select 1 from orb_users where id = $1`, [viewer.userId])).length ? viewer.userId : null);
+  const userId = row.user_id ?? (await sessionUser(db, viewer));
   if (userId) await linkDeviceToUser(db, device, userId);
 
   const res = new Response(row.data ? new Uint8Array(row.data) : null, {

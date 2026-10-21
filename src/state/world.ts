@@ -1,11 +1,11 @@
 'use client';
 // The world currently on screen and everything that persists it.
 //
-// - The start canvas is a template (no server record, chatKey 'new'); the first change creates
-//   the world and the URL becomes /w/<id> via history.replaceState, so the stage never remounts.
+// - The start canvas is a template (no server record, chatKey 'new'); when the first build starts
+//   it becomes a world (createForBuild) and the address its readable one (/<owner>/<world>) via
+//   history.replaceState, so the stage never remounts. Builds save on the server (adoptVersion).
 // - A visitor asks in place; to change a forkable world they make their own copy (remix).
-// - After each commit: a thumbnail is captured once the world settles, and the world is pushed
-//   to GitHub when the user connected it.
+// - After each new version a thumbnail is captured once the world settles.
 //
 // The live WorldFrame registers its imperative handle here (setFrameHandle) so captures can be
 // taken from actions without threading refs through the tree.
@@ -13,17 +13,16 @@ import { create } from 'zustand';
 import { sameView, track, trackPageView } from '@/lib/analytics';
 import { api, ApiError, thumbPath, worldHref } from '@/lib/api';
 import { getDeviceKey, getDisplayName, getPlayerColor, listChats, saveChatThread } from '@/lib/local';
-import { needsKeyboard, onPhone } from '@/lib/keyboard';
 import { adoptWorldStorage } from '@/lib/runtime/bridge';
 import { ROOM_NAME_RE } from '@/lib/runtime/sdk';
 import { pullSave } from '@/lib/savesync';
 import { fetchTemplate, TEMPLATE_BY_ID } from '@/lib/templates';
 import type { WorldFull } from '@/lib/types';
 import type { WorldFrameHandle } from '@/components/world/WorldFrame';
-import { toast, useToasts } from './toast';
-import { rememberWorldName, useUi } from './ui';
+import { toast } from './toast';
+import { rememberWorldName, takeLayerEntry, useUi } from './ui';
 
-export type WorldStatus = 'idle' | 'loading' | 'ready' | 'not-found' | 'error';
+type WorldStatus = 'idle' | 'loading' | 'ready' | 'not-found' | 'error';
 
 export interface Player {
   id: string;
@@ -36,22 +35,6 @@ export interface Player {
 /** What the account's blob wears, kept for the player made later (initPlayer). */
 let wearing: string[] = [];
 
-export interface CommitInput {
-  code: string;
-  title?: string;
-  prompt: string;
-}
-
-/**
- * Where a change is saved, captured when a build starts: builds keep running while the user moves
- * on to other worlds, so the save must not depend on whatever is on screen when it finishes.
- */
-export type CommitTarget =
-  | { kind: 'create'; templateId: string | null; threadId: string | null; token: number }
-  | { kind: 'fork'; sourceId: string; threadId: string | null; token: number }
-  | { kind: 'update'; worldId: string; name: string }
-  | { kind: 'none' };
-
 interface WorldState {
   status: WorldStatus;
   /** The saved world on screen; null on the start canvas (a template before the first change). */
@@ -62,6 +45,8 @@ interface WorldState {
   templateId: string | null;
   /** The start canvas is on screen (a template loaded since the last world): home can show over it. */
   onStart: boolean;
+  /** What's on screen (a world just opened, the start canvas) has drawn: until then the stage covers it. */
+  drawn: boolean;
   /** Committed code — the base for the next build. */
   baseCode: string | null;
   /** Code shown in the frame (may run ahead of baseCode while a build streams). */
@@ -81,8 +66,7 @@ interface WorldState {
   dress(look: { color?: string; wear?: string[] }): void;
   loadTemplate(id: string): Promise<void>;
   loadWorld(id: string, initial?: WorldFull | null): Promise<void>;
-  /** Show another world in place (no remount) and push /w/<id>. */
-  /** Open a world (`room`: into that named room of it, as an invite link would). */
+  /** Show another world in place (no remount) and push its address (`room`: into that named room of it, as an invite link would). */
   openWorld(id: string, opts?: { room?: string }): Promise<void>;
   /** Back to the start canvas (optionally with a prefilled prompt); `chat`: straight into the Orb's chat, ready to describe a new world. */
   goStart(opts?: { prompt?: string; template?: string; replace?: boolean; chat?: boolean }): Promise<void>;
@@ -92,10 +76,6 @@ interface WorldState {
    * world (survives switching worlds and reloads). Null if not on the canvas or failed.
    */
   createForBuild(threadId: string): Promise<{ worldId: string; version: number } | null>;
-  /** Where a change made now would be saved (see CommitTarget). */
-  commitTarget(threadId?: string | null): CommitTarget;
-  /** Save code edited by hand (creates the world on the canvas, a copy in someone else's world). */
-  commit(input: CommitInput, target?: CommitTarget): Promise<{ version?: number; worldId?: string; target?: CommitTarget }>;
   /** A build saved a new version on the server: show it if that world is on screen. */
   adoptVersion(v: { worldId: string; version: number; tree: string; code: string; name?: string }): void;
   restore(version: number): Promise<void>;
@@ -103,8 +83,6 @@ interface WorldState {
   /** Read the world on screen again, keeping its frame (signing in or out changes its address, maker and who may change it). */
   refresh(): Promise<void>;
   patchWorld(patch: Partial<WorldFull>): Promise<void>;
-  setVisibility(v: WorldFull['visibility']): Promise<void>;
-  setForkable(v: boolean): Promise<void>;
   /** Make the viewer's own copy and open it → its id, or null (failed, or they went elsewhere meanwhile). */
   remix(sourceId?: string): Promise<string | null>;
   like(): Promise<void>;
@@ -124,29 +102,24 @@ export function getFrameHandle(): WorldFrameHandle | null {
   return frame;
 }
 
-let threadIdGetter: () => string | null = () => null;
-/** The shell tells us which chat thread is current, so a fork can take the conversation along. */
-export function bindCurrentThread(get: () => string | null): void {
-  threadIdGetter = get;
-}
+/** What a fresh copy might change first (the chat's own suggestions for a world of one's own). */
+/** Ideas for a first change to a world of one's own (its copy, or one with no template ideas). */
+export const CHANGE_CHIPS = ['Make it nighttime', 'Add gentle music', 'Add a little surprise'];
 
 /** Guards async loads: a newer load (or navigation) invalidates older responses. */
 let loadToken = 0;
 
 /** Move the chat thread a build ran in from one world key to another (before the store switches). */
-function carryThread(from: string, to: string, threadId: string | null = threadIdGetter()): void {
-  const thread = threadId ? listChats().find((t) => t.id === threadId) : undefined;
+function carryThread(from: string, to: string, threadId: string): void {
+  const thread = listChats().find((t) => t.id === threadId);
   if (thread && thread.worldId === from) saveChatThread({ ...thread, worldId: to, updatedAt: Date.now() });
 }
 
-const UNTITLED = /^(untitled( world)?|new world)?$/i;
-const isUntitled = (name: string | null | undefined) => UNTITLED.test((name ?? '').trim());
-
 function navigate(path: string, mode: 'push' | 'replace'): void {
-  if (typeof window === 'undefined') return;
   if (window.location.pathname + window.location.search === path) return;
   try {
-    if (mode === 'push') window.history.pushState(null, '', path);
+    // From inside the sheet or a profile, the page takes their entry: Back returns to where they opened.
+    if (mode === 'push' && !takeLayerEntry()) window.history.pushState(null, '', path);
     else window.history.replaceState(null, '', path);
   } catch {
     /* sandboxed or detached document — the state is still correct */
@@ -155,22 +128,20 @@ function navigate(path: string, mode: 'push' | 'replace'): void {
   else sameView();
 }
 
+/** True the first time `key` is asked for in this browser session (also when storage is blocked). */
+function firstInSession(key: string): boolean {
+  try {
+    if (sessionStorage.getItem(key)) return false;
+    sessionStorage.setItem(key, '1');
+  } catch {
+    /* blocked: as if it were the first time */
+  }
+  return true;
+}
+
 function friendly(e: unknown, fallback: string): string {
   if (e instanceof ApiError && e.message && !/^Request failed/.test(e.message)) return e.message;
   return fallback;
-}
-
-function dataUrlToBlob(dataUrl: string): Blob | null {
-  const m = /^data:([^;,]+);base64,(.*)$/.exec(dataUrl);
-  if (!m) return null;
-  try {
-    const bin = atob(m[2]);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new Blob([bytes], { type: m[1] });
-  } catch {
-    return null;
-  }
 }
 
 /** Public, non-secret player id — the same derivation the server uses (sha256 → 12 hex). */
@@ -210,9 +181,9 @@ export const useWorld = create<WorldState>((set, get) => {
   }
 
   async function uploadThumb(worldId: string, dataUrl: string): Promise<void> {
-    const blob = dataUrlToBlob(dataUrl);
-    if (!blob || blob.size > 500_000) return;
     try {
+      const blob = await (await fetch(dataUrl)).blob();
+      if (blob.size > 500_000) return;
       const { thumbVersion } = await api.uploadThumb(worldId, blob);
       const w = get().world;
       if (w?.id === worldId) set({ world: { ...w, thumbVersion, thumbUrl: thumbPath(worldId, thumbVersion) } });
@@ -229,13 +200,7 @@ export const useWorld = create<WorldState>((set, get) => {
 
   /** Count one play per world per browser session, for visitors. */
   function countPlay(world: WorldFull): void {
-    const key = `orb:played:${world.id}`;
-    try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, '1');
-    } catch {
-      /* private mode: count anyway */
-    }
+    if (!firstInSession(`orb:played:${world.id}`)) return;
     api
       .play(world.id)
       .then(({ plays }) => {
@@ -243,19 +208,6 @@ export const useWorld = create<WorldState>((set, get) => {
         if (w?.id === world.id) set({ world: { ...w, plays } });
       })
       .catch(() => {});
-  }
-
-  /** On a phone, tell visitors once per session that a world needs a keyboard. */
-  function hintKeyboard(world: WorldFull): void {
-    if (world.canEdit || !needsKeyboard(world) || !onPhone()) return;
-    const key = `orb:kbd:${world.id}`;
-    try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, '1');
-    } catch {
-      /* private mode: say it anyway */
-    }
-    useToasts.getState().push({ text: `${world.name} needs a keyboard to play — it's best on a computer.` }, 6000);
   }
 
   /** Put a world on screen (same id → updates in place; the frame only reloads if the code changed). */
@@ -293,6 +245,7 @@ export const useWorld = create<WorldState>((set, get) => {
     chatKey: 'new',
     templateId: null,
     onStart: false,
+    drawn: false,
     baseCode: null,
     previewCode: null,
     frameId: 'template-blank',
@@ -321,7 +274,7 @@ export const useWorld = create<WorldState>((set, get) => {
       const t = TEMPLATE_BY_ID[id] ?? TEMPLATE_BY_ID.blank;
       // The world identity resets right away (chat, world bar); the frame keeps showing the
       // previous scene until the template arrives, then cross-fades.
-      set({ world: null, chatKey: 'new', canEdit: true, isExternal: false, verified: true, onStart: true, status: get().previewCode ? 'ready' : 'loading' });
+      set({ world: null, chatKey: 'new', canEdit: true, isExternal: false, verified: true, onStart: true, drawn: false, status: get().previewCode ? 'ready' : 'loading' });
       try {
         const code = await fetchTemplate(t.id);
         if (token !== loadToken) return;
@@ -349,14 +302,13 @@ export const useWorld = create<WorldState>((set, get) => {
       if (initial && initial.id === id) {
         applyWorld({ ...initial, canEdit: false, ...(native ? { tree: null } : {}) }, false);
         if (native) void settled.then(() => token === loadToken && !get().verified && applyWorld({ ...initial, canEdit: false }, false));
-      } else if (get().world?.id !== id) set({ status: 'loading' });
+      } else if (get().world?.id !== id) set({ status: 'loading', drawn: false });
       try {
         const { world } = await api.getWorld(id);
         if (token !== loadToken) return;
         if (world.kind === 'native') await settled;
         if (token !== loadToken) return;
         applyWorld(world, true);
-        hintKeyboard(world);
         // Kept in sync with GitHub: opening it had Orb look for new commits there; show what came in.
         if (world.canEdit && world.repo) {
           setTimeout(() => {
@@ -423,8 +375,9 @@ export const useWorld = create<WorldState>((set, get) => {
         carryThread('new', world.id, threadId);
         rememberWorldName(world.id, world.name);
         if (token === loadToken && !get().world && get().status !== 'loading') {
-          // Same code as on screen: keep the frame as it is (no reload), just give it its identity.
-          set({ status: 'ready', world: { ...world, canEdit: true }, chatKey: world.id, canEdit: true, baseCode: s.baseCode ?? '', verified: true });
+          // Same code as on screen: keep the frame as it is (no reload), just give it its identity
+          // (and no opening cover: this world is the canvas that's already there, being built).
+          set({ status: 'ready', world: { ...world, canEdit: true }, chatKey: world.id, canEdit: true, baseCode: s.baseCode ?? '', verified: true, drawn: true });
           navigate(worldHref(world), 'replace');
         }
         return { worldId: world.id, version: world.version };
@@ -432,61 +385,6 @@ export const useWorld = create<WorldState>((set, get) => {
         console.warn('[orb] could not create the world up front', e);
         return null;
       }
-    },
-
-    commitTarget(threadId = threadIdGetter()) {
-      const s = get();
-      if (!s.world) return { kind: 'create', templateId: s.templateId, threadId, token: loadToken };
-      if (s.canEdit) return { kind: 'update', worldId: s.world.id, name: s.world.name };
-      if (!s.isExternal && s.world.forkable) return { kind: 'fork', sourceId: s.world.id, threadId, token: loadToken };
-      return { kind: 'none' };
-    },
-
-    async commit({ code, title, prompt }, target = get().commitTarget()) {
-      const name = title?.trim().slice(0, 80) || undefined;
-
-      // 1) Start canvas → create the world.
-      if (target.kind === 'create') {
-        const { world } = await api.createWorld({ code, name, template: target.templateId, authorName: getDisplayName(), prompt });
-        // The canvas chat belongs to the new world (even if the user already moved on elsewhere).
-        carryThread('new', world.id, target.threadId);
-        // Adopt it only while that canvas is still what's on screen (not after the user moved on).
-        if (target.token === loadToken && !get().world && get().status !== 'loading') {
-          set({ status: 'ready', world: { ...world, canEdit: true }, chatKey: world.id, canEdit: true, baseCode: code, previewCode: code, frameId: world.id, verified: true });
-          navigate(worldHref(world), 'replace');
-        }
-        afterCommit(world);
-        return { version: world.version, worldId: world.id, target: { kind: 'update', worldId: world.id, name: world.name } satisfies CommitTarget };
-      }
-
-      // 2) Someone else's world → the visitor's own copy.
-      if (target.kind === 'fork') {
-        const { world: fork } = await api.fork(target.sourceId, getDisplayName());
-        track('remix', { world_id: fork.id, from_world: target.sourceId, how: 'build' });
-        const { world } = await api.updateWorld(fork.id, { code, prompt, ...(name && isUntitled(fork.name) ? { name } : {}) });
-        // The conversation goes along to the copy, where the change now lives.
-        carryThread(target.sourceId, world.id, target.threadId);
-        if (target.token === loadToken && get().world?.id === target.sourceId && get().status !== 'loading') {
-          set({ status: 'ready', world: { ...world, canEdit: true }, chatKey: world.id, canEdit: true, baseCode: code, previewCode: code, frameId: world.id, verified: true });
-          navigate(worldHref(world), 'replace');
-          toast('Made you your own copy ✨', 'success');
-        }
-        afterCommit(world);
-        return { version: world.version, worldId: world.id, target: { kind: 'update', worldId: world.id, name: world.name } satisfies CommitTarget };
-      }
-
-      if (target.kind === 'none') throw new Error('This world cannot be changed.');
-
-      // 3) Own world → new version.
-      const { world } = await api.updateWorld(target.worldId, { code, prompt, ...(name && isUntitled(target.name) ? { name } : {}) });
-      if (get().world?.id === world.id) {
-        // A world created when its first build started still runs under its canvas draft id: give
-        // the frame its real identity now (shared storage, multiplayer).
-        const adopt = get().frameId !== world.id ? { frameId: world.id, previewCode: code } : {};
-        set({ world: { ...world, canEdit: true }, baseCode: code, ...adopt });
-      }
-      afterCommit(world);
-      return { version: world.version, worldId: world.id, target: { kind: 'update', worldId: world.id, name: world.name } satisfies CommitTarget };
     },
 
     adoptVersion({ worldId, version, tree, code, name }) {
@@ -575,13 +473,6 @@ export const useWorld = create<WorldState>((set, get) => {
       }
     },
 
-    setVisibility(visibility) {
-      return get().patchWorld({ visibility });
-    },
-    setForkable(forkable) {
-      return get().patchWorld({ forkable });
-    },
-
     async remix(sourceId) {
       const id = sourceId ?? get().world?.id;
       if (!id) return null;
@@ -592,8 +483,11 @@ export const useWorld = create<WorldState>((set, get) => {
         if (token !== loadToken) return null; // the user went elsewhere meanwhile; the copy is in their worlds
         navigate(worldHref(world), 'push');
         applyWorld({ ...world, canEdit: true }, true);
-        useUi.getState().setIntro(null);
-        toast('Your own copy — make it yours ✨', 'success');
+        // The chat opens on the copy (its header now says "by you").
+        const template = world.template && world.template !== 'blank' ? TEMPLATE_BY_ID[world.template] : undefined;
+        const ui = useUi.getState();
+        ui.setIntro({ text: `Your copy of ${world.forkedFrom?.name ?? world.name}. What should we change?`, suggestions: template?.suggestions ?? CHANGE_CHIPS, chatKey: world.id });
+        ui.openPanel('chat', 'half');
         scheduleThumb(world.id);
         return world.id;
       } catch (e) {
@@ -633,6 +527,7 @@ export const useWorld = create<WorldState>((set, get) => {
     },
 
     frameReady() {
+      if (!get().drawn) set({ drawn: true });
       // A world that is still settling restarts the thumbnail wait (up to a limit).
       if (thumb && Date.now() - thumb.since < THUMB_GIVE_UP) {
         clearTimeout(thumb.timer);

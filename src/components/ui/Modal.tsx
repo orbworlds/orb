@@ -1,20 +1,17 @@
 'use client';
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, type ReactNode } from 'react';
 import { IconButton } from './Button';
 
 /** Centered glass dialog (bottom sheet on small screens), named by its title. Closes on Esc and backdrop click. */
 export function Modal({ open, onClose, title, children, width = 440 }: { open: boolean; onClose(): void; title?: ReactNode; children: ReactNode; width?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
-  const close = useRef(onClose);
-  useEffect(() => {
-    close.current = onClose;
-  });
+  const onEsc = useEffectEvent((e: KeyboardEvent) => e.key === 'Escape' && onClose());
   // Focus the dialog when it opens (not on every parent render) and give focus back on close.
   useEffect(() => {
     if (!open) return;
     const before = document.activeElement as HTMLElement | null;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close.current();
+    const onKey = (e: KeyboardEvent) => onEsc(e);
     window.addEventListener('keydown', onKey);
     ref.current?.focus();
     return () => {
@@ -34,7 +31,7 @@ export function Modal({ open, onClose, title, children, width = 440 }: { open: b
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <div id={titleId} className="text-[15px] font-semibold">{title}</div>
-          <IconButton icon="x" label="Close" size={32} onClick={onClose} />
+          <IconButton icon="x" label="Close" size={44} onClick={onClose} className="-my-2 -mr-2.5" />
         </div>
         {children}
       </div>

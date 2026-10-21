@@ -6,10 +6,9 @@ import { track } from '@/lib/analytics';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useClip, CLIP_MS } from '@/state/clips';
-import { shareUrl } from '@/state/share';
+import { saveFile, shareUrl, slugify } from '@/state/share';
 import { toast } from '@/state/toast';
 import { useWorld } from '@/state/world';
-import { slugify } from './ShareSheet';
 
 export function ClipSheet() {
   const { status, startedAt, blob, url, world, record, close } = useClip();
@@ -27,12 +26,7 @@ export function ClipSheet() {
   };
   const download = () => {
     if (!url || !file || !world) return;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = file.name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    saveFile(url, file.name);
     track('clip_share', { world_id: world.id, how: 'download' });
   };
 

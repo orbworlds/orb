@@ -1,4 +1,4 @@
-// Dev-only preview of the Explore / You / Share / History / Code panels with fixture data
+// Dev-only preview of the Explore / You / Share / History panels with fixture data
 // (used for design review screenshots). Not available in production.
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';

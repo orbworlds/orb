@@ -12,6 +12,7 @@
 // file steps, live trees and saved versions. Pages follow it with GET /api/agent/jobs/:id?from=N
 // and can pick it up again from any offset, after a reload, on any device.
 
+import { setTimeout as sleep } from 'node:timers/promises';
 import { streamText, type ModelMessage, type TextStreamPart, type ToolSet } from 'ai';
 import type { Db } from '../db';
 import { control, newJobId, sweepJobs } from '../buildjobs';
@@ -31,30 +32,31 @@ import { DEFAULT_CURSOR_MODEL } from '../cursor';
 import { openTrace, startTrace, type Trace } from '../traces';
 import { agentModel, DEFAULT_AGENT_MODELS, PROVIDER_NAMES, reasoningFor, type AgentProvider } from './models';
 import { agentSystemPrompt } from './prompt';
-import { checkTickToken, openKey, sealKey, tickToken } from './secrets';
+import { jobToken, openKey, sealKey } from './secrets';
 import { filesUrl } from './sync';
 import { agentTools, closeToolCalls, isFinalStep, Workspace, type LookInput, type Meta, type StepEvent } from './workspace';
-import { cursorTick } from './cursor';
-import { attachLookImages, closeOpenLooks, dropLooks, formatLook, isWatched, LOOK_OVERHEAD_MS, LOOK_SIZE, lookCount, MAX_LOOKS, openLook, pruneLookImages, resolveLookImages, trimLooks, waitForLook, type LookImage } from './look';
-import { cleanProbeActions, PROBE_LIMITS, probeDuration } from '../../lib/probe';
+import { cursorTick, FREE_DOWN } from './cursor';
+import { attachLookImages, closeOpenLooks, dropLooks, formatLook, LOOK_OVERHEAD_MS, lookCount, lookFrames, lookRefusal, looksLeft, MAX_LOOKS, missedLook, openLook, pruneLookImages, resolveLookImages, trimLooks, waitForLook, type LookImage } from './look';
+import { latestSentence } from './narration';
+import { cleanProbeActions, probeDuration } from '../../lib/probe';
 import type { ProbeResult } from '../../lib/types';
-
-export { checkTickToken };
 
 /** A tick holds the job this long (a dead tick's job is picked up again after it runs out). */
 const LEASE_S = 330;
-/** Start new steps only this early in a tick… (shorter in tests, to exercise the hand-over) */
-const STEP_START_MS = Number(process.env.ORB_AGENT_STEP_START_MS) || 200_000;
+/** Start new steps only this early in a tick… */
+const STEP_START_MS = 200_000;
 /** …and stop whatever runs at this point (the function's limit is 300 s). */
-const HARD_MS = Number(process.env.ORB_AGENT_HARD_MS) || 268_000;
+const HARD_MS = 268_000;
 /** Save a version of the world at least this often while a long job works. */
 const CHECKPOINT_MS = 10 * 60_000;
 const FLUSH_MS = 350;
 /** Output per step, thinking included: the default, and Anthropic or OpenAI keys. */
 const MAX_OUTPUT_TOKENS = 16_000;
 const BYO_MAX_OUTPUT_TOKENS = 64_000;
-/** Consecutive provider failures (overloaded, network…) before a job gives up. */
-const MAX_FAILURES = 8;
+/** Consecutive provider failures (overloaded, network…) before a job gives up: about half a minute of retries. */
+const MAX_FAILURES = 4;
+/** What a build that failed on the AI's side says (never the provider's own message). */
+const COULD_NOT_BUILD = 'Couldn’t build that right now.';
 /** Conversation size (characters of JSON) above which old tool output is trimmed. */
 const COMPACT_AT = 320_000;
 const HARD_COMPACT_AT = 700_000;
@@ -100,8 +102,8 @@ export interface TickCtx {
   job: JobRow;
   out: Output;
   meta: Meta;
-  startedAt: number;
-  hardMs: number;
+  /** When the tick must stop (Date.now() time). */
+  deadline: number;
   signal: AbortSignal;
   /** What the job was asked, saw and did, kept for the lab (../traces.ts). */
   trace: Trace;
@@ -113,7 +115,6 @@ export interface TickCtx {
   /** The job's files link, for the agent to get and save the world (./sync.ts). */
   filesUrl?: string;
   ext: Record<string, unknown>;
-  worldName: string;
   cursorParams?: Array<{ id: string; value: string }>;
   /** The request as one text (+ screenshot). */
   prompt(): { text: string; images: Array<{ data: string; mimeType: string }> };
@@ -194,7 +195,7 @@ export async function createAgentJob(db: Db, j: NewJob): Promise<string> {
 
 export async function runningJobs(db: Db, owner: Viewer): Promise<number> {
   const rows = await db.query<{ n: number }>(
-    `select count(*)::int as n from orb_agent_jobs where status = 'running' and ((owner_device is not null and owner_device = $1::text) or (owner_user is not null and owner_user = $2::text))`,
+    `select count(*)::int as n from orb_agent_jobs where status = 'running' and (owner_device = $1::text or owner_user = $2::text)`,
     [owner.deviceHash, owner.userId],
   );
   return Number(rows[0]?.n) || 0;
@@ -224,7 +225,7 @@ export async function kick(origin: string | null, id: string, db?: Db): Promise<
     try {
       const res = await fetch(`${origin}/api/agent/tick`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-orb-tick': tickToken(id) },
+        headers: { 'content-type': 'application/json', 'x-orb-tick': jobToken('tick', id) },
         body: JSON.stringify({ id }),
         signal: AbortSignal.timeout(20_000),
       });
@@ -342,8 +343,6 @@ export class Output {
 
 // -- running ------------------------------------------------------------------------------------
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 function parseMessages(v: ModelMessage[] | string): ModelMessage[] {
   return typeof v === 'string' ? (JSON.parse(v) as ModelMessage[]) : v;
 }
@@ -382,9 +381,9 @@ function classify(e: unknown, provider: AgentProvider): { retry: boolean; messag
   if (own && status === 402) return { retry: false, message: `Your ${name} account is out of credits.` };
   // The free tier's provider refuses to serve (account not set up, out of credit…): waiting won't help.
   if (!own && (status === 401 || status === 402 || status === 403 || /credit card|customer_verification|verification required|insufficient (funds|credit)/i.test(errorText(e)))) {
-    return { retry: false, down: true, message: "The free builder is resting right now. You can keep building by adding your own AI key in You → Model." };
+    return { retry: false, down: true, message: FREE_DOWN };
   }
-  if (status === 404 || status === 400) return { retry: false, message: own ? `${name}: ${errorText(e)}` : `The AI couldn't continue (${errorText(e)}).` };
+  if (status === 404 || status === 400) return { retry: false, message: own ? `${name}: ${errorText(e)}` : COULD_NOT_BUILD };
   return { retry: true, message: errorText(e) };
 }
 
@@ -453,12 +452,8 @@ export function compact(messages: ModelMessage[]): ModelMessage[] {
   return [messages[0], ...(messages[0].role === 'user' ? [{ role: 'assistant', content: 'Working on it.' } as ModelMessage] : []), note, ...tail];
 }
 
-/** The most recent complete-ish sentence of a thought, for the "thinking" peek. */
-function latestSentence(s: string): string {
-  const t = s.replace(/\s+/g, ' ').trim();
-  const parts = t.split(/(?<=[.!?])\s+/).filter((x) => x.length > 12);
-  return (parts[parts.length - 1] ?? t).slice(-200);
-}
+/** What a reply cut off before it finished is asked to do next. */
+const SMALLER_PIECES = 'Work in smaller pieces: several smaller files, or a few edit_file calls instead of one huge write.';
 
 const FILE_TOOLS: Record<string, 'write' | 'edit'> = { write_file: 'write', edit_file: 'edit', delete_file: 'edit', move_file: 'edit' };
 const READ_TOOLS: Record<string, string> = { list_files: 'Looking around', read_file: 'Reading', search: 'Searching', read_docs: 'Reading the docs at' };
@@ -499,6 +494,13 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
   const meta: Meta = job.title ? { name: job.title } : {};
   let tokensIn = 0;
   let tokensOut = 0;
+  /** Back to the files as last saved (a step that is done again, or tried again, starts there). */
+  const rewind = async () => {
+    ws.files = (tree && (await getTree(db, tree))) || {};
+    ws.changed = false;
+  };
+  /** What the build has used so far, for the page to show. */
+  const showCredits = (micros: number) => out.control({ t: 'credits', used: Math.round(toCredits(micros) * 100) / 100 });
 
   const save = async (extra: Record<string, unknown> = {}) => {
     const sets = [`messages = $2::jsonb`, `tree = $3`, `steps = $4`, `failures = $5`, `tokens_in = tokens_in + $6`, `tokens_out = tokens_out + $7`, `title = $8`, `updated_at = now()`];
@@ -550,7 +552,7 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
     const nothing = status === 'failed' && job.mode === 'build' && committedTree === job.base_tree;
     if (nothing && refundable && micros > 0 && (await refundCredits(db, billing!.payer, micros, id, Number(rows[0]?.charged_topup_micros) || 0))) micros = 0;
     await logBuild(db, billing!.payer, micros, id);
-    out.control({ t: 'credits', used: Math.round(toCredits(micros) * 100) / 100 });
+    showCredits(micros);
   };
 
   const finish = async (status: 'done' | 'failed' | 'cancelled', error?: string, opts: { refund?: boolean } = {}): Promise<TickResult> => {
@@ -578,6 +580,14 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
     return 'done';
   };
 
+  /** Out of time for this tick: save, let go of the job, and hand over to the next tick. */
+  const handOver = async (detail?: Record<string, unknown>): Promise<TickResult> => {
+    await out.close(false);
+    await trace.handOver(detail);
+    await save({ lease_until: null });
+    return 'continue';
+  };
+
   /**
    * A build on Orb's AI: what it cost (US$) comes off its maker's credits and onto the day's spend
    * (../budget.ts) → why it must pause now (credits or the free budget used up), or null.
@@ -586,8 +596,7 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
     if (!(usd > 0)) return null;
     try {
       const sum = await db.query<{ charged_micros: string | number }>(`update orb_agent_jobs set charged_micros = charged_micros + $2::bigint where id = $1 returning charged_micros`, [id, Math.round(usd * 1e6)]);
-      // What the build has used so far, for the page to show while it runs.
-      if (billing) out.control({ t: 'credits', used: Math.round(toCredits(Number(sum[0]?.charged_micros) || 0) * 100) / 100 });
+      if (billing) showCredits(Number(sum[0]?.charged_micros) || 0);
       const { wallet, over } = await chargeBuild(db, billing, usd, !job.owner_user);
       if (wallet && wallet.fromTopup > 0) await db.query(`update orb_agent_jobs set charged_topup_micros = charged_topup_micros + $2::bigint where id = $1`, [id, wallet.fromTopup]);
       if (wallet && wallet.left <= 0) {
@@ -609,8 +618,7 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
       job,
       out,
       meta,
-      startedAt,
-      hardMs: HARD_MS,
+      deadline: startedAt + HARD_MS,
       signal: stop.signal,
       trace,
       apiKey: shared ? serverCursorKey() : openKey(job.key_enc),
@@ -618,7 +626,6 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
       charge: shared ? charge : undefined,
       filesUrl: job.origin ? filesUrl(job.origin, id) : undefined,
       ext,
-      worldName: (await worldTree(db, job.world_id))?.name ?? 'Untitled world',
       cursorParams: Array.isArray(ext.params) ? (ext.params as Array<{ id: string; value: string }>) : undefined,
       prompt: () => {
         const parts = typeof last?.content === 'string' ? [{ type: 'text', text: last.content }] : ((last?.content ?? []) as Array<{ type: string; text?: string; data?: unknown; mediaType?: string }>);
@@ -640,19 +647,11 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
     };
     try {
       const r = await cursorTick(ctx);
-      if (r === 'continue') {
-        await out.close(false);
-        await trace.handOver();
-        await save({ lease_until: null });
-      }
-      return r;
+      return r === 'continue' ? await handOver() : r;
     } catch (e) {
       console.error('[orb] cursor tick crashed', e);
       trace.error({ message: errorText(e), retry: true });
-      await out.close(false);
-      await trace.handOver();
-      await save({ lease_until: null });
-      return 'continue';
+      return handOver();
     }
   }
 
@@ -665,7 +664,6 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
   const system = agentSystemPrompt(job.mode);
   const instructions = { role: 'system' as const, content: system, providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' as const } } } };
   const reasoning = reasoningFor(job.provider, ext);
-  const own = job.provider !== 'free' && job.provider !== 'mock';
   const roomy = job.provider === 'anthropic' || job.provider === 'openai';
 
   // -- looking at the world (./look.ts) --
@@ -681,9 +679,8 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
     const left = HARD_MS - (Date.now() - startedAt) - 10_000;
     if (left < 15_000) return "There's no time left to look in this part of the build. Look again in your next step.";
     looks ??= await lookCount(db, id);
-    const maxLooks = MAX_LOOKS;
-    if (looks >= maxLooks) return `You have looked ${looks} times in this build, which is the limit. Check your work by reading the code instead.`;
-    if (!(await isWatched(db, id))) return "Nobody has the world open right now, so you can't see it run. Check your work carefully by reading the code instead, and look again later.";
+    const refused = await lookRefusal(db, id, looks);
+    if (refused) return refused;
     await ws.settled();
     const shown = await ws.snapshot();
     if (shown !== shownTree) {
@@ -692,21 +689,19 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
     }
     const lookId = await openLook(db, id);
     looks++;
-    out.control({ t: 'status', phase: 'thinking', text: input.viewport === 'phone' ? 'Trying it on a phone…' : 'Trying it out…' });
-    out.control({ t: 'look', job: id, id: lookId, tree: shown, actions, size: LOOK_SIZE, shots: PROBE_LIMITS.shots, ...(input.viewport === 'phone' ? { viewport: 'phone' } : {}) });
+    for (const f of lookFrames(id, lookId, { tree: shown, actions, viewport: input.viewport })) out.control(f);
     await out.flush();
     const asked = Date.now();
     const answer = await waitForLook(db, id, lookId, { timeoutMs: Math.min(left, probeDuration(actions) + LOOK_OVERHEAD_MS), signal });
     trace.look({ lookId, callId, actions, skipped, answer, ms: Date.now() - asked });
     out.control({ t: 'looked', id: lookId });
-    if ('timeout' in answer) return signal?.aborted ? 'The look was interrupted.' : "The person's browser didn't answer in time (it may be busy, or the world is very slow to start). Continue carefully, and look again later.";
-    if ('unavailable' in answer) return `Couldn't look: ${answer.unavailable} Continue carefully, and look again later.`;
+    if (!('result' in answer)) return missedLook(answer, !!signal?.aborted);
     lookResults.set(lookId, answer.result);
     await trimLooks(db, id).catch((e) => console.error('[orb] agent looks trim failed', e));
     const seen = formatLook(lookId, answer.result, skipped);
     if (seen.images.length) lookImages.set(callId, seen.images);
-    const remaining = maxLooks - looks;
-    return remaining > 3 ? seen.text : `${seen.text}\n(${remaining ? `${remaining} look${remaining === 1 ? '' : 's'} left in this build: keep one for a last check and one on a phone.` : 'That was your last look in this build.'})`;
+    const low = looksLeft(MAX_LOOKS - looks);
+    return low ? `${seen.text}\n${low}` : seen.text;
   };
 
   /** How long the last step of this tick took (a step that won't fit before HARD_MS waits for the next tick). */
@@ -758,7 +753,7 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
       const stepEvent = (e: StepEvent) => {
         out.control({ t: 'step', id: e.id, kind: e.kind, label: e.label, status: e.ok ? 'done' : 'failed', ...(e.error ? { error: e.error } : {}) });
       };
-      const tools: ToolSet = agentTools(ws, job.mode, meta, stepEvent, job.mode === 'build' ? { look: lookAt } : {});
+      const tools: ToolSet = agentTools(ws, job.mode, meta, stepEvent, lookAt);
       const calls: string[] = [];
       let thought = '';
       let lastThought = 0;
@@ -783,7 +778,7 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
               break;
             case 'reasoning-delta':
               written += part.text.length;
-              thought += part.text;
+              thought = (thought + part.text).slice(-600);
               if (Date.now() - lastThought > 1500) {
                 lastThought = Date.now();
                 out.control({ t: 'status', phase: 'thinking', text: latestSentence(thought) });
@@ -864,7 +859,7 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
         }
         if (finishReason === 'length') {
           // Ran out of output mid-reply (likely a huge file): ask for smaller pieces and go on.
-          nudge('(Your reply hit the output limit before it finished. Work in smaller pieces: several smaller files, or a few edit_file calls instead of one huge write.)');
+          nudge(`(Your reply hit the output limit before it finished. ${SMALLER_PIECES})`);
           await save();
           continue;
         }
@@ -886,11 +881,10 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
         if (reason === 'deadline') {
           // Out of time mid-step: the step is redone by the next tick (its file changes too).
           trace.note('deadline', { text: 'Out of time mid-step: the next tick does it again.', ms: Date.now() - stepStart, calls });
-          ws.files = (tree && (await getTree(db, tree))) || {};
-          ws.changed = false;
+          await rewind();
           if (stepStart - startedAt < 5000) {
             // It had the whole tick and still didn't finish: ask for smaller pieces.
-            nudge('(Your previous reply was cut off by a time limit before it finished. Work in smaller pieces: several smaller files, or a few edit_file calls instead of one huge write.)');
+            nudge(`(Your previous reply was cut off by a time limit before it finished. ${SMALLER_PIECES})`);
           }
           break;
         }
@@ -900,10 +894,9 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
         if (c.down) await recordError(db, { kind: 'builder', message: `Agent builds refused: ${errorText(e)}` }).catch(() => {});
         if (!c.retry) return await finish('failed', c.message);
         failures++;
-        if (failures >= MAX_FAILURES) return await finish('failed', `The AI kept failing (${c.message}). What was built so far is saved — try again in a bit.`);
+        if (failures >= MAX_FAILURES) return await finish('failed', COULD_NOT_BUILD);
         out.control({ t: 'status', phase: 'thinking', text: 'The AI is busy — trying again in a moment…' });
-        ws.files = (tree && (await getTree(db, tree))) || {};
-        ws.changed = false;
+        await rewind();
         const wait = Math.min(60_000, 3000 * 2 ** (failures - 1));
         if (Date.now() - startedAt + wait > STEP_START_MS) break;
         await sleep(wait);
@@ -919,9 +912,5 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
     // Leave the job for the next tick (the lease is released below).
   }
 
-  // Out of time for this tick: save, let go of the job, and hand over to the next tick.
-  await out.close(false);
-  await trace.handOver({ steps });
-  await save({ lease_until: null });
-  return 'continue';
+  return handOver({ steps });
 }

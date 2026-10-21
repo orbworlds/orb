@@ -3,7 +3,7 @@
 // 20 reports per IP every 10 minutes and 300 an hour in all are kept.
 
 import { recordError } from '@/server/errors';
-import { clientIp, readJson } from '@/server/http';
+import { clientIp, ownPageJson, readJson } from '@/server/http';
 import { rateLimit } from '@/server/ratelimit';
 import { ready } from '@/server/schema';
 
@@ -20,9 +20,7 @@ function pathname(v: unknown): string | null {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const site = req.headers.get('sec-fetch-site');
-  const isJson = (req.headers.get('content-type') ?? '').includes('application/json');
-  const body = (site === null || site === 'same-origin') && isJson ? await readJson<Record<string, unknown>>(req, 16_000) : null;
+  const body = ownPageJson(req) ? await readJson<Record<string, unknown>>(req, 16_000) : null;
   const message = str(body?.message);
   if (message) {
     try {

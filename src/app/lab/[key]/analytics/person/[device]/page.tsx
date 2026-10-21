@@ -12,7 +12,7 @@ import { ago, CARD, clock, type Column, dayLabel, duration, LINK, MAIN, personNa
 // own, and what they did, visit by visit — the latest visit first, each read top to bottom.
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Person', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'Person' };
 
 const WORLDS: Column<PersonDetail['worlds'][number]>[] = [
   {
@@ -53,12 +53,7 @@ function site(url: string | null): string {
 function describe(e: PersonEvent): ReactNode {
   const p = e.props ?? {};
   const w = <World w={e.world} />;
-  const inWorld = e.world && (
-    <>
-      {' '}
-      in <World w={e.world} />
-    </>
-  );
+  const inWorld = e.world && <> in {w}</>;
   switch (e.name) {
     case 'page_view': {
       const from = [site(e.referrer), p.utm_source && `utm_source ${text(p.utm_source)}`].filter(Boolean).join(', ');
@@ -124,6 +119,7 @@ function describe(e: PersonEvent): ReactNode {
           Brought back version {text(p.version)} of {w}
         </>
       );
+    // No longer tracked: these two can go once the 180-day retention has aged the rows out (mid-April 2027).
     case 'code_open':
       return <>Opened the code{inWorld}</>;
     case 'code_save':

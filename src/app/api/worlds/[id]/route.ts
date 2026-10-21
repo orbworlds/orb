@@ -4,12 +4,12 @@
 
 import { getViewer } from '@/server/auth';
 import { after } from 'next/server';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, fail, handle, json, readJson } from '@/server/http';
 import { pullRepo, pushRepo } from '@/server/reposync';
 import { ready } from '@/server/schema';
-import { actorKey, deleteWorld, fail, getWorldForViewer, limitOrThrow, route, updateWorld, worldIdParam, type IdContext } from '@/server/worlds';
+import { actorKey, deleteWorld, getWorldForViewer, limitOrThrow, updateWorld, worldIdParam, type IdContext } from '@/server/worlds';
 
-export const GET = route(async (req: Request, ctx: IdContext) => {
+export const GET = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const db = await ready();
   const world = await getWorldForViewer(db, getViewer(req), id);
@@ -19,7 +19,7 @@ export const GET = route(async (req: Request, ctx: IdContext) => {
   return json({ world });
 });
 
-export const PATCH = route(async (req: Request, ctx: IdContext) => {
+export const PATCH = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const viewer = getViewer(req);
   const body = await readJson<unknown>(req, 4_400_000); // worlds up to 3 MB of code
@@ -31,7 +31,7 @@ export const PATCH = route(async (req: Request, ctx: IdContext) => {
   return json({ world });
 });
 
-export const DELETE = route(async (req: Request, ctx: IdContext) => {
+export const DELETE = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const viewer = getViewer(req);
   const db = await ready();

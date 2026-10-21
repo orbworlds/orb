@@ -6,9 +6,9 @@ import { cleanLook } from '@/lib/looks';
 import type { MeResponse } from '@/lib/types';
 import { getViewer, touchDevice, type Viewer } from '@/server/auth';
 import type { Db } from '@/server/db';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, fail, handle, json, readJson } from '@/server/http';
 import { ready } from '@/server/schema';
-import { actorKey, cleanDisplayName, fail, limitOrThrow, renameAuthor, route } from '@/server/worlds';
+import { actorKey, cleanDisplayName, limitOrThrow, renameAuthor } from '@/server/worlds';
 
 async function me(db: Db, viewer: Viewer): Promise<MeResponse> {
   const rows = await db.query<{ user_id: string | null; user_name: string | null; handle: string | null; password: boolean | null; look: unknown; device_name: string | null }>(
@@ -27,13 +27,13 @@ async function me(db: Db, viewer: Viewer): Promise<MeResponse> {
   };
 }
 
-export const GET = route(async (req: Request) => {
+export const GET = handle(async (req: Request) => {
   const viewer = getViewer(req);
   const db = await ready();
   return json(await me(db, viewer));
 });
 
-export const PATCH = route(async (req: Request) => {
+export const PATCH = handle(async (req: Request) => {
   const viewer = getViewer(req);
   if (!viewer.deviceHash && !viewer.userId) fail(400, 'device_required', 'Missing device key.');
   const body = await readJson<unknown>(req, 10_000);

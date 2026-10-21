@@ -1,14 +1,13 @@
 'use client';
-// "This world's chats ▾": switch between this world's threads, start a new chat, or jump to a
-// recent chat in another world.
+// "This world's chats ▾" (shown once a world has two): switch between this world's threads, start
+// a new chat, or jump to a recent chat in another world.
 import { Icon } from '@/components/ui/Icon';
-import { IconButton } from '@/components/ui/Button';
 import { Menu, type MenuEntry } from '@/components/ui/Menu';
 import { listChats } from '@/lib/local';
 import type { ChatThread } from '@/lib/types';
 import { getWorldNames } from '@/state/ui';
 
-export function timeAgo(ts: number): string {
+function timeAgo(ts: number): string {
   const s = Math.max(0, (Date.now() - ts) / 1000);
   if (s < 60) return 'now';
   if (s < 3600) return `${Math.floor(s / 60)}m`;
@@ -33,10 +32,10 @@ export function ChatSwitcher({
   canStartNew: boolean;
   onSwitch(id: string): void;
   onNew(): void;
-  onOpenOther(worldId: string, threadId: string): void;
+  onOpenOther(worldId: string): void;
 }) {
   const current = threads.find((t) => t.id === threadId);
-  const title = current && current.title !== 'New chat' ? current.title : 'New chat';
+  const title = current?.title || 'New chat';
 
   const items = (): MenuEntry[] => {
     const entries: MenuEntry[] = [{ kind: 'label', label: "This world's chats" }];
@@ -63,7 +62,7 @@ export function ChatSwitcher({
           icon: 'globe',
           stacked: true,
           hint: `${names[t.worldId] ?? 'A world'} · ${timeAgo(t.updatedAt)}`,
-          onSelect: () => onOpenOther(t.worldId, t.id),
+          onSelect: () => onOpenOther(t.worldId),
         });
       }
     }
@@ -71,7 +70,7 @@ export function ChatSwitcher({
   };
 
   return (
-    <div className="flex items-center gap-1 px-3 pb-1">
+    <div className="flex px-3 pb-1">
       <Menu
         items={items}
         width={292}
@@ -87,7 +86,6 @@ export function ChatSwitcher({
           </button>
         )}
       />
-      <IconButton icon="plus" label="New chat" size={36} onClick={onNew} disabled={!canStartNew} className="text-ink-3" />
     </div>
   );
 }

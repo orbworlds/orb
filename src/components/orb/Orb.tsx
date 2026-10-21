@@ -49,21 +49,18 @@ export function Orb({
   building,
   unread,
   hidden,
-  forceTop,
   tucked = false,
   onOpen,
 }: {
   building: boolean;
   unread: boolean;
-  /** The panel is open (the Orb lives in its header meanwhile). */
+  /** Out of sight: the panel is open (the Orb lives in its header meanwhile), or home has it in its own. */
   hidden: boolean;
-  /** Keep the Orb at the top (e.g. the mobile start screen, where the hero owns the bottom). */
-  forceTop?: boolean;
   /** Half behind its edge (phones, while a world plays or Explore is open). */
   tucked?: boolean;
   onOpen(): void;
 }) {
-  const { orb, orbLoaded, loadOrb, moveOrb } = useUi();
+  const { orb, orbLoaded, panelOpen, loadOrb, moveOrb } = useUi();
   const ref = useRef<HTMLButtonElement>(null);
   const probe = useRef<HTMLSpanElement>(null);
   const drag = useRef<{ id: number; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null);
@@ -73,11 +70,10 @@ export function Orb({
     loadOrb();
   }, [loadOrb]);
 
-  const y = forceTop ? 0 : orb.y;
-  const docked = dockedOrbStyle(orb.side, y, tucked);
+  const docked = dockedOrbStyle(orb.side, orb.y, tucked);
 
   const onPointerDown = (e: PointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0 || hidden) return;
+    if (e.button !== 0) return;
     suppressClick.current = false; // a touch drag never fires the click that would reset it
     const r = e.currentTarget.getBoundingClientRect();
     drag.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, moved: false };
@@ -111,18 +107,16 @@ export function Orb({
     suppressClick.current = true;
     delete el.dataset.dragging;
     const r = el.getBoundingClientRect();
-    const bounds = probe.current?.getBoundingClientRect();
-    const minTop = bounds?.top ?? ORB_MARGIN;
-    const maxTop = (bounds?.bottom ?? window.innerHeight - ORB_MARGIN) - ORB_SIZE;
+    const { top: minTop, bottom } = probe.current!.getBoundingClientRect();
+    const maxTop = bottom - ORB_SIZE;
     const side: OrbSide = r.left + ORB_SIZE / 2 < window.innerWidth / 2 ? 'left' : 'right';
     const frac = maxTop > minTop ? (r.top - minTop) / (maxTop - minTop) : 1;
     const next = Math.min(1, Math.max(0, frac));
     // Spring from where it was dropped to the dock (React may not touch these if nothing changed).
-    const target = dockedOrbStyle(side, forceTop ? 0 : next, tucked);
+    const target = dockedOrbStyle(side, next, tucked);
     el.style.left = target.left;
     el.style.top = target.top;
-    if (!forceTop) moveOrb(side, next);
-    else moveOrb(side, orb.y);
+    moveOrb(side, next);
   };
 
   const onClick = () => {
@@ -171,7 +165,7 @@ export function Orb({
         ref={ref}
         type="button"
         aria-label={unread ? 'Open Orb (new message)' : 'Open Orb'}
-        aria-expanded={!hidden}
+        aria-expanded={panelOpen}
         title="Orb  ·  ⌘K"
         className="group fixed z-40 rounded-full outline-none select-none data-[dragging]:!transition-none data-[dragging]:cursor-grabbing"
         style={style}

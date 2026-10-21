@@ -13,32 +13,23 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { gzipSync } from 'node:zlib';
+import { readJson } from './server.mjs';
 
-export const DEFAULT_SITE = 'https://orbworlds.com';
 const SKIP = new Set(['node_modules', 'orb-kit', 'test', 'tests']);
 const WAIT_MS = 10 * 60 * 1000;
 
 const configFile = () => path.join(process.env.ORB_CONFIG_DIR || path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'orb'), 'credentials.json');
 
-function readConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(configFile(), 'utf8'));
-  } catch {
-    return {};
-  }
-}
-
-function writeConfig(all) {
-  fs.mkdirSync(path.dirname(configFile()), { recursive: true });
-  fs.writeFileSync(configFile(), `${JSON.stringify(all, null, 2)}\n`, { mode: 0o600 });
-}
+const readConfig = () => readJson(configFile()) ?? {};
 
 function saveSite(site, entry) {
   const all = readConfig();
   if (entry) all[site] = entry;
   else delete all[site];
-  writeConfig(all);
+  fs.mkdirSync(path.dirname(configFile()), { recursive: true });
+  fs.writeFileSync(configFile(), `${JSON.stringify(all, null, 2)}\n`, { mode: 0o600 });
 }
 
 async function call(site, method, url, { token, body, type } = {}) {
@@ -62,14 +53,8 @@ async function call(site, method, url, { token, body, type } = {}) {
   return { status: res.status, data, text };
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function showLink(url, code) {
-  console.log(`\n  To let this computer push worlds to Orb as you, open:\n\n    ${url}\n\n  and press Allow (the code there is ${code}).\n`);
-}
-
 /** The kit's token for `site`: ORB_TOKEN, the saved one, or a sign-in (null: not yet — the link was shown). */
-export async function signIn(site, { wait = process.stdout.isTTY, quiet = false } = {}) {
+export async function signIn(site) {
   if (process.env.ORB_TOKEN) return process.env.ORB_TOKEN;
   const saved = readConfig()[site];
   if (saved?.token) return saved.token;
@@ -85,8 +70,8 @@ export async function signIn(site, { wait = process.stdout.isTTY, quiet = false 
     pending = { poll: r.data.poll, code: r.data.code, url: r.data.url, at: Date.now() };
     saveSite(site, { pending });
   }
-  if (!quiet || !wait) showLink(pending.url, pending.code);
-  if (!wait) {
+  console.log(`\n  To let this computer push worlds to Orb as you, open:\n\n    ${pending.url}\n\n  and press Allow (the code there is ${pending.code}).\n`);
+  if (!process.stdout.isTTY) {
     console.log('  Then run `orb push` again: it carries on from there.\n');
     return null;
   }
@@ -121,7 +106,7 @@ export function signOut(site) {
 }
 
 /** The world's files: everything in the folder but dot files, node_modules and test folders. */
-export function collect(dir) {
+function collect(dir) {
   const out = [];
   const walk = (rel) => {
     for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
@@ -136,9 +121,9 @@ export function collect(dir) {
 }
 
 /** A .tar.gz of these files (ustar; a pax header for paths too long for it). */
-export function tarGz(dir, files) {
+function tarGz(dir, files) {
   const blocks = [];
-  const header = (name, size, type = '0', prefix = '') => {
+  const header = (name, size, type = '0') => {
     const h = Buffer.alloc(512);
     h.write(name, 0, 100, 'utf8');
     h.write('0000644\0', 100);
@@ -150,7 +135,6 @@ export function tarGz(dir, files) {
     h.write(type, 156);
     h.write('ustar\0', 257);
     h.write('00', 263);
-    h.write(prefix, 345, 155, 'utf8');
     let sum = 0;
     for (const b of h) sum += b;
     h.write(sum.toString(8).padStart(6, '0') + '\0 ', 148);
@@ -175,26 +159,11 @@ export function tarGz(dir, files) {
 
 /** A screenshot of the world as Orb shows it (JPEG), or null without Playwright. */
 async function screenshot(dir) {
-  let launch;
   try {
-    ({ launch } = await import('./browser.mjs'));
+    const { play } = await import('./smoke.mjs');
+    return await play(dir, 8000, (page) => page.screenshot({ type: 'jpeg', quality: 78, timeout: 60000 }));
   } catch {
     return null;
-  }
-  const { serve } = await import('./server.mjs');
-  const kit = await serve({ dir, port: 0, watch: false, quiet: true });
-  let browser;
-  try {
-    browser = await launch();
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    await page.goto(`${kit.url}?bare`, { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(Number(process.env.ORB_SHOT_WAIT || 8000));
-    return await page.screenshot({ type: 'jpeg', quality: 78, timeout: 60000 });
-  } catch {
-    return null;
-  } finally {
-    await browser?.close().catch(() => {});
-    await kit.close();
   }
 }
 
@@ -202,14 +171,9 @@ async function screenshot(dir) {
  * Push the world in `dir` (`project`: where orb.json lives). Returns { url, outcome, world } or
  * null when the sign-in link was shown and the push has to be run again.
  */
-export async function push({ dir, project, site, message, fresh = false, shot = true, log = console.log }) {
+export async function push({ dir, project, site, message, fresh = false, shot = true }) {
   const metaFile = path.join(project, 'orb.json');
-  let meta = {};
-  try {
-    meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
-  } catch {
-    /* none yet */
-  }
+  const meta = readJson(metaFile) ?? {};
   const files = collect(dir);
   if (!files.includes('index.html')) throw new Error(`There is no index.html in ${path.relative(process.cwd(), dir) || 'this folder'}: Orb runs a world from it.`);
   const body = tarGz(dir, files);
@@ -220,19 +184,20 @@ export async function push({ dir, project, site, message, fresh = false, shot = 
   if (meta.world && !fresh) q.set('world', meta.world);
   if (meta.name) q.set('name', meta.name);
   if (message) q.set('message', message);
-  log(`Pushing ${files.length} file${files.length === 1 ? '' : 's'} (${Math.round(body.length / 1024)} KB)…`);
-  let r = await call(site, 'POST', `/api/kit/push?${q}`, { token, body, type: 'application/gzip' });
+  const send = () => call(site, 'POST', `/api/kit/push?${q}`, { token, body, type: 'application/gzip' });
+  console.log(`Pushing ${files.length} file${files.length === 1 ? '' : 's'} (${Math.round(body.length / 1024)} KB)…`);
+  let r = await send();
   if (r.status === 401 && !process.env.ORB_TOKEN) {
     saveSite(site, null);
     token = await signIn(site);
     if (!token) return null;
-    r = await call(site, 'POST', `/api/kit/push?${q}`, { token, body, type: 'application/gzip' });
+    r = await send();
   }
   if (r.status !== 200 || !r.data?.world) throw new Error(r.data?.message || `Orb didn't take the push (HTTP ${r.status}): ${r.text.slice(0, 200)}`);
   const { world, outcome, url, skipped = [] } = r.data;
-  if (skipped.length) log(`Left out ${skipped.length} file${skipped.length === 1 ? '' : 's'} Orb can't hold (a name or folder depth it doesn't take): ${skipped.slice(0, 5).join(', ')}${skipped.length > 5 ? '…' : ''}`);
+  if (skipped.length) console.log(`Left out ${skipped.length} file${skipped.length === 1 ? '' : 's'} Orb can't hold (a name or folder depth it doesn't take): ${skipped.slice(0, 5).join(', ')}${skipped.length > 5 ? '…' : ''}`);
 
-  if (outcome === 'created' || outcome === 'remixed' || meta.world !== world.id || meta.url !== url) {
+  if (meta.world !== world.id || meta.url !== url) {
     const next = { ...meta, name: meta.name || world.name, world: world.id, url };
     if (outcome === 'remixed') next.remixOf = meta.world;
     fs.writeFileSync(metaFile, `${JSON.stringify(next, null, 2)}\n`);

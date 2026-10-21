@@ -3,14 +3,14 @@
 
 import { getViewer } from '@/server/auth';
 import { createCheckout, currentWallet, paymentsForPayer } from '@/server/billing';
-import { returnTo, webhookUrl } from '@/server/billingurls';
+import { returnTo } from '@/server/billingurls';
 import { plansConfig } from '@/server/credits';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, fail, handle, json, readJson } from '@/server/http';
 import { ready } from '@/server/schema';
 import { paymentsOn } from '@/server/stripe';
-import { fail, limitOrThrow, route, sessionUser } from '@/server/worlds';
+import { limitOrThrow, sessionUser } from '@/server/worlds';
 
-export const POST = route(async (req: Request) => {
+export const POST = handle(async (req: Request) => {
   if (!paymentsOn()) fail(503, 'payments_off', 'Payments aren’t open yet — check back soon!');
   const body = await readJson<{ item?: unknown; from?: unknown }>(req, 10_000);
   const item = typeof body?.item === 'string' ? body.item : '';
@@ -31,6 +31,6 @@ export const POST = route(async (req: Request) => {
   const origin = new URL(req.url).origin;
   const from = returnTo(body?.from);
   const success = `${origin}/api/billing/return?session_id={CHECKOUT_SESSION_ID}&to=${encodeURIComponent(from)}`;
-  const url = await createCheckout(db, wallet, pack ? { kind: 'topup', pack } : { kind: 'pro' }, { success, cancel: `${origin}${from}`, webhook: webhookUrl() }, cfg);
+  const url = await createCheckout(db, wallet, pack ? { kind: 'topup', pack } : { kind: 'pro' }, { success, cancel: `${origin}${from}` }, cfg);
   return json({ url });
 });

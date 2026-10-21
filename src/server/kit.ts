@@ -17,14 +17,14 @@ import { createGunzip } from 'node:zlib';
 import { canEdit, randomId, signKitToken, type Viewer } from './auth';
 import { openKey, sealKey } from './agent/secrets';
 import type { Db } from './db';
-import { cleanPath, FILE_LIMITS, FileError, putBlob, putTree, type Tree } from './files';
-import { detectLicense, SKIP_DIR, untar } from './importer';
-import { commitTree, createRemixFromTree, createWorldFromTree, fail, getWorldForViewer, sessionUser } from './worlds';
+import { fail } from './http';
+import { cleanPath, FILE_LIMITS, FileError, putBlob, putTree, sha256, type Tree } from './files';
+import { detectLicense, LICENSE_FILE, SKIP_DIR, titleOf, untar } from './importer';
+import { commitTree, createRemixFromTree, createWorldFromTree, getWorldForViewer, sessionUser } from './worlds';
 import type { WorldFull } from '@/lib/types';
 
 const LOGIN_MINUTES = 10;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const sha = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
 export async function startLogin(db: Db): Promise<{ code: string; poll: string }> {
   await db.query(`delete from orb_kit_logins where created_at < now() - make_interval(mins => $1)`, [LOGIN_MINUTES]);
@@ -33,12 +33,12 @@ export async function startLogin(db: Db): Promise<{ code: string; poll: string }
     const bytes = crypto.randomBytes(8);
     const raw = Array.from(bytes, (b) => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
     const code = `${raw.slice(0, 4)}-${raw.slice(4)}`;
-    const rows = await db.query<{ code: string }>(`insert into orb_kit_logins (code, poll_hash) values ($1, $2) on conflict do nothing returning code`, [code, sha(poll)]);
+    const rows = await db.query<{ code: string }>(`insert into orb_kit_logins (code, poll_hash) values ($1, $2) on conflict do nothing returning code`, [code, sha256(poll)]);
     if (rows[0]) return { code, poll };
   }
 }
 
-export const normalizeCode = (raw: string): string | null => {
+const normalizeCode = (raw: string): string | null => {
   const c = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
   return c.length === 8 && [...c].every((ch) => CODE_ALPHABET.includes(ch)) ? `${c.slice(0, 4)}-${c.slice(4)}` : null;
 };
@@ -66,7 +66,7 @@ export async function approveLogin(db: Db, viewer: Viewer, rawCode: string): Pro
 export async function pollLogin(db: Db, poll: string): Promise<{ token: string; name: string | null } | 'pending' | null> {
   const [row] = await db.query<{ code: string; token_enc: string | null; name: string | null }>(
     `select code, token_enc, name from orb_kit_logins where poll_hash = $1 and created_at > now() - make_interval(mins => $2)`,
-    [sha(poll), LOGIN_MINUTES],
+    [sha256(poll), LOGIN_MINUTES],
   );
   if (!row) return null;
   const token = openKey(row.token_enc);
@@ -83,7 +83,6 @@ async function readUpload(db: Db, body: ReadableStream<Uint8Array>): Promise<{ t
   const gunzip = Readable.fromWeb(body as unknown as NodeReadableStream<Uint8Array>).pipe(createGunzip());
   try {
     for await (const entry of untar(gunzip)) {
-      if (entry.type !== '0' && entry.type !== '\0' && entry.type !== '7') continue;
       const p = entry.path.replace(/^\.\//, '');
       if (!p || SKIP_DIR.test(p) || /(^|\/)\.(orb|DS_Store)(\/|$)/.test(p)) continue;
       const clean = cleanPath(p);
@@ -106,7 +105,7 @@ async function readUpload(db: Db, body: ReadableStream<Uint8Array>): Promise<{ t
   return { tree: await putTree(db, files), files, skipped, text: (p) => raw.get(p)?.toString('utf8') ?? null };
 }
 
-export interface PushResult {
+interface PushResult {
   world: WorldFull;
   /** 'created' (a new world), 'remixed' (a remix of someone else's), 'updated' (a new version) or 'unchanged'. */
   outcome: 'created' | 'remixed' | 'updated' | 'unchanged';
@@ -144,12 +143,12 @@ export async function pushWorld(
   return { world, outcome: 'created', skipped: up.skipped };
 }
 
+/** The name it was pushed with, else its page's title ('' leaves the world untitled). */
 function nameOf(up: { text: (p: string) => string | null }, given?: string | null): string {
-  const title = /<title>([^<]{1,80})<\/title>/i.exec(up.text('index.html') ?? '')?.[1]?.trim();
-  return (given || '').trim() || title || 'Untitled world';
+  return (given || '').trim() || titleOf(up.text('index.html') ?? '');
 }
 
 function licenseOf(up: { files: Tree; text: (p: string) => string | null }): string | null {
-  const file = Object.keys(up.files).find((k) => /^(license|licence|copying)(\.\w+)?$/i.test(k));
+  const file = Object.keys(up.files).find((k) => LICENSE_FILE.test(k));
   return file ? detectLicense(up.text(file) ?? '') : null;
 }

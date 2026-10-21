@@ -10,7 +10,7 @@ import { ago, Bar, CARD, type Column, countryName, dayLabel, duration, LINK, MAI
 // last 7 days, or 30 with ?days=30, in UTC days. Everyone links to their own timeline (./person).
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Analytics', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'Analytics' };
 
 const DAYS: Column<AnalyticsDay>[] = [
   { label: 'Day', cell: (d) => dayLabel(d.day) },

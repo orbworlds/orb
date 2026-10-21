@@ -3,12 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { WorldCard } from '@/components/orb/WorldCard';
 import type { WorldCard as WorldCardData } from '@/lib/types';
+import { TITLE } from './pulse/ui';
 
 export function HiddenWorlds({ worlds }: { worlds: WorldCardData[] }) {
   const router = useRouter();
   return (
     <main className="mx-auto w-full max-w-[1320px] px-4 pt-[max(28px,env(safe-area-inset-top))] pb-[max(48px,env(safe-area-inset-bottom))] sm:px-8 sm:pt-10 lg:px-12">
-      <h1 className="font-display text-[36px] leading-none tracking-[-0.015em] text-ink sm:text-[42px]">Hidden worlds</h1>
+      <h1 className={TITLE}>Hidden worlds</h1>
       <p className="mt-3 text-[14.5px] text-ink-2">
         {worlds.length} worlds kept out of Explore. They still play by link.
       </p>

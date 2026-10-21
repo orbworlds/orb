@@ -13,7 +13,7 @@ import { onRooms, roomSelves, setFriendPeers } from '@/lib/runtime/realtime';
 import type { FriendNote, FriendRoom, FriendsData, FriendState, Person } from '@/lib/types';
 import { useSession } from '@/components/orb/AccountCard';
 import { useToasts } from './toast';
-import { useUi } from './ui';
+import { isMobile, useUi, whenShown } from './ui';
 import { useWorld } from './world';
 
 const SYNC_MS = 30_000;
@@ -68,6 +68,14 @@ export const useFriends = create<FriendsState>((set, get) => {
     return useSession.getState().me?.user?.id ?? null;
   }
 
+  /** A list that came back from a change (asked at `askedAt`): it's the latest, for the account still signed in. */
+  function adoptList(friends: FriendsData, askedAt: number): void {
+    const userId = signedInId();
+    if (!userId) return;
+    apply(friends, userId);
+    vouch(friends, worldOnScreen(), askedAt);
+  }
+
   return {
     data: null,
     userId: null,
@@ -102,11 +110,7 @@ export const useFriends = create<FriendsState>((set, get) => {
     async add(username, how = 'username') {
       const askedAt = Date.now();
       const r = await api.addFriend(username);
-      const userId = signedInId();
-      if (userId) {
-        apply(r.friends, userId);
-        vouch(r.friends, worldOnScreen(), askedAt);
-      }
+      adoptList(r.friends, askedAt);
       track(r.state === 'friends' ? 'friend_accept' : 'friend_add', { how });
       return { state: r.state, person: r.person };
     },
@@ -114,22 +118,14 @@ export const useFriends = create<FriendsState>((set, get) => {
     async accept(id) {
       const askedAt = Date.now();
       const r = await api.acceptFriend(id);
-      const userId = signedInId();
-      if (userId) {
-        apply(r.friends, userId);
-        vouch(r.friends, worldOnScreen(), askedAt);
-      }
+      adoptList(r.friends, askedAt);
       track('friend_accept', { how: 'request' });
     },
 
     async remove(id) {
       const askedAt = Date.now();
       const r = await api.removeFriend(id);
-      const userId = signedInId();
-      if (userId) {
-        apply(r.friends, userId);
-        vouch(r.friends, worldOnScreen(), askedAt);
-      }
+      adoptList(r.friends, askedAt);
     },
 
     async invite(worldId, to) {
@@ -160,17 +156,10 @@ export function useFriendUnread(): number {
 /** The You tab, scrolled to Friends. */
 export function showFriends(): void {
   const u = useUi.getState();
-  u.setExplore(false);
   u.setShare(false);
   u.closeProfile();
   u.openPanel('you', 'full');
-  let tries = 0;
-  const reveal = () => {
-    const el = document.getElementById('orb-friends-h');
-    if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    else if (++tries < 20) requestAnimationFrame(reveal);
-  };
-  requestAnimationFrame(reveal);
+  whenShown('orb-friends-h', (el) => el.scrollIntoView({ block: 'start', behavior: 'smooth' }));
 }
 
 /** The named room of its world a friend is in (a match, a party), to join them there; null: the world's own. */
@@ -182,18 +171,17 @@ export function roomOf(f: { rooms?: FriendRoom[] }): string | null {
 export function joinWorld(id: string, source: 'friend' | 'invite' | 'profile' | 'remix_note', room: string | null = null): void {
   track('world_open', { world_id: id, source, ...(room ? { room: true } : {}) });
   const u = useUi.getState();
-  u.setExplore(false);
   u.closeProfile();
   u.setHeroDone(true);
   // On a phone the panel covers the world you came to see.
-  if (window.matchMedia('(max-width: 639px)').matches) u.closePanel();
+  if (isMobile()) u.closePanel();
   void useWorld.getState().openWorld(id, room ? { room } : undefined);
 }
 
 // --- announcing what's new -------------------------------------------------------------------------
 
 /** "Someone got Crimson Cape in “VampireZ” · +35 credits" (or "3 sold in …" once they add up). */
-export function saleText(s: { count: number; credits: number; item: string }, world: string): string {
+function saleText(s: { count: number; credits: number; item: string }, world: string): string {
   const what = s.count > 1 ? `${s.count} things sold in “${world}”` : `Someone got ${s.item || 'something'} in “${world}”`;
   return s.credits > 0 ? `${what} · +${Math.round(s.credits * 10) / 10} credits ✨` : what;
 }

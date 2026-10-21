@@ -34,20 +34,16 @@ import crypto from 'node:crypto';
 import { SITE } from '@/lib/site';
 import type { BillingInfo } from '@/lib/types';
 import type { Db } from './db';
-import { MICROS_PER_CREDIT, toCredits } from './credits';
-import { paymentsOn, stripe, StripeError, stripeKey } from './stripe';
-import { fail } from './worlds';
+import { fail } from './http';
+import { MICROS_PER_CREDIT, numberEnv, toCredits, userOfPayer } from './credits';
+import { keyTag, paymentsOn, stripe, StripeError } from './stripe';
 
 const env = (k: string) => (process.env[k] ?? '').trim();
-function numberEnv(key: string, fallback: number, min: number, max: number): number {
-  const n = Number(env(key));
-  return env(key) && Number.isFinite(n) && n >= min && n <= max ? n : fallback;
-}
 
 export const payoutConfig = () => ({
-  holdDays: numberEnv('ORB_PAYOUT_HOLD_DAYS', 30, 0, 180),
-  minimum: numberEnv('ORB_PAYOUT_MIN', 10_000, 1, 1_000_000),
-  buyers: numberEnv('ORB_PAYOUT_BUYERS', 10, 1, 10_000),
+  holdDays: numberEnv(process.env, 'ORB_PAYOUT_HOLD_DAYS', 30, 0, 180),
+  minimum: numberEnv(process.env, 'ORB_PAYOUT_MIN', 10_000, 1, 1_000_000),
+  buyers: numberEnv(process.env, 'ORB_PAYOUT_BUYERS', 10, 1, 10_000),
   review: env('ORB_PAYOUT_REVIEW') !== '0',
 });
 
@@ -65,7 +61,6 @@ export function payableMicros(w: { earned: number; earnedTotal: number; cleared:
 
 // -- Stripe: Connect, the account's currency, the rate ------------------------------------------------
 
-const keyTag = () => crypto.createHash('sha256').update(stripeKey() ?? '').digest('hex').slice(0, 12);
 let connect: { key: string; ok: boolean; at: number } | null = null;
 
 /**
@@ -204,7 +199,8 @@ export async function dashboardLink(db: Db, userId: string, urls: { refresh: str
 // -- what's cashable ----------------------------------------------------------------------------------
 
 /**
- * The maker's purchases, each marked cashable or not. $1: the maker's user id. A buyer is the
+ * The maker's purchases, each marked cashable or not, and `cleared` once older than the hold. $1:
+ * the maker's user id, $2: the hold in seconds (ORB_PAYOUT_HOLD_DAYS × 86400). A buyer is the
  * maker's own when they share a device (analytics of the last 180 days, or the devices table) or a
  * card; a flagged buyer (a refunded or disputed payment) never earns cashable credits again.
  */
@@ -215,7 +211,7 @@ const SALES = `
   ), mine_cards as (
     select c.fingerprint from orb_cards c where c.payer = 'u:' || $1
   ), sales as (
-    select p.buyer_user, p.earned_micros, p.created_at,
+    select p.buyer_user, p.earned_micros, p.created_at, p.created_at < now() - make_interval(secs => $2::double precision) as cleared,
       (not exists (select 1 from orb_wallets bw where bw.payer = 'u:' || p.buyer_user and bw.flagged_at is not null)
        and not exists (select 1 from orb_events e where e.user_id = p.buyer_user and e.device in (select device from mine_devices))
        and not exists (select 1 from orb_devices d where d.user_id = p.buyer_user and d.hash in (select device from mine_devices))
@@ -239,9 +235,9 @@ async function standing(db: Db, userId: string, holdDays: number): Promise<Stand
   const rows = await db.query<{ earned: string | null; total: string | null; cleared: string | null; excluded: string | null; buyers: string | null; paid: string | null }>(
     `${SALES}
      select w.earned_micros as earned, w.earned_total_micros as total,
-       (select coalesce(sum(earned_micros), 0) from sales where cashable and created_at < now() - make_interval(secs => $2::double precision)) as cleared,
+       (select coalesce(sum(earned_micros), 0) from sales where cashable and cleared) as cleared,
        (select coalesce(sum(earned_micros), 0) from sales where not cashable) as excluded,
-       (select count(distinct buyer_user) from sales where cashable and created_at < now() - make_interval(secs => $2::double precision)) as buyers,
+       (select count(distinct buyer_user) from sales where cashable and cleared) as buyers,
        (select coalesce(sum(micros), 0) from orb_payouts where user_id = $1 and status in ('requested', 'pending', 'paid')) as paid
      from orb_wallets w where w.payer = 'u:' || $1`,
     [userId, holdDays * 86400],
@@ -263,12 +259,7 @@ export async function payoutsView(db: Db, userId: string): Promise<NonNullable<B
       [userId],
     ),
   ]);
-  let rate: { currency: string; usdPer: number } | null = null;
-  try {
-    rate = await payoutCurrency();
-  } catch {
-    rate = null;
-  }
+  const rate = await payoutCurrency().catch(() => null);
   const credits = (micros: number) => Math.floor(toCredits(micros) * 100) / 100;
   return {
     account: !row ? 'none' : row.ready ? 'ready' : 'pending',
@@ -353,7 +344,7 @@ async function send(db: Db, p: PayoutRow): Promise<boolean> {
 async function settlePending(db: Db, userId: string): Promise<void> {
   const rows = await db.query<PayoutRow>(
     `select ${PAYOUT_COLS} from orb_payouts where user_id = $1 and status = 'pending' and coalesce(reviewed_at, created_at) < now() - make_interval(secs => $2::double precision) order by created_at limit 5`,
-    [userId, numberEnv('ORB_PAYOUT_SETTLE_S', 30, 0, 3600)],
+    [userId, numberEnv(process.env, 'ORB_PAYOUT_SETTLE_S', 30, 0, 3600)],
   );
   for (const p of rows) {
     const listed = await stripe<{ data?: Array<{ id: string; metadata?: Record<string, string> }> }>('GET', '/v1/transfers', { destination: p.stripe_account, limit: 100 });
@@ -450,7 +441,7 @@ export async function payoutRequests(db: Db): Promise<PayoutRequest[]> {
   const out: PayoutRequest[] = [];
   for (const r of rows) {
     const [detail] = await db.query<{ count: string; buyers: string; top: string | null; total: string | null; excluded: string | null; reversed: string | null; worlds: Array<{ id: string; name: string; micros: number }> | null }>(
-      `${SALES}, ok as (select * from sales where cashable and created_at < now() - make_interval(secs => $2::double precision))
+      `${SALES}, ok as (select * from sales where cashable and cleared)
        select (select count(*) from ok) as count, (select count(distinct buyer_user) from ok) as buyers,
          (select max(s) from (select sum(earned_micros) as s from ok group by buyer_user) t) as top,
          (select sum(earned_micros) from ok) as total,
@@ -538,9 +529,10 @@ export async function rememberCard(db: Db, payer: string, fingerprint: string | 
 
 /** The billing answer with the maker's payouts in it (GET /api/billing and the earnings routes). */
 export async function withPayouts(db: Db, info: BillingInfo, payer: string, req: Request): Promise<BillingInfo> {
-  if (!info.earnings || !payer.startsWith('u:')) return info;
+  const userId = userOfPayer(payer);
+  if (!info.earnings || !userId) return info;
   try {
-    const view = await payoutsView(db, payer.slice(2));
+    const view = await payoutsView(db, userId);
     const country = (req.headers.get('x-vercel-ip-country') ?? '').toUpperCase();
     info.earnings.payouts = view && { ...view, country: COUNTRY_RE.test(country) ? country : null };
   } catch (e) {

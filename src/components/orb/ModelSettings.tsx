@@ -43,6 +43,9 @@ interface ProviderInfo {
   models: ModelChoice[];
 }
 
+const KEY_PRIVACY =
+  "Your key is saved only in this browser. While a build runs, Orb's server keeps it encrypted so the build can go on without this page — it's deleted when the build ends.";
+
 const PROVIDERS: ProviderInfo[] = [
   {
     id: "anthropic",
@@ -51,7 +54,7 @@ const PROVIDERS: ProviderInfo[] = [
     icon: "key",
     keyPlaceholder: "sk-ant-…",
     keyUrl: "https://console.anthropic.com/settings/keys",
-    privacy: "Your key is saved only in this browser. While a build runs, Orb's server keeps it encrypted so the build can go on without this page — it's deleted when the build ends.",
+    privacy: KEY_PRIVACY,
     models: [
       {
         id: "claude-sonnet-5-5",
@@ -77,7 +80,7 @@ const PROVIDERS: ProviderInfo[] = [
     icon: "globe",
     keyPlaceholder: "sk-or-…",
     keyUrl: "https://openrouter.ai/keys",
-    privacy: "Your key is saved only in this browser. While a build runs, Orb's server keeps it encrypted so the build can go on without this page — it's deleted when the build ends.",
+    privacy: KEY_PRIVACY,
     models: [
       {
         id: "anthropic/claude-sonnet-5.5",
@@ -104,7 +107,7 @@ const PROVIDERS: ProviderInfo[] = [
     icon: "bolt",
     keyPlaceholder: "sk-…",
     keyUrl: "https://platform.openai.com/api-keys",
-    privacy: "Your key is saved only in this browser. While a build runs, Orb's server keeps it encrypted so the build can go on without this page — it's deleted when the build ends.",
+    privacy: KEY_PRIVACY,
     models: [
       { id: "gpt-6.1-sol", label: "GPT-6.1 Sol", note: "Recommended" },
       { id: "gpt-6-astra", label: "GPT-6 Astra" },
@@ -225,12 +228,6 @@ function Inner() {
     update({ ...cfg, models: { ...cfg.models, [p]: model }, params });
   };
 
-  const disconnect = (p: ByoProvider) => {
-    const keys = { ...cfg.keys };
-    delete keys[p];
-    update({ ...cfg, keys, active: cfg.active === p ? "free" : cfg.active });
-  };
-
   return (
     <>
       <SectionHeader
@@ -284,24 +281,26 @@ function Inner() {
 
         {open && (
           <div className="animate-fade-up mt-1 space-y-1">
-            {PROVIDERS.map((p) => (
-              <ProviderRow
-                key={p.id}
-                info={p}
-                apiKey={cfg.keys[p.id] ?? ""}
-                model={cfg.models[p.id] ?? DEFAULT_MODELS[p.id]}
-                active={cfg.active === p.id}
-                expanded={expanded === p.id}
-                waiting={wanted === p.id && !cfg.keys[p.id]}
-                onPick={() => pick(p.id)}
-                onToggle={() => setExpanded((e) => (e === p.id ? null : p.id))}
-                onKey={(k) => setKey(p.id, k)}
-                onModel={(m) => setModel(p.id, m)}
-                params={cfg.params?.[p.id]?.[cfg.models[p.id] ?? DEFAULT_MODELS[p.id]] ?? {}}
-                onParams={(v) => setParams(p.id, cfg.models[p.id] ?? DEFAULT_MODELS[p.id], v)}
-                onDisconnect={() => disconnect(p.id)}
-              />
-            ))}
+            {PROVIDERS.map((p) => {
+              const model = cfg.models[p.id] ?? DEFAULT_MODELS[p.id];
+              return (
+                <ProviderRow
+                  key={p.id}
+                  info={p}
+                  apiKey={cfg.keys[p.id] ?? ""}
+                  model={model}
+                  active={cfg.active === p.id}
+                  expanded={expanded === p.id}
+                  waiting={wanted === p.id && !cfg.keys[p.id]}
+                  onPick={() => pick(p.id)}
+                  onToggle={() => setExpanded((e) => (e === p.id ? null : p.id))}
+                  onKey={(k) => setKey(p.id, k)}
+                  onModel={(m) => setModel(p.id, m)}
+                  params={cfg.params?.[p.id]?.[model] ?? {}}
+                  onParams={(v) => setParams(p.id, model, v)}
+                />
+              );
+            })}
           </div>
         )}
       </div>
@@ -368,7 +367,6 @@ function ProviderRow({
   onModel,
   params,
   onParams,
-  onDisconnect,
 }: {
   info: ProviderInfo;
   apiKey: string;
@@ -382,7 +380,6 @@ function ProviderRow({
   onModel(m: string): void;
   params: Record<string, string>;
   onParams(v: Record<string, string>): void;
-  onDisconnect(): void;
 }) {
   const ids = useId();
   const keyRef = useRef<HTMLInputElement>(null);
@@ -596,7 +593,7 @@ function ProviderRow({
                 type="button"
                 onClick={() => {
                   setKeyDraft("");
-                  onDisconnect();
+                  onKey("");
                 }}
                 className="shrink-0 text-[12px] font-medium text-[var(--bad)] hover:underline"
               >

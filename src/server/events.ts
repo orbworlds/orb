@@ -38,8 +38,8 @@ export interface EventSource {
   mobile: boolean | null;
 }
 
-export const MAX_BATCH = 50;
-export const MAX_PROPS_BYTES = 2048;
+const MAX_BATCH = 50;
+const MAX_PROPS_BYTES = 2048;
 export const MAX_BODY_BYTES = 128_000;
 const MAX_KEYS = 24;
 const MAX_AGO_MS = 10 * 60_000;

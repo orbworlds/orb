@@ -33,7 +33,7 @@ const WORLD_PATH = /^\/(?!explore(\/|$))[^/]+\/[^/]+\/?$/;
 let landing: Arrival | null | undefined;
 let arriving: Arrival | null = null;
 let seen: { id: string; since: number | null } | null = null;
-let sheets = { explore: false, share: false };
+let sheets = { explore: 0, share: false };
 let watched: { threadId: string; status: Map<string, BuildInfo['status']> } | null = null;
 /** When the latest build of each chat started, for builds that finish in the background. */
 const buildStarts = new Map<string, number>();
@@ -132,9 +132,10 @@ function resume(): void {
 }
 
 function onSheets(u: UiState): void {
-  if (u.exploreOpen && !sheets.explore) track('explore_open');
+  // Each way to Explore (a world's arrow, "See all"…) asks for it: the home page, down at its worlds.
+  if (u.exploreRequest !== sheets.explore) track('explore_open');
   if (u.shareOpen && !sheets.share) track('share_open');
-  sheets = { explore: u.exploreOpen, share: u.shareOpen };
+  sheets = { explore: u.exploreRequest, share: u.shareOpen };
 }
 
 /** A build that was streaming in the chat on screen has finished. */

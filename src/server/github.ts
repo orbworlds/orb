@@ -18,12 +18,13 @@ export class GitHubError extends Error {
   }
 }
 
-async function gh<T>(token: string, method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
+/** A call to GitHub's API (without a token: as anyone). */
+export async function gh<T>(token: string | null, method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
   const res = await fetch(`${API}${path}`, {
     method,
     headers: {
       accept: 'application/vnd.github+json',
-      authorization: `Bearer ${token}`,
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
       'x-github-api-version': '2022-11-28',
       'user-agent': `Orb (+${SITE})`,
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
@@ -48,7 +49,7 @@ function fail(status: number, data: unknown, what: string): never {
   throw new GitHubError(status, `GitHub couldn't ${what} (${m || status}).`);
 }
 
-export const repoNameFor = (world: { id: string; name: string }): string => {
+const repoNameFor = (world: { id: string; name: string }): string => {
   const slug = world.name
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
@@ -61,16 +62,12 @@ export const repoNameFor = (world: { id: string; name: string }): string => {
   return slug ? `${slug}-${short}` : `orb-${short}`;
 };
 
-/** The world's repository: the one given (if it still exists and is ours), else a new private one. */
-export async function ensureRepo(token: string, world: { id: string; name: string }, known: string | null, origin: string): Promise<string> {
-  if (known && /^[\w.-]+\/[\w.-]+$/.test(known)) {
-    const r = await gh<{ full_name?: string; permissions?: { push?: boolean } }>(token, 'GET', `/repos/${known}`);
-    if (r.status === 200 && r.data.full_name && r.data.permissions?.push !== false) return r.data.full_name;
-  }
+/** A new private repository for the world (or the one Orb made for it before). */
+export async function ensureRepo(token: string, world: { id: string; name: string }): Promise<string> {
   const me = await gh<{ login?: string }>(token, 'GET', '/user');
   if (me.status !== 200 || !me.data.login) fail(me.status, me.data, 'tell who you are');
   const base = repoNameFor(world);
-  const description = `Made with Orb — ${origin}/w/${world.id}`;
+  const description = `Made with Orb — ${SITE}/w/${world.id}`;
   for (let i = 1; i <= 6; i++) {
     const name = i === 1 ? base : `${base}-${i}`;
     const r = await gh<{ full_name?: string; errors?: Array<{ message?: string }>; message?: string }>(token, 'POST', '/user/repos', {
@@ -93,7 +90,7 @@ export async function ensureRepo(token: string, world: { id: string; name: strin
 }
 
 /** Commit sha at the tip of the branch (null if the repo is still empty). */
-export async function headSha(token: string, repo: string): Promise<string | null> {
+async function headSha(token: string, repo: string): Promise<string | null> {
   for (let attempt = 0; attempt < 4; attempt++) {
     const r = await gh<{ object?: { sha?: string } }>(token, 'GET', `/repos/${repo}/git/ref/heads/${BRANCH}`);
     if (r.status === 200 && r.data.object?.sha) return r.data.object.sha;

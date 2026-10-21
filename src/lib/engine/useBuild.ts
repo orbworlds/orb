@@ -14,7 +14,6 @@ import type {
   BuildInfo,
   BuildMode,
   BuildRequest,
-  BuildStep,
   ChatMessage,
   ChatThread,
   ModelMessage,
@@ -25,10 +24,10 @@ import type {
   WorldRuntimeError,
 } from '../types';
 import { getModelSettings, listChats, loadChatMessages, saveChatMessages, saveChatThread } from '../local';
-import { BuildError, loadTreeEntry, resumeBuild as defaultResumeBuild, runBuild as defaultRunBuild, sendLookAnswer, type AgentLook, type AgentVersion, type BuildHooks } from './client';
+import { BuildError, DETACH, loadTreeEntry, resumeBuild as defaultResumeBuild, runBuild as defaultRunBuild, sendLookAnswer, type AgentLook, type AgentVersion, type BuildHooks } from './client';
 import { treePath, withTree } from '../tree';
 import { ProtocolParser, type ProtocolEvent } from './protocol';
-import { BUILD_LIMITS } from './prompt';
+import { BUILD_LIMITS, isBuildImage } from './prompt';
 
 export interface BuildHost {
   /** Stable key for chat threads: world id, or 'new' on the start canvas. */
@@ -36,7 +35,7 @@ export interface BuildHost {
   mode: BuildMode;
   worldName: string;
   worldId: string | null;
-  /** Current saved code of the world (what the build starts from). */
+  /** The world's saved code (a repair round only runs while it is unchanged). */
   getCode(): string;
   /** Current saved version (null for unsaved drafts) — recorded as `fromVersion` for undo. */
   getVersion(): number | null;
@@ -79,16 +78,10 @@ export interface BackgroundBuild {
 /** At most this many builds run at once (the one on screen + ones that kept going elsewhere). */
 export const MAX_PARALLEL_BUILDS = 3;
 
-/** Live progress of the step currently streaming (for the code peek). */
+/** The file change being made right now. */
 export interface BuildProgress {
-  messageId: string;
   stepId: string;
-  kind: 'write' | 'edit';
   label: string;
-  /** Characters received so far for this step's body. */
-  chars: number;
-  /** Last ~200 characters of the step body. */
-  tail: string;
 }
 
 export interface UseBuild {
@@ -98,7 +91,7 @@ export interface UseBuild {
   isBuilding: boolean;
   /** Seconds until the free tier allows another build, if rate limited. */
   retryAfter: number | null;
-  /** The step currently streaming, if any (live code peek). */
+  /** The file change being made right now, if any. */
   progress: BuildProgress | null;
   /** Builds still running for other worlds. */
   background: BackgroundBuild[];
@@ -109,8 +102,6 @@ export interface UseBuild {
   undo(messageId: string): Promise<void>;
   newThread(): void;
   switchThread(id: string): void;
-  /** The thread a running build writes to (else the current thread) — the one a fork takes along. */
-  activeThreadId(): string;
   /** Runtime errors from the world (used for the automatic repair round). */
   reportRuntimeError(e: WorldRuntimeError): void;
   /** Called by the host when the world finished loading after a preview. */
@@ -125,8 +116,6 @@ type Source = (settings: ModelSettings, signal: AbortSignal, hooks: BuildHooks) 
 const RESUME_WINDOW_MS = 7 * 86400_000; // long builds can run for days
 /** How long a resumable build waits for its world to be on screen before it is marked stopped. */
 const RESUME_WAIT_MS = 15_000;
-/** Abort reason for "stop listening" (unmount) as opposed to the user pressing Stop. */
-export const DETACH = 'orb:detach';
 
 export interface EngineOptions {
   runBuild?: (req: BuildRequest, settings: ModelSettings, signal: AbortSignal, hooks?: BuildHooks) => AsyncIterable<string>;
@@ -149,15 +138,7 @@ export interface EngineOptions {
   sendLook?: (job: string, id: string, answer: { result: ProbeResult } | ProbeUnavailable) => Promise<void>;
 }
 
-interface Snapshot {
-  threads: ChatThread[];
-  threadId: string;
-  messages: ChatMessage[];
-  isBuilding: boolean;
-  retryAfter: number | null;
-  progress: BuildProgress | null;
-  background: BackgroundBuild[];
-}
+type Snapshot = Pick<UseBuild, 'threads' | 'threadId' | 'messages' | 'isBuilding' | 'retryAfter' | 'progress' | 'background'>;
 
 interface Job {
   threadId: string;
@@ -183,21 +164,16 @@ interface Job {
   looking?: Promise<void>;
   /** Releases the cross-tab lock held while this build runs. */
   release?: () => void;
-  /** Credits each round used, as the server counted them. */
-  credits?: Record<number, number>;
   progress: BuildProgress | null;
   mode: BuildMode;
   /** Summarized prior turns (reused by the repair round). */
   history: ModelMessage[];
   /** The world's code: as the build started, then as of its newest saved version. */
-  working: string;
-  committed: string;
+  code: string;
   changed: boolean;
   title?: string;
   controller: AbortController;
   repaired: boolean;
-  round: number;
-  raw: string;
   /** Narration separator for the first say of a repair round. */
   sayPrefix: string;
   streamError: string | null;
@@ -205,7 +181,26 @@ interface Job {
 
 type RoundOutcome = { ok: true } | { stopped: true } | { error: BuildError };
 
-const RAW_KEEP = 8000;
+/** A build of `host`'s world, as it starts. */
+function newJob(host: BuildHost, f: Pick<Job, 'threadId' | 'assistantId' | 'userText' | 'history' | 'base'> & { release?: () => void }): Job {
+  return {
+    ...f,
+    chatKey: host.chatKey,
+    worldId: host.worldId,
+    worldName: host.worldName,
+    host,
+    resumable: true,
+    progress: null,
+    mode: host.mode,
+    code: host.getCode(),
+    changed: false,
+    controller: new AbortController(),
+    repaired: false,
+    sayPrefix: '',
+    streamError: null,
+  };
+}
+
 /** A look request waits this long before it is answered: replayed output brings its 'looked' frame right after. */
 const LOOK_REPLAY_MS = 400;
 const EMPTY: Snapshot = { threads: [], threadId: '', messages: [], isBuilding: false, retryAfter: null, progress: null, background: [] };
@@ -267,28 +262,11 @@ function formatRuntimeError(e: WorldRuntimeError): string {
 }
 
 function friendlyError(e: BuildError, provider: ModelSettings['provider']): string {
-  switch (e.code) {
-    case 'rate_limited':
-      return e.message || 'Orb needs a little break — try again in a moment.';
-    case 'ai_unavailable':
-      if (/You → Model/.test(e.message)) return e.message;
-      if (e.message) console.warn('[orb] AI unavailable:', e.message);
-      return provider === 'free'
-        ? 'The free builder is resting right now. You can keep building by adding your own AI key in You → Model.'
-        : e.message || 'The AI is unavailable right now.';
-    case 'out_of_credits':
-      return e.message || "You're out of credits for now.";
-    case 'bad_key':
-      return e.message || "That API key didn't work — check it in You → Model.";
-    case 'network':
-      return e.message || "Couldn't reach Orb — check your connection and try again.";
-    default:
-      return e.message || 'Something went wrong. Please try again.';
+  if (e.code === 'ai_unavailable' && !/You → Model/.test(e.message)) {
+    if (e.message) console.warn('[orb] AI unavailable:', e.message);
+    if (provider === 'free') return 'The free builder is resting right now. You can keep building by adding your own AI key in You → Model.';
   }
-}
-
-function validImage(img: unknown): string | null {
-  return typeof img === 'string' && img.length <= BUILD_LIMITS.image && /^data:image\/(?:jpeg|png|webp|gif);base64,/.test(img) ? img : null;
+  return e.message || 'Something went wrong. Please try again.';
 }
 
 /** A reload interrupted this build, but its job still runs on the server: it can be picked up again. */
@@ -312,40 +290,21 @@ function settleInterrupted(m: ChatMessage): ChatMessage {
   };
 }
 
-/** Cross-tab lock for one build (Web Locks): resolves with a release function once held. */
-function holdBuildLock(id: string): Promise<(() => void) | undefined> {
-  return lockBuild(id, false).then((r) => r ?? undefined);
-}
-/** Like holdBuildLock, but null when another tab holds it right now. */
-function tryBuildLock(id: string): Promise<(() => void) | null> {
-  return lockBuild(id, true).then((r) => (r === undefined ? () => {} : r));
-}
-function lockBuild(id: string, ifAvailable: boolean): Promise<(() => void) | null | undefined> {
+/**
+ * Cross-tab lock for one build (Web Locks): resolves with its release once held, or null when
+ * `ifAvailable` and another tab holds it right now. Without Web Locks the build goes ahead.
+ */
+function lockBuild(id: string, ifAvailable = false): Promise<(() => void) | null> {
+  const none = () => {};
   const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
-  if (!locks?.request) return Promise.resolve(undefined); // no Web Locks: go ahead without
+  if (!locks?.request) return Promise.resolve(none);
   return new Promise((resolve) => {
     locks
       .request(`orb-build:${id}`, { ifAvailable }, (lock) => {
         if (!lock) return resolve(null);
         return new Promise<void>((release) => resolve(() => release()));
       })
-      .catch(() => resolve(undefined));
-  });
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return new Promise<T>((resolve) => {
-    const t = setTimeout(() => resolve(fallback), ms);
-    p.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
-      },
-      () => {
-        clearTimeout(t);
-        resolve(fallback);
-      },
-    );
+      .catch(() => resolve(none));
   });
 }
 
@@ -494,7 +453,7 @@ export class BuildEngine {
       if (running) this.selectThread(running.threadId);
       else if (latest) this.selectThread(latest.id);
       else this.startDraft();
-      if (running?.changed) this.schedulePreview(running, running.preview ?? running.working);
+      if (running?.changed) this.schedulePreview(running, running.preview ?? running.code);
     }
     this.emit();
     this.maybeResume();
@@ -541,7 +500,6 @@ export class BuildEngine {
     this.emit();
   };
 
-  activeThreadId = (): string => this.job?.threadId ?? this.threadId;
 
   switchThread = (id: string): void => {
     if (id === this.threadId || !this.threadsForKey.some((t) => t.id === id)) return;
@@ -734,35 +692,12 @@ export class BuildEngine {
     // Persist the user's words before anything can fail.
     this.setMessages(threadId, [...prior, user, assistant], 'now');
 
-    const base = host.getCode() ?? '';
-    const job: Job = {
-      threadId,
-      assistantId: assistant.id,
-      userText: t,
-      chatKey: this.chatKey,
-      worldId: host.worldId,
-      worldName: host.worldName,
-      host,
-      base: '',
-      resumable: true,
-      progress: null,
-      mode: host.mode,
-      history: summarizeHistory(prior),
-      working: base,
-      committed: base,
-      changed: false,
-      controller: new AbortController(),
-      repaired: false,
-      round: 0,
-      raw: '',
-      sayPrefix: '',
-      streamError: null,
-    };
+    const job = newJob(host, { threadId, assistantId: assistant.id, userText: t, history: summarizeHistory(prior), base: '' });
     this.jobs.add(job);
     this.lastPreviewCode = null;
     this.emit();
     // Held while the build runs, so another tab never picks the same build up as "interrupted".
-    job.release = await holdBuildLock(assistant.id);
+    job.release = (await lockBuild(assistant.id)) ?? undefined;
 
     // Every build works on a world: the start canvas becomes a real one now.
     if (job.worldId == null && host.createWorld) {
@@ -784,11 +719,11 @@ export class BuildEngine {
     }
     job.base = `${job.worldId}@${fromVersion ?? ''}`;
 
-    const image = host.getImage ? validImage(await withTimeout(host.getImage(), this.opts.imageTimeoutMs, null)) : null;
+    const shot = host.getImage ? await Promise.race([host.getImage().catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), this.opts.imageTimeoutMs))]) : null;
     const req: BuildRequest = {
       worldId: job.worldId,
       messages: [...job.history, { role: 'user', content: clip(t, BUILD_LIMITS.messageChars) }],
-      image,
+      image: isBuildImage(shot) ? shot : null,
       mode: job.mode,
       worldName: host.worldName,
     };
@@ -825,40 +760,22 @@ export class BuildEngine {
     this.resumeWait = null;
     this.resumed.add(m.id);
     // Another tab may still be running this very build: then leave it to that tab.
-    void tryBuildLock(m.id).then((release) => release && this.resumeJob(m, list, release));
+    void lockBuild(m.id, true).then((release) => release && this.resumeJob(m, list, release));
   }
 
-  private async resumeJob(m: ChatMessage, list: ChatMessage[], release?: () => void): Promise<void> {
+  private async resumeJob(m: ChatMessage, list: ChatMessage[], release: () => void): Promise<void> {
     const host = this.host!;
-    const threadId = this.threadId;
     const i = list.findIndex((x) => x.id === m.id);
     const userMsg = list[i - 1]?.role === 'user' ? list[i - 1] : null;
     const handles = m.build!.handles!;
-    const base = host.getCode() ?? '';
-    const job: Job = {
-      threadId,
+    const job = newJob(host, {
+      threadId: this.threadId,
       assistantId: m.id,
       userText: userMsg?.text ?? '',
-      chatKey: host.chatKey,
-      worldId: host.worldId,
-      worldName: host.worldName,
-      host,
-      base: m.build!.base ?? '',
-      resumable: true,
-      release,
-      progress: null,
-      mode: host.mode,
       history: summarizeHistory(list.slice(0, Math.max(0, userMsg ? i - 1 : i))),
-      working: base,
-      committed: base,
-      changed: false,
-      controller: new AbortController(),
-      repaired: false,
-      round: 0,
-      raw: '',
-      sayPrefix: '',
-      streamError: null,
-    };
+      base: m.build!.base ?? '',
+      release,
+    });
     // The replay rebuilds the message from the start.
     this.patchAssistant(job, (d) => {
       d.text = '';
@@ -900,12 +817,12 @@ export class BuildEngine {
   private async repairRuntime(job: Job, errors: WorldRuntimeError[]): Promise<void> {
     const host = this.host;
     if (this.job || job.repaired || !this.isCurrent(host) || host.chatKey !== job.chatKey) return;
-    if ((host.getCode() ?? '') !== job.working) return; // the world changed since (undo, another edit…)
+    if (host.getCode() !== job.code) return; // the world changed since (undo, another edit…)
     if (!this.getMessages(job.threadId).some((m) => m.id === job.assistantId)) return;
     job.repaired = true;
     job.controller = new AbortController();
     this.jobs.add(job);
-    this.lastPreviewCode = job.working;
+    this.lastPreviewCode = job.code;
     this.patchAssistant(job, (d) => {
       d.build.status = 'streaming';
       d.build.repair = true;
@@ -918,16 +835,15 @@ export class BuildEngine {
   }
 
   private async runRound(job: Job, source: Source): Promise<RoundOutcome> {
-    job.round++;
     job.streamError = null;
     const assistant = this.getMessages(job.threadId).find((m) => m.id === job.assistantId);
     job.sayPrefix = assistant?.text.trim() ? '\n\n' : '';
-    const parser = new ProtocolParser({ idPrefix: `${job.assistantId}:r${job.round}:` });
+    const parser = new ProtocolParser();
     const settings = this.getSettings();
     try {
       const hooks: BuildHooks = {
         traceGroup: job.assistantId,
-        onStatus: (_phase, thought) => {
+        onStatus: (thought) => {
           const m = this.getMessages(job.threadId).find((x) => x.id === job.assistantId);
           const fresh = !m?.build?.thinkingSince && !m?.text && !m?.build?.steps.length;
           if (!fresh && !thought) return;
@@ -939,29 +855,17 @@ export class BuildEngine {
         onStep: (st) => {
           this.patchAssistant(job, (d) => {
             const at = d.build.steps.findIndex((x) => x.id === st.id);
-            const step: BuildStep = { id: st.id, kind: st.kind, label: st.label, status: st.status, ...(st.error ? { error: st.error } : {}) };
+            const step = { ...st };
+            if (!d.build.steps.length) d.build.stepsAt = d.text.length;
             if (at === -1) d.build.steps.push(step);
             else d.build.steps[at] = step;
           });
-          if (st.status === 'pending') job.progress = { messageId: job.assistantId, stepId: st.id, kind: st.kind, label: st.label, chars: job.progress?.stepId === st.id ? job.progress.chars : 0, tail: job.progress?.stepId === st.id ? job.progress.tail : '' };
+          if (st.status === 'pending') job.progress = { stepId: st.id, label: st.label };
           else if (job.progress?.stepId === st.id) job.progress = null;
-          this.emit();
-        },
-        onProgress: (p) => {
-          if (job.progress?.stepId !== p.id) return;
-          job.progress = { ...job.progress, chars: p.chars, tail: p.tail };
           this.emit();
         },
         onTree: (tree) => this.previewTree(job, tree),
         onVersion: (v) => void this.adoptVersion(job, v),
-        onCredits: (used) => {
-          // Per round (a replay of a round's output says it again): the build's is their sum.
-          (job.credits ??= {})[job.round] = used;
-          const total = Object.values(job.credits).reduce((a, b) => a + b, 0);
-          this.patchAssistant(job, (d) => {
-            d.build.credits = Math.round(total * 100) / 100;
-          });
-        },
         onLook: (look) => this.answerLook(job, look),
         onLooked: (id) => (job.looked ??= new Set()).add(id),
         onHandle: (h) => {
@@ -974,16 +878,12 @@ export class BuildEngine {
       };
       for await (const chunk of source(settings, job.controller.signal, hooks)) {
         if (job.controller.signal.aborted) throw new BuildError('aborted', 'Stopped.');
-        job.raw = (job.raw + chunk).slice(-RAW_KEEP);
         this.applyEvents(job, parser.push(chunk));
       }
       if (job.controller.signal.aborted) throw new BuildError('aborted', 'Stopped.');
       this.applyEvents(job, parser.end());
-      if (job.streamError) {
-        // A message meant for the person (from the server) is shown as it is.
-        if (/You → Model|is saved|try again/i.test(job.streamError)) return { error: new BuildError('unknown', clip(job.streamError, 300)) };
-        return { error: new BuildError('unknown', `The AI stopped partway (${clip(job.streamError, 160)}). Try again?`) };
-      }
+      // The server's words for the person, as they are.
+      if (job.streamError) return { error: new BuildError('unknown', clip(job.streamError, 300)) };
       return { ok: true };
     } catch (e) {
       const err = e instanceof BuildError ? e : new BuildError('unknown', e instanceof Error ? e.message : String(e));
@@ -1053,7 +953,7 @@ export class BuildEngine {
         console.warn('[orb] could not load the saved world', e);
         return;
       }
-      job.working = job.committed = code;
+      job.code = code;
       job.changed = true;
       this.patchAssistant(job, (d) => {
         d.build.toVersion = v.version;
@@ -1075,6 +975,7 @@ export class BuildEngine {
 
   /** What the job said: narration, the world's name, next ideas, the offer of a copy, a failure. (Its file steps come as frames.) */
   private applyEvents(job: Job, events: ProtocolEvent[]): void {
+    if (!events.length) return;
     this.patchAssistant(job, (d) => {
       for (const e of events) {
         switch (e.type) {
@@ -1086,7 +987,6 @@ export class BuildEngine {
             break;
           case 'title':
             job.title = e.text;
-            d.build.title = e.text;
             break;
           case 'suggest':
             d.build.suggestions = e.items;
@@ -1099,7 +999,6 @@ export class BuildEngine {
             break;
         }
       }
-      d.build.raw = job.raw;
     });
   }
 
@@ -1129,7 +1028,7 @@ export class BuildEngine {
       status = 'error';
       error = friendlyError(outcome.error, settings.provider);
       errorCode = outcome.error.code;
-      if (outcome.error.code === 'rate_limited' && (settings.provider ?? 'free') === 'free' && outcome.error.retryAfter) {
+      if (outcome.error.code === 'rate_limited' && settings.provider === 'free' && outcome.error.retryAfter) {
         this.startRetryCountdown(outcome.error.retryAfter);
       }
     }
@@ -1166,7 +1065,7 @@ export class BuildEngine {
       return;
     }
     // The repair round: watch the freshly saved world for runtime errors.
-    if (onScreen && this.isCurrent(this.host) && status === 'done' && job.mode === 'build' && !job.repaired && job.changed && job.committed === job.working) this.startWatch(job);
+    if (status === 'done' && job.mode === 'build' && !job.repaired && job.changed) this.startWatch(job);
   }
 
   private startRetryCountdown(seconds: number): void {
@@ -1253,7 +1152,6 @@ export function useBuild(host: BuildHost): UseBuild {
       undo: engine.undo,
       newThread: engine.newThread,
       switchThread: engine.switchThread,
-      activeThreadId: engine.activeThreadId,
       reportRuntimeError: engine.reportRuntimeError,
       reportReady: engine.reportReady,
     }),

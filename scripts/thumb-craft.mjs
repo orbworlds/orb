@@ -11,8 +11,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import sharp from 'sharp';
-import { launch, routeCdn } from './pw.mjs';
+import { launch, routeCdn } from '../kit/lib/browser.mjs';
 import { originalFile } from './original.mjs';
+import { grain, steady, svg, titleShot } from './thumb.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -157,14 +158,7 @@ async function drawTitle(T) {
 
 const browser = await launch();
 const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: fast ? 1 : 2 });
-// Full quality on any machine (the game gives up shadows, MSAA and resolution on 4 cores or slow frames) and a
-// steady 60 fps clock, so the shot comes out the same every time.
-await ctx.addInitScript(() => {
-  Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
-  const raf = window.requestAnimationFrame.bind(window);
-  let t = 0;
-  window.requestAnimationFrame = (cb) => raf(() => cb((t += 1000 / 60)));
-});
+await steady(ctx);
 await ctx.addInitScript(fixDate, SHOT.date);
 await ctx.addInitScript(fakeOrb, SHOT.boards);
 const page = await ctx.newPage();
@@ -185,27 +179,17 @@ const where = preview ? await page.evaluate(() => {
 await ctx.close();
 if (preview) { fs.writeFileSync('/tmp/thumb-craft.png', shot); await browser.close(); console.log('/tmp/thumb-craft.png', where); process.exit(0); }
 
-const template = fs.readFileSync(GAME, 'utf8');
-const fontFace = template.match(/@font-face\s*\{[^}]*"Pixelify Sans"[^}]*\}/)[0];
-const titlePage = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 2 });
-await titlePage.setContent(`<!doctype html><style>${fontFace} html, body { margin: 0; background: transparent; }</style><body></body>`);
-await titlePage.evaluate(drawTitle, TITLE);
-const title = await titlePage.screenshot({ omitBackground: true });
+const title = await titleShot(browser, GAME, drawTitle, TITLE, W, H);
 await browser.close();
 
 // Finishing: a Lanczos downsample, a little more contrast and colour, a soft vignette, light sharpening and a faint
 // grain so the smooth sky doesn't band in WebP.
-const svg = (body) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${body}</svg>`);
-const vignette = svg(`<defs><radialGradient id="v" cx="50%" cy="54%" r="74%"><stop offset="0.55" stop-color="#1a1408" stop-opacity="0"/>
+const vignette = svg(W, H, `<defs><radialGradient id="v" cx="50%" cy="54%" r="74%"><stop offset="0.55" stop-color="#1a1408" stop-opacity="0"/>
   <stop offset="1" stop-color="#1a1408" stop-opacity="0.38"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#v)"/>`);
-const noise = Buffer.alloc(W * H);
-let n = 1234567;
-for (let i = 0; i < noise.length; i++) { n = (n * 1103515245 + 12345) & 0x7fffffff; noise[i] = 128 + Math.round((n / 0x7fffffff - 0.5) * 10); }
-const grain = await sharp(noise, { raw: { width: W, height: H, channels: 1 } }).png().toBuffer();
 
 const graded = await sharp(shot).resize(W, H, { kernel: 'lanczos3' }).modulate({ saturation: 1.1 }).linear(1.08, -6).png().toBuffer();
 const finished = await sharp(graded)
-  .composite([{ input: vignette, blend: 'over' }, { input: grain, blend: 'soft-light' }])
+  .composite([{ input: vignette, blend: 'over' }, { input: await grain(W, H), blend: 'soft-light' }])
   .sharpen({ sigma: 0.55, m1: 0.6, m2: 1.2 })
   .png().toBuffer();
 const done = sharp(finished).composite([{ input: await sharp(title).resize(W, H, { kernel: 'lanczos3' }).png().toBuffer() }]);

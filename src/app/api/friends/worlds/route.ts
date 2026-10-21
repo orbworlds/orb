@@ -2,11 +2,11 @@
 
 import { getViewer } from '@/server/auth';
 import { accountId, friendsWorlds } from '@/server/friends';
-import { json } from '@/server/http';
+import { handle, json } from '@/server/http';
 import { ready } from '@/server/schema';
-import { limitOrThrow, route } from '@/server/worlds';
+import { limitOrThrow } from '@/server/worlds';
 
-export const GET = route(async (req: Request) => {
+export const GET = handle(async (req: Request) => {
   const db = await ready();
   const me = await accountId(db, getViewer(req));
   await limitOrThrow(db, `friends:read:${me}`, 60, 60);

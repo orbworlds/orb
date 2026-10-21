@@ -1,6 +1,7 @@
 'use client';
-// The You tab's Friends: add someone by their username, answer requests, see where friends are and
-// join them, the invites waiting for you, and your profile link to send to people.
+// The You tab's Friends (signed in; the You tab asks for an account once, at its top): add someone
+// by their username, answer requests, see where friends are and join them, the invites waiting for
+// you, and your profile link to send to people.
 
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { ApiError, profileHref } from '@/lib/api';
@@ -14,21 +15,35 @@ import { useUi } from '@/state/ui';
 import { useWorld } from '@/state/world';
 import { useMe } from './AccountCard';
 import { PersonAvatar, whereIs } from './People';
-import { fieldClass, groupClass, SectionHeader, Skeleton, Thumb, timeAgo, useHydrated } from './WorldCard';
+import { EmptyNote, fieldClass, groupClass, SectionHeader, Skeleton, Thumb, timeAgo } from './WorldCard';
 
 /** Invites stay in the list this long (read or not). */
 const INVITE_SHOWN_MS = 2 * 86_400_000;
 
 const rowClass = 'flex w-full items-center gap-3 rounded-[13px] px-2 py-2';
-const rowButton = 'transition-colors duration-200 hover:bg-[color-mix(in_oklab,var(--ink)_5%,transparent)] focus-visible:rounded-[13px] focus-visible:outline-offset-0';
 
 function failure(e: unknown, fallback: string): string {
   return e instanceof ApiError && e.status < 500 && e.message ? e.message : fallback;
 }
 
+/** Which row is busy, and a way to run a row's action (a failure says so). */
+function useBusy() {
+  const [busy, setBusy] = useState<string | null>(null);
+  const run = async (id: string, act: () => Promise<unknown>) => {
+    setBusy(id);
+    try {
+      await act();
+    } catch (e) {
+      toast(failure(e, 'Couldn’t do that just now. Try again in a moment.'), 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+  return [busy, run] as const;
+}
+
 export function FriendsSection() {
-  const hydrated = useHydrated();
-  const { me, status, signedIn } = useMe();
+  const { me, signedIn } = useMe();
   const data = useFriends((s) => s.data);
   const syncedAt = useFriends((s) => s.syncedAt);
   const visible = useUi((s) => s.panelOpen && s.tab === 'you');
@@ -46,36 +61,7 @@ export function FriendsSection() {
     return () => clearTimeout(t);
   }, [visible, unread]);
 
-  const header = (accessory?: ReactNode) => <SectionHeader id="orb-friends-h" title="Friends" accessory={accessory} />;
-
-  if (!hydrated || (!me && status !== 'error')) {
-    return (
-      <section aria-labelledby="orb-friends-h">
-        {header()}
-        <div className={`${groupClass} p-4`} aria-busy="true">
-          <Skeleton className="h-3.5 w-1/2 rounded-full" />
-          <Skeleton className="mt-2.5 h-3 w-2/3 rounded-full" />
-        </div>
-      </section>
-    );
-  }
-
-  if (!signedIn) {
-    return (
-      <section aria-labelledby="orb-friends-h">
-        {header()}
-        <Empty
-          title="Play with friends"
-          text="With an account, add friends & play together."
-          action={
-            <Button variant="primary" size="sm" className="mt-3.5" onClick={() => useUi.getState().requestSignup()}>
-              Create account
-            </Button>
-          }
-        />
-      </section>
-    );
-  }
+  if (!signedIn) return null;
 
   const friends = data?.friends ?? [];
   const incoming = data?.incoming ?? [];
@@ -88,13 +74,17 @@ export function FriendsSection() {
 
   return (
     <section aria-labelledby="orb-friends-h">
-      {header(
-        !nobody && (
-          <Button variant="glass" size="sm" icon={adding ? 'check' : 'user-plus'} onClick={() => setAdding(!adding)} className="mb-0.5" aria-expanded={adding}>
-            {adding ? 'Done' : 'Add'}
-          </Button>
-        ),
-      )}
+      <SectionHeader
+        id="orb-friends-h"
+        title="Friends"
+        accessory={
+          !nobody && (
+            <Button variant="glass" size="sm" icon={adding ? 'check' : 'user-plus'} onClick={() => setAdding(!adding)} className="mb-0.5" aria-expanded={adding}>
+              {adding ? 'Done' : 'Add'}
+            </Button>
+          )
+        }
+      />
 
       {!data ? (
         <div className={`${groupClass} p-1.5`} aria-busy="true" aria-label="Loading your friends">
@@ -110,7 +100,7 @@ export function FriendsSection() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {nobody && <Empty title="Play with friends" text="Add friends by username to see what they play & join them." />}
+          {nobody && <EmptyNote icon="users" title="Play with friends" text="Add friends by username to see what they play & join them." />}
           {(adding || nobody) && <AddFriend autoFocus={adding} onAdded={() => setAdding(true)} />}
           {invites.length > 0 && <Invites notes={invites} />}
           {sales.length > 0 && <Sales notes={sales} />}
@@ -123,19 +113,6 @@ export function FriendsSection() {
 
       {handle && <ProfileLink handle={handle} />}
     </section>
-  );
-}
-
-function Empty({ title, text, action }: { title: string; text: string; action?: ReactNode }) {
-  return (
-    <div className="rounded-[18px] px-5 py-6 text-center shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--ink)_10%,transparent)] [background:color-mix(in_oklab,var(--ink)_2%,transparent)]">
-      <span className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--field-bg)] text-ink-2">
-        <Icon name="users" size={18} />
-      </span>
-      <p className="text-[14px] font-medium text-ink">{title}</p>
-      <p className="mx-auto mt-1 max-w-[280px] text-[13px] leading-snug text-ink-2">{text}</p>
-      {action}
-    </div>
   );
 }
 
@@ -222,31 +199,47 @@ function Group({ label, children }: { label?: string; children: ReactNode }) {
   );
 }
 
+/**
+ * A note about one of the worlds: its thumbnail, its name (and `extra` after it), a line under it
+ * with when, a dot while unread, and (`open`) a button that goes there.
+ */
+function NoteRow({ note, extra, sub, open }: { note: FriendNote; extra?: ReactNode; sub: string; open?: { label: string; variant: 'primary' | 'glass'; source: 'invite' | 'remix_note' } }) {
+  const w = note.world!;
+  return (
+    <li className={rowClass}>
+      <Thumb src={w.thumbUrl} seed={w.id} name={w.name} initialSize={18} className="h-[38px] w-[60px] shrink-0 rounded-[9px]" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13.5px] font-medium text-ink">
+          {w.name}
+          {extra}
+        </span>
+        <span className="block truncate text-[12.5px] text-ink-2">
+          {sub} · {timeAgo(note.at)}
+        </span>
+      </span>
+      {!note.read && <span aria-label="New" className="h-2 w-2 shrink-0 rounded-full bg-[var(--iris-4)]" />}
+      {open && (
+        <Button
+          size="sm"
+          variant={open.variant}
+          onClick={() => {
+            useFriends.getState().markRead([note.id]);
+            joinWorld(w.id, open.source);
+          }}
+          className="shrink-0"
+        >
+          {open.label}
+        </Button>
+      )}
+    </li>
+  );
+}
+
 function Invites({ notes }: { notes: FriendNote[] }) {
   return (
     <Group label="Invites">
       {notes.map((n) => (
-        <li key={n.id} className={rowClass}>
-          <Thumb src={n.world!.thumbUrl} seed={n.world!.id} name={n.world!.name} initialSize={18} className="h-[38px] w-[60px] shrink-0 rounded-[9px]" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13.5px] font-medium text-ink">{n.world!.name}</span>
-            <span className="block truncate text-[12.5px] text-ink-2">
-              {n.from.name} invited you · {timeAgo(n.at)}
-            </span>
-          </span>
-          {!n.read && <span aria-label="New" className="h-2 w-2 shrink-0 rounded-full bg-[var(--iris-4)]" />}
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => {
-              useFriends.getState().markRead([n.id]);
-              joinWorld(n.world!.id, 'invite');
-            }}
-            className="shrink-0"
-          >
-            Join
-          </Button>
-        </li>
+        <NoteRow key={n.id} note={n} sub={`${n.from.name} invited you`} open={{ label: 'Join', variant: 'primary', source: 'invite' }} />
       ))}
     </Group>
   );
@@ -257,19 +250,12 @@ function Sales({ notes }: { notes: FriendNote[] }) {
   return (
     <Group label="Sales in your worlds">
       {notes.map((n) => (
-        <li key={n.id} className={rowClass}>
-          <Thumb src={n.world!.thumbUrl} seed={n.world!.id} name={n.world!.name} initialSize={18} className="h-[38px] w-[60px] shrink-0 rounded-[9px]" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13.5px] font-medium text-ink">
-              {n.world!.name}
-              {n.sale!.credits > 0 && <span className="font-normal text-[var(--ok)] tabular-nums"> · +{Math.round(n.sale!.credits * 10) / 10} credits</span>}
-            </span>
-            <span className="block truncate text-[12.5px] text-ink-2">
-              {n.sale!.count > 1 ? `${n.sale!.count} sold · last: ${n.sale!.item}` : `Someone got ${n.sale!.item}`} · {timeAgo(n.at)}
-            </span>
-          </span>
-          {!n.read && <span aria-label="New" className="h-2 w-2 shrink-0 rounded-full bg-[var(--iris-4)]" />}
-        </li>
+        <NoteRow
+          key={n.id}
+          note={n}
+          extra={n.sale!.credits > 0 && <span className="font-normal text-[var(--ok)] tabular-nums"> · +{Math.round(n.sale!.credits * 10) / 10} credits</span>}
+          sub={n.sale!.count > 1 ? `${n.sale!.count} sold · last: ${n.sale!.item}` : `Someone got ${n.sale!.item}`}
+        />
       ))}
     </Group>
   );
@@ -280,47 +266,26 @@ function Remixes({ notes }: { notes: FriendNote[] }) {
   return (
     <Group label="Remixes of your worlds">
       {notes.map((n) => (
-        <li key={n.id} className={rowClass}>
-          <Thumb src={n.world!.thumbUrl} seed={n.world!.id} name={n.world!.name} initialSize={18} className="h-[38px] w-[60px] shrink-0 rounded-[9px]" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13.5px] font-medium text-ink">{n.world!.name}</span>
-            <span className="block truncate text-[12.5px] text-ink-2">
-              {n.from.name} remixed {n.world!.forkedFrom ? `“${n.world!.forkedFrom.name}”` : 'your world'} · {timeAgo(n.at)}
-            </span>
-          </span>
-          {!n.read && <span aria-label="New" className="h-2 w-2 shrink-0 rounded-full bg-[var(--iris-4)]" />}
-          <Button
-            size="sm"
-            variant="glass"
-            onClick={() => {
-              useFriends.getState().markRead([n.id]);
-              joinWorld(n.world!.id, 'remix_note');
-            }}
-            className="shrink-0"
-          >
-            See
-          </Button>
-        </li>
+        <NoteRow
+          key={n.id}
+          note={n}
+          sub={`${n.from.name} remixed ${n.world!.forkedFrom ? `“${n.world!.forkedFrom.name}”` : 'your world'}`}
+          open={{ label: 'See', variant: 'glass', source: 'remix_note' }}
+        />
       ))}
     </Group>
   );
 }
 
 function Incoming({ list }: { list: FriendRequest[] }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const act = async (p: FriendRequest, yes: boolean) => {
-    setBusy(p.id);
-    try {
+  const [busy, run] = useBusy();
+  const act = (p: FriendRequest, yes: boolean) =>
+    run(p.id, async () => {
       if (yes) {
         await useFriends.getState().accept(p.id);
         toast(`You and ${p.name} are friends now ✨`, 'success');
       } else await useFriends.getState().remove(p.id);
-    } catch (e) {
-      toast(failure(e, 'Couldn’t do that just now. Try again in a moment.'), 'error');
-    } finally {
-      setBusy(null);
-    }
-  };
+    });
   return (
     <Group label="Want to be friends">
       {list.map((p) => (
@@ -360,17 +325,8 @@ function FriendList({ friends }: { friends: Friend[] }) {
 }
 
 function Outgoing({ list }: { list: FriendRequest[] }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const cancel = async (p: FriendRequest) => {
-    setBusy(p.id);
-    try {
-      await useFriends.getState().remove(p.id);
-    } catch (e) {
-      toast(failure(e, 'Couldn’t do that just now. Try again in a moment.'), 'error');
-    } finally {
-      setBusy(null);
-    }
-  };
+  const [busy, run] = useBusy();
+  const cancel = (p: FriendRequest) => run(p.id, () => useFriends.getState().remove(p.id));
   return (
     <Group label="Asked">
       {list.map((p) => (
@@ -400,7 +356,7 @@ function PersonButton({ person, sub, online = false, highlight = false }: { pers
   if (!person.handle) return <span className="flex min-w-0 flex-1 items-center gap-3">{body}</span>;
   const handle = person.handle;
   return (
-    <button type="button" onClick={() => useUi.getState().openProfile(handle)} className={`-my-1 -ml-1.5 flex min-w-0 flex-1 items-center gap-3 rounded-[13px] py-1 pl-1.5 text-left ${rowButton}`}>
+    <button type="button" onClick={() => useUi.getState().openProfile(handle)} className="-my-1 -ml-1.5 flex min-w-0 flex-1 items-center gap-3 rounded-[13px] py-1 pl-1.5 text-left transition-colors duration-200 hover:bg-[color-mix(in_oklab,var(--ink)_5%,transparent)] focus-visible:rounded-[13px] focus-visible:outline-offset-0">
       {body}
     </button>
   );
@@ -421,7 +377,7 @@ function ProfileLink({ handle }: { handle: string }) {
     <div className="mt-3 flex items-center gap-2 px-1 text-[12.5px] text-ink-2">
       <Icon name="link" size={13} className="shrink-0 text-ink-3" />
       <button type="button" onClick={() => useUi.getState().openProfile(handle)} className="min-w-0 truncate text-left hover:text-ink hover:underline">
-        Your profile: {typeof location === 'undefined' ? '' : location.host}
+        Your profile: {location.host}
         {href}
       </button>
       <button type="button" onClick={() => void copy()} className="ml-auto shrink-0 font-medium text-ink hover:underline">

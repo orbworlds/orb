@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 import { withBotId } from "botid/next/config";
 
+// Curated worlds that Orb replaced with one of its own: their old addresses lead to the new world
+// (dropping a seed deletes its row, and with it the paths it had). Wildbrush is now the native world.
+const REPLACED = [
+  { source: "/web/wildbrush", destination: "/orb/wildbrush", permanent: true },
+  { source: "/w/wildbrush", destination: "/orb/wildbrush", permanent: true },
+];
+
 /**
  * Former addresses hand people over to the current one (docs/operations.md "Moving to a new domain",
  * src/server/move.ts): a browser opening a page there goes through the hand-off (bringing its
@@ -11,21 +18,6 @@ import { withBotId } from "botid/next/config";
  * Built from the environment at build time, so none of this exists until ORB_FORMER_ORIGINS is set
  * (and only requests for those hosts ever match).
  */
-/**
- * Curated worlds that Orb replaced with one of its own: their old addresses lead to the new world.
- * (Dropping a seed deletes its row, and with it the paths it had.)
- */
-function replacedWorlds() {
-  const replaced = [
-    // Former Explore path of Wildbrush, now the native world
-    { id: "wildbrush", path: "/web/wildbrush", to: "/orb/wildbrush" },
-  ];
-  return replaced.flatMap(({ id, path, to }) => [
-    { source: path, destination: to, permanent: true },
-    { source: `/w/${id}`, destination: to, permanent: true },
-  ]);
-}
-
 function moveRedirects() {
   const origin = (url: string) => {
     try {
@@ -87,7 +79,7 @@ const nextConfig: NextConfig = {
     ];
   },
   async redirects() {
-    return [...moveRedirects(), ...replacedWorlds()];
+    return [...moveRedirects(), ...REPLACED];
   },
 };
 

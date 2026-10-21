@@ -7,7 +7,7 @@ import { passkeysSupported, signIn, signUp } from '@/lib/passkey';
 import type { MeResponse } from '@/lib/types';
 
 /** Server view of the current request (see ./state/route.ts). */
-export interface SessionSnapshot {
+interface SessionSnapshot {
   user: { id: string; name: string } | null;
   worlds: Array<{ id: string; name: string }>;
   passkeys: number;
@@ -15,7 +15,7 @@ export interface SessionSnapshot {
   deviceUser: string | null;
 }
 
-export interface PasskeyHarnessApi {
+interface PasskeyHarnessApi {
   supported(): boolean;
   deviceKey(): string;
   signUp(name: string): Promise<MeResponse>;

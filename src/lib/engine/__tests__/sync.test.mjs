@@ -18,6 +18,7 @@ import { DDL } from '../../../server/ddl.mjs';
 register('./resolve-hooks.mjs', import.meta.url);
 
 const sync = await import('../../../server/agent/sync.ts');
+const secrets = await import('../../../server/agent/secrets.ts');
 const files = await import('../../../server/files.ts');
 const look = await import('../../../server/agent/look.ts');
 
@@ -121,11 +122,12 @@ async function lookServer(base, answer) {
 
 describe('files token', () => {
   test('works for its own job only', () => {
-    const t = sync.filesToken('job-aaaaaaaaaaaaaaaaaaaaaa');
-    assert.ok(sync.checkFilesToken('job-aaaaaaaaaaaaaaaaaaaaaa', t));
-    assert.ok(!sync.checkFilesToken('job-bbbbbbbbbbbbbbbbbbbbbb', t));
-    assert.ok(!sync.checkFilesToken('job-aaaaaaaaaaaaaaaaaaaaaa', `${t}x`));
-    assert.ok(!sync.checkFilesToken('job-aaaaaaaaaaaaaaaaaaaaaa', null));
+    const t = secrets.jobToken('files', 'job-aaaaaaaaaaaaaaaaaaaaaa');
+    assert.ok(secrets.checkJobToken('files', 'job-aaaaaaaaaaaaaaaaaaaaaa', t));
+    assert.ok(!secrets.checkJobToken('files', 'job-bbbbbbbbbbbbbbbbbbbbbb', t));
+    assert.ok(!secrets.checkJobToken('tick', 'job-aaaaaaaaaaaaaaaaaaaaaa', t));
+    assert.ok(!secrets.checkJobToken('files', 'job-aaaaaaaaaaaaaaaaaaaaaa', `${t}x`));
+    assert.ok(!secrets.checkJobToken('files', 'job-aaaaaaaaaaaaaaaaaaaaaa', null));
     assert.match(sync.filesUrl('https://orb.example', 'job-aaaaaaaaaaaaaaaaaaaaaa'), /^https:\/\/orb\.example\/api\/agent\/jobs\/job-a+\/files\?t=[\w-]+$/);
   });
 });

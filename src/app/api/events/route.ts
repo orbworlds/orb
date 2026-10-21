@@ -7,7 +7,7 @@
 
 import { hashDevice, readCookie, SESSION_COOKIE, verifySession } from '@/server/auth';
 import { isBot, isMobile, MAX_BODY_BYTES, parseBatch, recordEvents } from '@/server/events';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, json, ownPageJson, readJson } from '@/server/http';
 import { rateLimit } from '@/server/ratelimit';
 import { ready } from '@/server/schema';
 
@@ -18,10 +18,8 @@ const PER_DAY = Math.max(0, Math.floor(Number(process.env.ORB_EVENTS_PER_DAY) ||
 export async function POST(req: Request): Promise<Response> {
   let accepted = 0;
   try {
-    const site = req.headers.get('sec-fetch-site');
-    const isJson = (req.headers.get('content-type') ?? '').includes('application/json');
     const ua = req.headers.get('user-agent');
-    const batch = (site === null || site === 'same-origin') && isJson && !isBot(ua) ? parseBatch(await readJson(req, MAX_BODY_BYTES)) : null;
+    const batch = ownPageJson(req) && !isBot(ua) ? parseBatch(await readJson(req, MAX_BODY_BYTES)) : null;
     const key = req.headers.get('x-orb-device') || batch?.device;
     if (batch?.rows.length && deviceKey(key)) {
       const db = await ready();

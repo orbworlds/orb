@@ -2,14 +2,14 @@
 // payable, src/server/payouts.ts) to its Stripe payout account → { payout, billing }.
 
 import { getViewer } from '@/server/auth';
-import { billingInfo, currentWallet, paymentsForPayer } from '@/server/billing';
+import { billingView, currentWallet } from '@/server/billing';
 import { plansConfig } from '@/server/credits';
-import { json } from '@/server/http';
-import { cashOut, withPayouts } from '@/server/payouts';
+import { fail, handle, json } from '@/server/http';
+import { cashOut } from '@/server/payouts';
 import { ready } from '@/server/schema';
-import { fail, limitOrThrow, route, sessionUser } from '@/server/worlds';
+import { limitOrThrow, sessionUser } from '@/server/worlds';
 
-export const POST = route(async (req: Request) => {
+export const POST = handle(async (req: Request) => {
   const db = await ready();
   const userId = await sessionUser(db, getViewer(req));
   if (!userId) fail(401, 'account_required', 'Sign in first.');
@@ -17,5 +17,5 @@ export const POST = route(async (req: Request) => {
   const payout = await cashOut(db, userId);
   const cfg = plansConfig();
   const wallet = await currentWallet(db, `u:${userId}`, cfg);
-  return json({ payout, billing: await withPayouts(db, billingInfo(wallet, cfg, new Date(), await paymentsForPayer(db, wallet.payer)), wallet.payer, req) });
+  return json({ payout, billing: await billingView(db, wallet, wallet.payer, cfg, req) });
 });

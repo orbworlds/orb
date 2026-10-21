@@ -6,14 +6,15 @@ import { after } from 'next/server';
 import { isJobId } from '@/server/buildjobs';
 import { error, json, readJson } from '@/server/http';
 import { ready } from '@/server/schema';
-import { checkTickToken, jobInfo, kick, runTick } from '@/server/agent/runner';
+import { jobInfo, kick, runTick } from '@/server/agent/runner';
+import { checkJobToken } from '@/server/agent/secrets';
 
 export const maxDuration = 300;
 
 export async function POST(req: Request): Promise<Response> {
   const body = await readJson<{ id?: unknown }>(req, 1000);
   const id = body?.id;
-  if (!isJobId(id) || !checkTickToken(id, req.headers.get('x-orb-tick'))) return error(403, 'forbidden', 'Not allowed.');
+  if (!isJobId(id) || !checkJobToken('tick', id, req.headers.get('x-orb-tick'))) return error(403, 'forbidden', 'Not allowed.');
   const db = await ready();
   const work = runTick(db, id)
     .then(async (r) => {

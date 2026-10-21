@@ -37,7 +37,6 @@ export function startFakeStripe(port = 0) {
   const charges = new Map();
   const disputes = new Map();
   const deliveries = [];
-  const log = [];
   const idem = new Map();
   let seq = 0;
   const id = (prefix) => `${prefix}_${(++seq).toString(36)}${crypto.randomBytes(5).toString('hex')}`;
@@ -106,7 +105,7 @@ export function startFakeStripe(port = 0) {
 
   const invoiceFor = (sub, reason) => ({ id: id('in'), object: 'invoice', status: 'paid', billing_reason: reason, customer: sub.customer, parent: { type: 'subscription_details', subscription_details: { subscription: sub.id } } });
 
-  /** The customer pays a checkout (`expire`: the page timed out instead). */
+  /** The customer pays a checkout. */
   async function complete(sessionId) {
     const s = sessions.get(sessionId);
     if (!s) throw new Error(`fake stripe: no session ${sessionId}`);
@@ -193,7 +192,6 @@ export function startFakeStripe(port = 0) {
     const p = url.pathname;
     let body = '';
     for await (const c of req) body += c;
-    log.push(`${req.method} ${p}`);
     let m;
     // The customer's side in a browser: a checkout page to pay on, and the portal to cancel in.
     if ((m = /^\/pay\/([^/]+)$/.exec(p))) {
@@ -374,7 +372,7 @@ export function startFakeStripe(port = 0) {
   return new Promise((resolve) =>
     server.listen(port, () => {
       base = `http://localhost:${server.address().port}`;
-      resolve({ url: base, state, customers, prices, sessions, subscriptions, endpoints, accounts, transfers, intents, charges, disputes, deliveries, log, complete, renew, cancelAtPeriodEnd, end, deliver, onboard, refund, dispute, close: () => server.close() });
+      resolve({ url: base, state, customers, prices, sessions, subscriptions, endpoints, accounts, transfers, intents, charges, disputes, deliveries, complete, renew, cancelAtPeriodEnd, end, deliver, onboard, refund, dispute, close: () => server.close() });
     }),
   );
 }

@@ -1,17 +1,17 @@
 'use client';
-// The app shell shared by every page: the live world, the Orb (chat · explore · you), the world
-// bar, the building pill and the sheets layered over the world. Pages only choose how to start
+// The app shell shared by every page: the live world, the Orb (chat · you), the world bar, the
+// building pill and the sheets layered over the world. Pages only choose how to start
 // (start canvas, a world, or Explore); navigation afterwards happens in place without remounts.
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { AccountCard } from '@/components/orb/AccountCard';
+import { useCallback, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState } from 'react';
+import { useSession } from '@/components/orb/AccountCard';
 import { BuildingPill } from '@/components/orb/BuildingPill';
 import { ChatView } from '@/components/orb/ChatView';
 import { ExploreSheet } from '@/components/orb/ExploreSheet';
 import { HomeIntro } from '@/components/orb/Hero';
-import { dockedOrbStyle, Orb, ORB_MARGIN, ORB_SIZE, OrbSphere } from '@/components/orb/Orb';
-import { OrbPanel } from '@/components/orb/OrbPanel';
+import { Orb, ORB_MARGIN, ORB_SIZE, OrbSphere } from '@/components/orb/Orb';
+import { OrbPanel, PANEL_INSET, PANEL_W } from '@/components/orb/OrbPanel';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Toaster } from '@/components/ui/Toaster';
@@ -21,7 +21,6 @@ import { useBuild, type BackgroundBuild, type BuildHost } from '@/lib/engine/use
 import { track } from '@/lib/analytics';
 import { api, worldHref } from '@/lib/api';
 import { setChatSync } from '@/lib/chatsync';
-import { readJSON, writeJSON } from '@/lib/local';
 import { trackVisualViewport } from '@/lib/viewport';
 import { TEMPLATE_BY_ID } from '@/lib/templates';
 import type { WorldFull } from '@/lib/types';
@@ -29,13 +28,13 @@ import { useFriendsSync, useFriendUnread } from '@/state/friends';
 import { useInviteWelcome } from '@/state/invites';
 import { useGitHubLinks } from '@/state/links';
 import { useClip } from '@/state/clips';
+import { takeParams } from '@/state/share';
 import { useShop } from '@/state/shop';
 import { toast, useToasts } from '@/state/toast';
 import { trackBackgroundBuild, trackPrompt, trackWorldError, useTracking } from '@/state/tracking';
-import { useIsMobile, usePhone, useUi } from '@/state/ui';
-import { bindCurrentThread, buildModeFor, getFrameHandle, useWorld } from '@/state/world';
+import { popLayer, useBackCloses, useIsMobile, usePhone, useUi, whenShown } from '@/state/ui';
+import { buildModeFor, getFrameHandle, useWorld } from '@/state/world';
 import { Spinner } from '@/components/ui/Spinner';
-import { useSession } from '@/components/orb/AccountCard';
 import { useBilling } from '@/state/billing';
 
 // Sheets and tabs that are closed when a page opens load on first use, so the first screen
@@ -70,10 +69,7 @@ function useEver(flag: boolean): boolean {
   return ever || flag;
 }
 
-export type ShellMode = 'start' | 'world' | 'explore' | 'plans';
-
-const PANEL_W = 400;
-const PANEL_GAP = 16;
+type ShellMode = 'start' | 'world' | 'explore' | 'plans';
 
 /** Parse the current location into what the shell should show. */
 function routeFromLocation():
@@ -96,6 +92,94 @@ function routeFromLocation():
   return { kind: 'start', prompt: sp.get('prompt') ?? undefined, template: sp.get('template') ?? undefined };
 }
 
+/** A world's readable address (/<handle>/<slug>): open the world it names, or say it isn't there. */
+function loadPath(handle: string, slug: string): void {
+  const w = useWorld.getState();
+  void api.resolvePath(handle, slug).then(
+    ({ id }) => w.loadWorld(id),
+    () => w.loadWorld(`${handle}/${slug}`), // shows "not found"
+  );
+}
+
+/** Browser back/forward: show what the address says. */
+function onPop(): void {
+  if (popLayer()) return; // Back closed the sheet or a profile
+  const r = routeFromLocation();
+  const w = useWorld.getState();
+  const u = useUi.getState();
+  if (r.kind !== 'profile') u.closeProfile();
+  if (r.kind !== 'plans') u.setPlans(false);
+  if (r.kind === 'world') void w.loadWorld(r.id);
+  else if (r.kind === 'path') loadPath(r.handle, r.slug);
+  else if (r.kind === 'plans') u.setPlans(true);
+  else if (r.kind === 'profile') {
+    u.openProfile(r.handle);
+    if (w.world) void w.loadTemplate('blank');
+  } else {
+    // The start screen, or Explore: the home page (down at its worlds)
+    u.setHeroDone(false);
+    u.setIntro(null);
+    u.closePanel();
+    if (r.kind === 'start' && r.prompt) u.setDraft(r.prompt);
+    void w.loadTemplate(r.kind === 'start' ? (r.template ?? 'blank') : 'blank');
+  }
+}
+
+// ---- actions shared by home, the world bar and the chat (they read the stores, nothing of a render) ----
+
+function openWorld(id: string): void {
+  useUi.getState().setHeroDone(true);
+  void useWorld.getState().openWorld(id);
+}
+
+/** Close the maker's profile; the address leaves their page (/<handle>) when it was that. */
+function closeProfileSheet(): void {
+  useUi.getState().closeProfile();
+  if (routeFromLocation().kind === 'profile') {
+    const w = useWorld.getState().world;
+    window.history.replaceState(null, '', w ? worldHref(w) : '/');
+  }
+}
+
+/** Jump to a world whose build ran in the background, with its chat open. */
+function openBuiltWorld(id: string): void {
+  track('world_open', { world_id: id, source: 'built' });
+  openWorld(id);
+  useUi.getState().openPanel('chat');
+}
+
+/** A world of one's own, copied from this one (home stays until the copy is on its way). */
+function remixWorld(id: string): void {
+  void useWorld.getState().remix(id).then((copy) => copy && useUi.getState().setHeroDone(true));
+}
+
+// One click from any world back to Explore, as it was left (Explore keeps its scroll and filters).
+// Browser back from there returns to the world.
+function backToExplore(): void {
+  track('explore_back', { world_id: useWorld.getState().world?.id });
+  useUi.getState().requestExplore();
+}
+
+/** "Use your own key": straight to the AI section, under the You tab's Advanced. */
+function openKeys(): void {
+  const u = useUi.getState();
+  u.openPanel('you', 'full');
+  u.setAdvanced(true);
+  whenShown('orb-model-h', (el) => {
+    el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    const section = el.closest('section');
+    const radio = section?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? section?.querySelector<HTMLElement>('[role="radio"]');
+    radio?.focus({ preventScroll: true });
+  });
+}
+
+const barActions: WorldBarActions = {
+  onExplore: backToExplore,
+  onShare: () => useUi.getState().setShare(true),
+  onHistory: () => useUi.getState().setHistory(true),
+  onOpenWorld: openWorld,
+};
+
 export default function Shell({
   mode,
   worldId,
@@ -104,6 +188,7 @@ export default function Shell({
   initialPrompt,
   initialTemplate,
   initialProfile,
+  explore,
 }: {
   mode: ShellMode;
   worldId?: string;
@@ -114,6 +199,8 @@ export default function Shell({
   initialTemplate?: string;
   /** A maker's page (/<handle>): their profile opens over the start canvas. */
   initialProfile?: string;
+  /** /explore's address (?filter=…&sort=…&q=…): what Explore starts on. */
+  explore?: { filter?: string; sort?: string; q?: string };
 }) {
   const ws = useWorld();
   const { world, canEdit, isExternal, chatKey, status } = ws;
@@ -126,6 +213,10 @@ export default function Shell({
   const shopUsed = useEver(useShop((s) => !!s.ask));
   const mobile = useIsMobile();
   const phone = usePhone();
+  // Phones: the system Back closes the sheet, then a profile over it (not a maker's page itself).
+  useBackCloses(mobile && ui.panelOpen, () => useUi.getState().closePanel());
+  const profileIsPage = useMemo(() => !!ui.profile && routeFromLocation().kind === 'profile', [ui.profile]);
+  useBackCloses(mobile && !!ui.profile && !profileIsPage, closeProfileSheet);
   useFriendsSync();
   useInviteWelcome();
   useGitHubLinks();
@@ -150,7 +241,7 @@ export default function Shell({
         trackBackgroundBuild(key, st, error);
         const open = key !== 'new' ? { label: 'Open', onClick: () => openBuiltWorld(key) } : undefined;
         if (st === 'done') toast(`“${worldName}” is ready ✨`, 'success', open);
-        else if (st === 'error') toast(`“${worldName}” hit a snag${error ? ` — ${error}` : ''}`, 'error', open);
+        else if (st === 'error') toast(`Couldn’t build “${worldName}” right now`, 'error', open);
       },
       restore: (v) => useWorld.getState().restore(v),
       getImage: async () => (await getFrameHandle()?.capture()) ?? null,
@@ -167,17 +258,6 @@ export default function Shell({
     buildRef.current = build;
   });
 
-  useEffect(() => {
-    bindCurrentThread(() => buildRef.current.activeThreadId());
-  }, []);
-
-  // Set when Explore was opened by leaving a world (nothing is behind it any more).
-  const leftWorld = useRef(false);
-  const exploreAddress = useRef('/explore');
-  const placeExplore = useCallback((address: string) => {
-    exploreAddress.current = address;
-  }, []);
-
   // ---- boot: player, orb position, GitHub OAuth hand-off, first route ------------------------------
   const booted = useRef(false);
   useEffect(() => {
@@ -190,10 +270,7 @@ export default function Shell({
     void useSession
       .getState()
       .loadMe()
-      .then((me) => {
-        signedInRef.current = !!me?.user;
-        void setChatSync(!!me?.user);
-      });
+      .then((me) => void setChatSync(!!me?.user));
     if (/(^|[#&])gh_(token|error)=/.test(window.location.hash) || localStorage.getItem('orb:github'))
       void import('@/components/orb/GitHubConnect').then((m) => Promise.all([m.consumeGitHubTokenFromHash(), m.moveBrowserToken()]));
     warmLazySheets();
@@ -202,13 +279,9 @@ export default function Shell({
 
     if (mode === 'world' && !worldId && worldPath) {
       const [h, s] = worldPath.split('/');
-      void api.resolvePath(h, s).then(
-        ({ id }) => w.loadWorld(id),
-        () => w.loadWorld(worldPath), // shows "not found"
-      );
+      loadPath(h, s);
     } else if (mode === 'world' && worldId) {
       void w.loadWorld(worldId, initialWorld ?? null);
-      // Owners on desktop see the chat; visitors see the world.
     } else {
       if (initialPrompt) u.setDraft(initialPrompt);
       void w.loadTemplate(initialTemplate && TEMPLATE_BY_ID[initialTemplate] ? initialTemplate : 'blank');
@@ -226,10 +299,6 @@ export default function Shell({
     openedForOwner.current = world.id;
     if (mode === 'world' && !useUi.getState().panelOpen) useUi.getState().openPanel('chat');
   }, [world, ws.verified, canEdit, mobile, mode]);
-
-  useEffect(() => {
-    if (ui.panelOpen) writeJSON(ORB_OPENED_KEY, true);
-  }, [ui.panelOpen]);
 
   // ---- "I'm in this world" while a public one is on screen (Explore's playing-now) ----------------
   const hereId = world && status === 'ready' && world.visibility === 'public' ? world.id : null;
@@ -271,90 +340,35 @@ export default function Shell({
 
   // ---- browser back/forward ------------------------------------------------------------------------
   useEffect(() => {
-    const onPop = () => {
-      const r = routeFromLocation();
-      const w = useWorld.getState();
-      const u = useUi.getState();
-      if (r.kind !== 'profile') u.closeProfile();
-      if (r.kind !== 'plans') u.setPlans(false);
-      if (r.kind === 'world') {
-        u.setExplore(false);
-        void w.loadWorld(r.id);
-      } else if (r.kind === 'path') {
-        u.setExplore(false);
-        void api.resolvePath(r.handle, r.slug).then(
-          ({ id }) => w.loadWorld(id),
-          () => w.loadWorld(`${r.handle}/${r.slug}`), // shows "not found"
-        );
-      } else if (r.kind === 'explore') {
-        // Explore is the home page (down at its worlds)
-        u.setExplore(false);
-        u.setHeroDone(false);
-        u.setIntro(null);
-        u.closePanel();
-        void w.loadTemplate('blank');
-      } else if (r.kind === 'plans') {
-        u.setPlans(true);
-      } else if (r.kind === 'profile') {
-        u.setExplore(false);
-        u.openProfile(r.handle);
-        if (w.world) void w.loadTemplate('blank');
-      } else {
-        u.setExplore(false);
-        u.setHeroDone(false);
-        u.setIntro(null);
-        u.closePanel();
-        if (r.prompt) u.setDraft(r.prompt);
-        void w.loadTemplate(r.template ?? 'blank');
-      }
-    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   // ---- the tab's title follows what's on screen (page metadata only titles the first page) --------
   const worldName = world?.name;
+  const maker = world?.authorName;
   useEffect(() => {
     if (status === 'loading' || status === 'idle') return; // keep the last title until the next world is in
     if (ui.profile) return; // the profile sheet names its maker
     document.title =
       ui.plansOpen && window.location.pathname.startsWith('/pricing')
         ? 'Plans · Orb'
-        : (ui.exploreOpen || !worldName) && window.location.pathname.startsWith('/explore')
+        : !worldName && window.location.pathname.startsWith('/explore')
         ? 'Explore worlds · Orb'
         : status === 'not-found'
           ? 'A world on Orb'
           : worldName
-            ? `${worldName} · Orb`
-            : 'Orb';
-  }, [status, worldName, ui.exploreOpen, ui.profile, ui.plansOpen]);
-
-  // ---- keyboard: ⌘/Ctrl+K focuses the chat -------------------------------------------------------
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        const u = useUi.getState();
-        u.setExplore(false);
-        if (!heroVisibleRef.current) u.openPanel('chat');
-        u.requestFocus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+            ? `${worldName}${maker ? ` by ${maker}` : ''} · Orb`
+            : 'Orb — make and play worlds';
+  }, [status, worldName, maker, ui.profile, ui.plansOpen]);
 
   // ---- unread dot when a build finishes while the panel is closed ----------------------------------
   const wasBuilding = useRef(false);
-  const signedInRef = useRef(false);
-  const [builds, setBuilds] = useState(0);
-  useEffect(() => setBuilds(countBuild(0)), []);
   useEffect(() => {
-    if (wasBuilding.current && !build.isBuilding && !useUi.getState().panelOpen) useUi.getState().setUnread(true);
-    // What the build used: the credits as the server counts them now.
-    if (wasBuilding.current && !build.isBuilding) void useBilling.getState().load(true);
-    if (wasBuilding.current && !build.isBuilding && build.messages[build.messages.length - 1]?.build?.toVersion != null) {
-      setBuilds(countBuild());
+    if (wasBuilding.current && !build.isBuilding) {
+      useUi.getState().setUnread(true); // (only while the panel is closed)
+      // What the build used: the credits as the server counts them now.
+      void useBilling.getState().load(true);
     }
     wasBuilding.current = build.isBuilding;
   }, [build.isBuilding]);
@@ -362,11 +376,21 @@ export default function Shell({
   // ---- hero (start canvas) ---------------------------------------------------------------------------
   // Landing on a world's address, home waits for the start canvas (going home from there loads it).
   const heroVisible = !world && status !== 'not-found' && status !== 'error' && !ui.heroDone && (mode !== 'world' || ws.onStart);
-  const exploreUsed = useEver(ui.exploreOpen || heroVisible);
-  const heroVisibleRef = useRef(heroVisible);
+  const exploreUsed = useEver(heroVisible);
+
+  // ---- keyboard: ⌘/Ctrl+K focuses the chat -------------------------------------------------------
+  const onCmdK = useEffectEvent((e: KeyboardEvent) => {
+    if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
+    e.preventDefault();
+    const u = useUi.getState();
+    if (!heroVisible) u.openPanel('chat');
+    u.requestFocus();
+  });
   useEffect(() => {
-    heroVisibleRef.current = heroVisible;
-  }, [heroVisible]);
+    const onKey = (e: KeyboardEvent) => onCmdK(e);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const sendFromHero = useCallback((text: string) => {
     const t = text.trim();
@@ -379,60 +403,15 @@ export default function Shell({
     void buildRef.current.send(t);
   }, []);
 
-  const pickTemplate = useCallback(async (id: string) => {
-    const t = TEMPLATE_BY_ID[id];
-    if (!t) return;
-    track('template_pick', { template: id });
-    const u = useUi.getState();
-    u.setHeroDone(true);
-    await useWorld.getState().loadTemplate(id);
-    u.setIntro({ text: `Here's your ${t.name}. What should we change?`, suggestions: t.suggestions, chatKey: 'new' });
-    u.openPanel('chat', 'half');
-  }, []);
-
-  const remixFromHome = useCallback((id?: string) => {
-    const u = useUi.getState();
-    if (!id) return u.requestExplore('remix');
-    track('home_remix', { world: id });
-    u.setHeroDone(true);
-    void useWorld.getState().remix(id);
-  }, []);
-
-  // ---- actions shared by the world bar and chat ---------------------------------------------------------
-  const openWorld = useCallback((id: string) => {
-    const u = useUi.getState();
-    u.setExplore(false);
-    u.setHeroDone(true);
-    leftWorld.current = false;
-    void useWorld.getState().openWorld(id);
-  }, []);
-
-  // One click from any world back to Explore, as it was left (Explore keeps its scroll and filters).
-  // Browser back from there returns to the world.
-  const backToExplore = useCallback(() => {
-    track('explore_back', { world_id: useWorld.getState().world?.id });
-    useUi.getState().requestExplore();
-  }, []);
-
-  // Explore is the home page: every way to it (the back arrow, the Orb's tab, "See all") goes home,
+  // Explore is the home page: every way to it (the Explore pill, the world bar's, "See all") goes home,
   // to its worlds as they were left. A world is left (a build of one's own goes on in the background,
   // and the page's composer starts a new world, never a change to that one); browser back returns to it.
   const exploreRequest = useUi((s) => s.exploreRequest);
   useEffect(() => {
     if (!exploreRequest) return;
-    const u = useUi.getState();
-    u.setExplore(false);
-    u.closePanel();
-    leftWorld.current = false;
-    if (useWorld.getState().world || u.heroDone) void useWorld.getState().goStart({});
+    useUi.getState().closePanel();
+    if (useWorld.getState().world || useUi.getState().heroDone) void useWorld.getState().goStart({});
   }, [exploreRequest]);
-
-  const makeLikeThis = useCallback(() => {
-    const w = useWorld.getState().world;
-    const prompt = w ? `Make something like “${w.name}”${w.description ? ` — ${w.description}` : ''}` : '';
-    useUi.getState().setExplore(false);
-    void useWorld.getState().goStart({ prompt });
-  }, []);
 
   // In a world that runs on its maker's site (embedded), Orb can't see inside it: what the chat's
   // composer says starts a world of one's own, built from it on the start canvas.
@@ -442,7 +421,6 @@ export default function Shell({
     if (!t) return;
     trackPrompt('chat', t);
     newWorldFrom.current = t;
-    useUi.getState().setExplore(false);
     void useWorld.getState().goStart({ chat: true });
   }, []);
   useEffect(() => {
@@ -452,8 +430,8 @@ export default function Shell({
     void build.send(t);
   });
 
-  // "Make my own copy" in someone else's world: remix it, then (when they had asked for a change)
-  // send that request again in the copy, once it's the world on screen and the chat is its chat.
+  // Remix offered under an answer in someone else's world: remix it, then (when they had asked for a
+  // change) send that request again in the copy, once it's the world on screen and the chat is its chat.
   const afterRemix = useRef<{ worldId: string; text: string } | null>(null);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const remixWith = useCallback(async (request?: string) => {
@@ -473,49 +451,12 @@ export default function Shell({
     void build.send(p.text);
   });
 
-  const barActions: WorldBarActions = useMemo(
-    () => ({
-      onShare: () => useUi.getState().setShare(true),
-      onHistory: () => useUi.getState().setHistory(true),
-      onOpenWorld: openWorld,
-      onMakeLikeThis: makeLikeThis,
-    }),
-    [openWorld, makeLikeThis],
-  );
-
-  // "Use your own key": straight to the AI section, under the You tab's Advanced.
-  const openKeys = useCallback(() => {
-    const u = useUi.getState();
-    u.openPanel('you', 'full');
-    u.setAdvanced(true);
-    let tries = 0;
-    const reveal = () => {
-      const el = document.getElementById('orb-model-h');
-      if (el) {
-        el.scrollIntoView({ block: 'start', behavior: 'smooth' });
-        const section = el.closest('section');
-        const radio = section?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? section?.querySelector<HTMLElement>('[role="radio"]');
-        radio?.focus({ preventScroll: true });
-      } else if (++tries < 20) requestAnimationFrame(reveal);
-    };
-    requestAnimationFrame(reveal);
-  }, []);
-
-  // ---- layout offsets: keep the bar and pill centered over the visible world ------------------------------
   const panelDocked = ui.panelOpen && !mobile;
-  const pillOffset = useMemo(() => {
-    const reserve = panelDocked ? PANEL_W + PANEL_GAP : 0;
-    const left = !panelDocked ? '50%' : ui.orb.side === 'right' ? `calc((100vw - ${reserve}px) / 2)` : `calc(${reserve}px + (100vw - ${reserve}px) / 2)`;
-    const top = mobile && world ? 'calc(var(--safe-t) + 74px)' : 'calc(var(--safe-t) + 18px)';
-    return { left, top };
-  }, [panelDocked, ui.orb.side, mobile, world]);
 
   return (
     <main className="fixed inset-0 overflow-hidden">
-      {/* soft sky while the first world loads (matches the blank island's palette) */}
-      <div aria-hidden className="absolute inset-0" style={{ background: 'linear-gradient(180deg, #b9c6f2 0%, #e7d6ef 55%, #fde3cf 100%)' }} />
-
       <WorldStage
+        home={heroVisible}
         onReady={() => buildRef.current.reportReady()}
         onError={(e) => {
           buildRef.current.reportRuntimeError(e);
@@ -533,7 +474,7 @@ export default function Shell({
             </p>
             <div className="mt-5 flex justify-center gap-2">
               <Button variant="primary" icon="sparkle" onClick={() => void useWorld.getState().goStart({ replace: true, chat: true })}>
-                Make a world
+                New world
               </Button>
               <Button variant="glass" icon="compass" onClick={() => useUi.getState().requestExplore()}>
                 Explore
@@ -545,26 +486,20 @@ export default function Shell({
 
       {/* Nothing floats over the world but the Orb: world info lives in the Orb panel, and the
           building pill only shows while the panel (which narrates the build) is closed. */}
-      {!ui.panelOpen && <BuildingPill isBuilding={build.isBuilding} progress={build.progress} messages={build.messages} offset={pillOffset} />}
+      {!ui.panelOpen && <BuildingPill isBuilding={build.isBuilding} progress={build.progress} messages={build.messages} top={mobile && world ? 'calc(var(--safe-t) + 74px)' : 'calc(var(--safe-t) + 18px)'} />}
 
-      <OrbHint world={world} show={status === 'ready' && !ui.panelOpen && !build.isBuilding} side={ui.orb.side} y={ui.orb.y} />
+      {!heroVisible && status !== 'not-found' && status !== 'error' && (
+        <ExploreBack ready={ws.drawn} inset={panelDocked && ui.orb.side === 'left' ? PANEL_W + PANEL_INSET : 0} onClick={backToExplore} />
+      )}
 
-      <ExploreBack
-        worldId={world?.id ?? null}
-        show={!!world && (status === 'ready' || status === 'loading') && !ui.exploreOpen && !heroVisible}
-        inset={panelDocked && ui.orb.side === 'left' ? PANEL_W + PANEL_GAP : 0}
-        onClick={backToExplore}
-      />
-
-
+      {/* Home has the Orb in its header (it opens the You tab: the page's own composer is the chat). */}
       <Orb
         building={build.isBuilding || build.background.length > 0}
         unread={ui.unread || friendUnread > 0}
-        hidden={ui.panelOpen}
-        // Phones: off a world's touch controls and Explore's tiles (the start screen's top keeps it whole)
-        tucked={phone && (!heroVisible || ui.exploreScrolled)}
-        // At home the page's own composer is the chat, so the Orb opens You (unless a build has news).
-        onOpen={() => (!ui.unread && (friendUnread > 0 || (heroVisible && !build.isBuilding)) ? ui.openPanel('you') : ui.openPanel())}
+        hidden={ui.panelOpen || heroVisible}
+        // Phones: half behind its edge, off a world's touch controls
+        tucked={phone}
+        onOpen={() => (!ui.unread && friendUnread > 0 ? ui.openPanel('you') : ui.openPanel())}
       />
 
       <OrbPanel
@@ -572,24 +507,18 @@ export default function Shell({
         header={
           <>
             <BackgroundBuilds builds={build.background} />
-            <WorldBar visible={!!world && status === 'ready'} actions={barActions} />
-            <SaveNudge show={builds >= 2 && !signedInRef.current && !!world?.canEdit} onSaved={() => (signedInRef.current = true)} />
+            <WorldBar visible={!!world && status === 'ready'} actions={{ ...barActions, onNewChat: build.messages.length && !build.isBuilding ? build.newThread : undefined }} />
           </>
         }
-        onExplore={() => ui.requestExplore()}
         youBadge={friendUnread}
         chat={
           <ChatView
             build={build}
             onOpenKeys={openKeys}
-            onOpenWorld={(id) => openWorld(id)}
-            onMakeLikeThis={makeLikeThis}
+            onOpenWorld={openWorld}
             onMakeOwn={makeOwn}
             onRemix={(request) => void remixWith(request)}
-            onStartFrom={(id) => {
-              useUi.getState().setHeroDone(true);
-              void useWorld.getState().remix(id);
-            }}
+            onStartFrom={remixWorld}
           />
         }
         you={<YouView onOpenWorld={openWorld} onNewWorld={() => void useWorld.getState().goStart({ chat: true })} />}
@@ -598,30 +527,12 @@ export default function Shell({
       {/* Explore, which is also the home page (under an invitation to make a world). */}
       {exploreUsed && (
         <ExploreSheet
-          open={ui.exploreOpen || heroVisible}
-          intro={
-            heroVisible && !ui.exploreOpen ? (
-              <HomeIntro onSend={sendFromHero} onPickTemplate={(id) => void pickTemplate(id)} onRemix={remixFromHome} onExplore={() => ui.requestExplore()} onOpenWorld={openWorld} onOpenMine={() => ui.openPanel('you')} />
-            ) : undefined
-          }
-          onClose={() => {
-            ui.setExplore(false);
-            // Nothing behind Explore any more (its world was left): the start screen.
-            if (leftWorld.current && !useWorld.getState().world) ui.setHeroDone(false);
-            leftWorld.current = false;
-            if (window.location.pathname.startsWith('/explore')) window.history.replaceState(null, '', world ? worldHref(world) : '/');
-          }}
+          open={heroVisible}
+          intro={<HomeIntro onSend={sendFromHero} onOpenWorld={openWorld} onOpenMine={() => ui.openPanel('you')} />}
+          building={build.isBuilding || build.background.length > 0}
+          start={explore}
           onOpenWorld={openWorld}
-          onPlace={placeExplore}
-          onNewWorld={() => {
-            ui.setExplore(false);
-            void useWorld.getState().goStart({ chat: true });
-          }}
-          onRemix={(card) => {
-            ui.setExplore(false);
-            ui.setHeroDone(true);
-            void useWorld.getState().remix(card.id);
-          }}
+          onRemix={(card) => remixWorld(card.id)}
         />
       )}
 
@@ -652,10 +563,7 @@ export default function Shell({
       {profileUsed && (
         <ProfileSheet
           handle={ui.profile}
-          onClose={() => {
-            ui.closeProfile();
-            if (routeFromLocation().kind === 'profile') window.history.replaceState(null, '', world ? worldHref(world) : '/');
-          }}
+          onClose={closeProfileSheet}
           onOpenWorld={(id) => {
             ui.closeProfile();
             openWorld(id);
@@ -676,8 +584,16 @@ export default function Shell({
         />
       )}
 
-
-      <Toaster />
+      {/* Toasts: just above the phone's open sheet; beside the docked panel, or the Orb in a world; else at the bottom. */}
+      <Toaster
+        anchor={
+          mobile && ui.panelOpen
+            ? 'sheet'
+            : heroVisible && !panelDocked
+              ? null
+              : { side: ui.orb.side, y: ui.orb.y, narrow: mobile, clear: panelDocked ? PANEL_INSET + PANEL_W : ORB_MARGIN + ORB_SIZE }
+        }
+      />
     </main>
   );
 }
@@ -687,11 +603,8 @@ export default function Shell({
  * ?billing=payouts|payouts-pending): say how it went, once, and show the new credits.
  */
 function welcomeBack(): void {
-  const url = new URL(window.location.href);
-  const note = url.searchParams.get('billing');
+  const [note] = takeParams('billing');
   if (!note) return;
-  url.searchParams.delete('billing');
-  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
   const billing = useBilling.getState();
   if (note === 'pro' || note === 'topup') {
     track('checkout_done', { item: note });
@@ -712,124 +625,6 @@ function welcomeBack(): void {
   toast('Thanks! Your credits will show up in a moment.');
   // Stripe's webhook brings it shortly: look again a few times.
   for (const ms of [4000, 12_000, 30_000]) setTimeout(() => void billing.load(true), ms);
-}
-
-/** Set once the person has opened the Orb: from then on they know where everything lives. */
-const ORB_OPENED_KEY = 'orb:orb-opened';
-
-/**
- * A brief whisper next to the Orb when a world opens: its name and maker, and that chat and
- * remix live in the Orb. Only until the person first opens the Orb; fades after ~2.5 s.
- */
-function OrbHint({ world, show, side, y }: { world: WorldFull | null; show: boolean; side: 'left' | 'right'; y: number }) {
-  const [visibleFor, setVisibleFor] = useState<string | null>(null);
-  const seen = useRef(new Set<string>());
-  useEffect(() => {
-    if (!world || !show || seen.current.has(world.id) || readJSON<boolean>(ORB_OPENED_KEY, false)) return;
-    seen.current.add(world.id);
-    setVisibleFor(world.id);
-  }, [world, show]);
-  // Its own effect: the world object is replaced while the hint shows (e.g. the play count
-  // arrives), which must not cancel the fade.
-  useEffect(() => {
-    if (!visibleFor) return;
-    const t = setTimeout(() => setVisibleFor(null), 2600);
-    return () => clearTimeout(t);
-  }, [visibleFor]);
-  if (!world || !show || visibleFor !== world.id) return null;
-  const orb = dockedOrbStyle(side, y);
-  const gap = ORB_MARGIN + ORB_SIZE + 10;
-  const own = world.canEdit;
-  // Phones: sit just above the Orb (narrow screens have no room beside it, and worlds keep their
-  // own controls along the bottom edge).
-  const narrow = typeof window !== 'undefined' && window.innerWidth < 640;
-  const below = y > 0.5;
-  return (
-    <div
-      role="status"
-      className="glass animate-pop pointer-events-none fixed z-30 max-w-[min(260px,calc(100vw-96px))] rounded-[14px] px-3 py-1.5"
-      style={
-        narrow
-          ? {
-              ...(below ? { bottom: `calc(100% - ${orb.top} + 10px)` } : { top: `calc(${orb.top} + ${ORB_SIZE + 10}px)` }),
-              ...(side === 'right' ? { right: `calc(var(--safe-r) + ${ORB_MARGIN}px)` } : { left: `calc(var(--safe-l) + ${ORB_MARGIN}px)` }),
-            }
-          : {
-              top: `calc(${orb.top} + 2px)`,
-              ...(side === 'right' ? { right: `calc(var(--safe-r) + ${gap}px)` } : { left: `calc(var(--safe-l) + ${gap}px)` }),
-            }
-      }
-    >
-      <div className="truncate text-[13px] leading-[18px] text-ink">
-        <span className="font-semibold">{world.name}</span>
-        {!own && <span className="text-ink-2"> · by {world.authorName || 'someone'}</span>}
-      </div>
-      <div className="text-[11.5px] leading-4 text-ink-2">{own ? 'Tap Orb to keep building' : 'Tap Orb to chat or remix'}</div>
-    </div>
-  );
-}
-
-/** Successful builds made in this browser (adds `by`; returns the new total). */
-function countBuild(by = 1): number {
-  const n = readJSON<number>('orb:builds', 0) + by;
-  if (by) writeJSON('orb:builds', n);
-  return n;
-}
-
-/**
- * After a couple of builds, offer — once, gently — to keep this person's worlds safe with an
- * account (a username and password). Anonymous worlds otherwise live in one browser.
- */
-function SaveNudge({ show, onSaved }: { show: boolean; onSaved(): void }) {
-  const [dismissed, setDismissed] = useState(() => readJSON<boolean>('orb:nudge-dismissed', false));
-  const [open, setOpen] = useState(false);
-  if (!show || dismissed) return null;
-  const close = () => {
-    writeJSON('orb:nudge-dismissed', true);
-    setDismissed(true);
-  };
-  if (open) {
-    return (
-      <div className="animate-fade-up mx-3 mb-2 rounded-[18px] bg-[color-mix(in_oklab,var(--iris-1)_10%,transparent)] px-3.5 py-3">
-        <AccountCard
-          variant="inline"
-          where="nudge"
-          reason="Keep your worlds safe"
-          onSignedIn={() => {
-            onSaved();
-            close();
-          }}
-          onCancel={close}
-        />
-      </div>
-    );
-  }
-  return (
-    <div className="animate-fade-up mx-3 mb-2 flex items-center gap-3 rounded-[18px] bg-[color-mix(in_oklab,var(--iris-1)_10%,transparent)] px-3.5 py-3">
-      <div className="min-w-0 flex-1">
-        <div className="text-[13.5px] font-semibold text-ink">Keep your worlds safe</div>
-        <div className="text-[12px] leading-snug text-ink-2">Pick a username and a password. Then they&apos;re yours on every device.</div>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <Button size="sm" variant="primary" onClick={() => setOpen(true)}>
-          Save
-        </Button>
-        <button type="button" onClick={close} className="text-[11.5px] text-ink-3 hover:text-ink-2">
-          Not now
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** Jump to a world whose build ran in the background, with its chat open. */
-function openBuiltWorld(id: string): void {
-  track('world_open', { world_id: id, source: 'built' });
-  const u = useUi.getState();
-  u.setExplore(false);
-  u.setHeroDone(true);
-  void useWorld.getState().openWorld(id);
-  u.openPanel('chat');
 }
 
 /** Builds still running for other worlds: they keep going while you work here. */
@@ -856,37 +651,56 @@ function BackgroundBuilds({ builds }: { builds: BackgroundBuild[] }) {
   );
 }
 
+/** Where the top-left corner brings the way back again (a pointer reaching it, a tap near it). */
+const CORNER = { width: 'calc(var(--safe-l) + 56px)', height: 'calc(var(--safe-t) + 20px)' };
+
 /**
- * Top-left as a world opens: "Explore", back to it in one click. After a few seconds it fades away
- * and leaves the world the whole screen (the world's own controls often live there); the Orb's
- * Explore tab, or the browser's back, go back from then on.
+ * Top-left while a world opens: "Explore", back to it in one click. A few seconds after the world is
+ * ready it fades away and leaves the world the whole screen (its own controls often live there);
+ * the pointer reaching the top-left corner, or a tap there, brings it back.
  */
-function ExploreBack({ worldId, show, inset, onClick }: { worldId: string | null; show: boolean; inset: number; onClick(): void }) {
-  const [goneFor, setGoneFor] = useState<string | null>(null);
+function ExploreBack({ ready, inset, onClick }: { ready: boolean; inset: number; onClick(): void }) {
+  // `wake` counts the times it's asked to show (a world opening, the corner); gone once that one has had its time.
+  const [wake, setWake] = useState(0);
+  const [goneAt, setGoneAt] = useState(-1);
+  const [wasReady, setWasReady] = useState(ready);
+  if (ready !== wasReady) {
+    setWasReady(ready);
+    if (!ready) setWake(wake + 1);
+  }
+  const held = useRef(false); // the pointer is on it
   useEffect(() => {
-    if (!worldId || !show) return;
-    const t = setTimeout(() => setGoneFor(worldId), 4000);
+    if (!ready) return;
+    const t = setTimeout(() => !held.current && setGoneAt(wake), 4000);
     return () => clearTimeout(t);
-  }, [worldId, show]);
-  if (!show) return null;
-  const gone = goneFor === worldId;
+  }, [ready, wake]);
+  const gone = goneAt === wake;
+  const again = () => setWake((n) => n + 1);
   return (
-    <div
-      className={`fixed z-30 transition-[opacity,transform] duration-500 ease-[var(--ease)] ${gone ? 'pointer-events-none -translate-y-1 opacity-0' : ''}`}
-      style={{ top: 'calc(var(--safe-t) + 12px)', left: `calc(var(--safe-l) + ${12 + inset}px)` }}
-      aria-hidden={gone}
-    >
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label="Back to Explore"
-        title="Back to Explore"
-        tabIndex={gone ? -1 : 0}
-        className="glass animate-pop flex h-10 items-center gap-1.5 rounded-full pr-3.5 pl-2.5 text-[14px] font-medium text-ink active:scale-[.96]"
+    <>
+      {gone && <div aria-hidden="true" className="fixed top-0 left-0 z-30" style={CORNER} onPointerEnter={again} onPointerDown={again} />}
+      <div
+        className={`fixed z-30 transition-[opacity,transform] duration-500 ease-[var(--ease)] ${gone ? 'pointer-events-none -translate-y-1 opacity-0' : ''}`}
+        style={{ top: 'calc(var(--safe-t) + 12px)', left: `calc(var(--safe-l) + ${12 + inset}px)` }}
+        aria-hidden={gone}
+        onPointerEnter={() => (held.current = true)}
+        onPointerLeave={() => {
+          held.current = false;
+          if (!gone) again();
+        }}
       >
-        <Icon name="arrow-left" size={18} strokeWidth={2} />
-        Explore
-      </button>
-    </div>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label="Back to Explore"
+          title="Back to Explore"
+          tabIndex={gone ? -1 : 0}
+          className="glass animate-pop flex h-10 items-center gap-1.5 rounded-full pr-3.5 pl-2.5 text-[14px] font-medium text-ink active:scale-[.96]"
+        >
+          <Icon name="arrow-left" size={18} strokeWidth={2} />
+          Explore
+        </button>
+      </div>
+    </>
   );
 }

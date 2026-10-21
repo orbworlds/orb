@@ -2,6 +2,7 @@
 // (src/server/stripe.ts): the plans' settings, wallets and their periods, charging plan credits
 // before top-ups, refunds and top-ups that count once, Pro periods from subscriptions, and what
 // people are told — against an in-memory PGlite with the app's own schema.
+import crypto from 'node:crypto';
 import { register } from 'node:module';
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -248,7 +249,7 @@ describe('Stripe', () => {
   test('signatures: the right secret and time pass; anything else fails', () => {
     const now = Date.UTC(2026, 9, 12, 12);
     const at = Math.floor(now / 1000);
-    const header = S.signPayload(payload, secret, at);
+    const header = `t=${at},v1=${crypto.createHmac('sha256', secret).update(`${at}.${payload}`, 'utf8').digest('hex')}`;
     assert.ok(S.verifySignature(payload, header, secret, 300, now));
     assert.ok(S.verifySignature(payload, `${header},v1=${'0'.repeat(64)}`, secret, 300, now), 'any of several signatures');
     assert.ok(!S.verifySignature(payload, header, 'whsec_other', 300, now));

@@ -12,7 +12,7 @@
 // addresses). Other hosts (localhost, preview deployments) keep using their own hostname.
 import { DEFAULT_SITE } from '@/lib/site';
 
-export const DEFAULT_RP_ID = 'orbworld.vercel.app';
+const DEFAULT_RP_ID = 'orbworld.vercel.app';
 
 type Env = Record<string, string | undefined>;
 
@@ -34,7 +34,7 @@ export interface Origins {
 }
 
 /** Origins from a comma- or space-separated list; anything that isn't an http(s) URL is skipped. */
-export function parseOrigins(list: string | undefined): string[] {
+function parseOrigins(list: string | undefined): string[] {
   const out: string[] = [];
   for (const raw of (list || '').split(/[\s,]+/)) {
     if (!raw) continue;

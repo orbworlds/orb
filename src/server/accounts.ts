@@ -15,8 +15,8 @@ import { cleanLook } from '@/lib/looks';
 import type { MeResponse, UserInfo } from '@/lib/types';
 import { getViewer, isAdmin, linkDeviceToUser, randomId, sessionCookie, touchDevice, type Viewer } from './auth';
 import { botCheck } from './botid';
-import type { Db } from './db';
-import { clientIp, error, json, readJson } from './http';
+import { isUniqueViolation, type Db } from './db';
+import { clientIp, error, json, readJson, retryLater, withCookies } from './http';
 import { isPathPart, ownerHandle, repathAccount, RESERVED, slugify } from './paths';
 import { rateLimit, underLimit } from './ratelimit';
 import { ready } from './schema';
@@ -27,16 +27,19 @@ export const PASSWORD_LENGTH = { min: 8, max: 200 };
 
 // -- usernames ----------------------------------------------------------------------------------
 
+/** Typed text as one clean line: no control, zero-width or bidi-override characters, single-spaced. */
+export const cleanText = (raw: unknown): string =>
+  typeof raw === 'string'
+    ? raw
+        .normalize('NFC')
+        .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : '';
+
 /** What someone typed as a username → its handle ("Max Builds" → "max-builds"), or why it can't be one. */
 export function parseUsername(raw: unknown): { name: string; handle: string } | { error: string } {
-  const name =
-    typeof raw === 'string'
-      ? raw
-          .normalize('NFC')
-          .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim()
-      : '';
+  const name = cleanText(raw);
   const handle = slugify(name, '');
   if (handle.length < USERNAME_LENGTH.min || name.length > 40) return { error: `Usernames are ${USERNAME_LENGTH.min} to ${USERNAME_LENGTH.max} letters, numbers or dashes.` };
   if (handle.length > USERNAME_LENGTH.max) return { error: `That's a long one — usernames have at most ${USERNAME_LENGTH.max} letters, numbers or dashes.` };
@@ -81,21 +84,11 @@ export function passwordProblem(raw: unknown): string | null {
 
 // -- helpers ------------------------------------------------------------------------------------
 
-function withCookie(res: Response, cookie: string): Response {
-  res.headers.append('set-cookie', cookie);
-  return res;
-}
-
-const isUniqueViolation = (e: unknown) => !!e && typeof e === 'object' && (e as { code?: unknown }).code === '23505';
-
 /** Over any of these limits → the 429 to answer with. Each check counts one attempt. */
-async function limited(db: Db, checks: Array<[key: string, limit: number, windowSec: number]>): Promise<Response | null> {
+export async function limited(db: Db, checks: Array<[key: string, limit: number, windowSec: number]>, message = 'Too many tries. Please wait a few minutes and try again.'): Promise<Response | null> {
   for (const [key, limit, windowSec] of checks) {
     const r = await rateLimit(db, key, limit, windowSec);
-    if (!r.ok) {
-      const retryAfter = Math.max(1, Math.ceil(r.retryAfter));
-      return json({ error: 'rate_limited', message: 'Too many tries. Please wait a few minutes and try again.', retryAfter }, { status: 429, headers: { 'retry-after': String(retryAfter) } });
-    }
+    if (!r.ok) return retryLater(429, 'rate_limited', message, r.retryAfter);
   }
   return null;
 }
@@ -126,10 +119,11 @@ export async function accountOf(db: Db, userId: string): Promise<UserInfo | null
   return r ? { id: r.id, name: r.name, handle: r.handle, password: !!r.password, look: cleanLook(r.look) } : null;
 }
 
-async function signedIn(db: Db, viewer: Viewer, userId: string): Promise<Response> {
+/** Signed in as `userId`: the account for the page, and the session cookie. */
+export async function signedIn(db: Db, viewer: Viewer, userId: string): Promise<Response> {
   const user = await accountOf(db, userId);
   const me: MeResponse = { user, deviceId: viewer.deviceId ?? '', name: user?.name ?? '' };
-  return withCookie(json(me), sessionCookie(userId));
+  return withCookies(json(me), sessionCookie(userId));
 }
 
 // -- routes -------------------------------------------------------------------------------------

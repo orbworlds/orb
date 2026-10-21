@@ -35,37 +35,36 @@ export function slugify(name: string, fallback = 'world'): string {
 
 export const isPathPart = (s: string) => /^[a-z0-9](?:[a-z0-9-]{0,62})$/.test(s);
 
+/** A handle made from someone's name (before a number makes it free). */
+function handleBase(name: string): string {
+  const b = slugify(name, 'maker').slice(0, 30).replace(/-+$/g, '');
+  return RESERVED.has(b) ? `${b}-maker` : b;
+}
+
 /** The handle of a world's owner (created on first use). */
 export async function ownerHandle(db: Db, owner: { user: string | null; device: string | null; name: string }): Promise<string | null> {
-  const existing = owner.user
-    ? await db.query<{ handle: string }>(`select handle from orb_handles where owner_user = $1`, [owner.user])
-    : owner.device
-      ? await db.query<{ handle: string }>(`select handle from orb_handles where owner_device = $1`, [owner.device])
-      : [];
-  if (existing[0]) return existing[0].handle;
   if (!owner.user && !owner.device) return null;
-  let base = slugify(owner.name, 'maker').slice(0, 30).replace(/-+$/g, '');
-  if (RESERVED.has(base)) base = `${base}-maker`;
+  const own = async () =>
+    (await db.query<{ handle: string }>(`select handle from orb_handles where ${owner.user ? 'owner_user' : 'owner_device'} = $1`, [owner.user || owner.device]))[0]?.handle ?? null;
+  const existing = await own();
+  if (existing) return existing;
+  const base = handleBase(owner.name);
   for (let i = 0; i < 30; i++) {
     const candidate = i === 0 ? base : i < 20 ? `${base}-${i + 1}` : `${base}-${Math.random().toString(36).slice(2, 6)}`;
     const rows = await db.query<{ handle: string }>(
       `insert into orb_handles (handle, owner_user, owner_device) values ($1, $2, $3) on conflict do nothing returning handle`,
       [candidate, owner.user, owner.user ? null : owner.device],
     );
-    if (rows[0]) return rows[0].handle;
     // Lost a race for this owner's first handle? Use the one that won.
-    const again = owner.user
-      ? await db.query<{ handle: string }>(`select handle from orb_handles where owner_user = $1`, [owner.user])
-      : await db.query<{ handle: string }>(`select handle from orb_handles where owner_device = $1`, [owner.device]);
-    if (again[0]) return again[0].handle;
+    const got = rows[0]?.handle ?? (await own());
+    if (got) return got;
   }
   return null;
 }
 
 /** The handle kept for a curated world's maker: their name, or the next free variant of it. */
-export async function makerHandle(db: Db, name: string): Promise<string | null> {
-  let base = slugify(name, 'maker').slice(0, 30).replace(/-+$/g, '');
-  if (RESERVED.has(base)) base = `${base}-maker`;
+async function makerHandle(db: Db, name: string): Promise<string | null> {
+  const base = handleBase(name);
   for (let i = 0; i < 20; i++) {
     const candidate = i === 0 ? base : `${base}-${i + 1}`;
     const rows = await db.query<{ handle: string; owner_user: string | null; owner_device: string | null }>(
@@ -87,6 +86,8 @@ interface PathRow {
   owner_user: string | null;
   owner_device: string | null;
   author_name: string;
+  /** A curated world's maker's handle where they posted it (origin.handle, e.g. "@x282665"). */
+  post_handle: string | null;
   handle: string | null;
   slug: string | null;
 }
@@ -97,12 +98,14 @@ interface PathRow {
  */
 export async function assignPath(db: Db, worldId: string): Promise<void> {
   try {
-    const rows = await db.query<PathRow>(`select id, name, kind, owner_user, owner_device, author_name, handle, slug from orb_worlds where id = $1`, [worldId]);
+    const rows = await db.query<PathRow>(`select id, name, kind, owner_user, owner_device, author_name, origin->>'handle' as post_handle, handle, slug from orb_worlds where id = $1`, [worldId]);
     const w = rows[0];
     if (!w) return;
+    // A maker whose name has no Latin letters or digits (トドネロ) goes by the handle they posted with.
+    const maker = !slugify(w.author_name, '') && w.post_handle && slugify(w.post_handle, '') ? w.post_handle : w.author_name;
     const handle =
       !w.owner_user && !w.owner_device
-        ? await makerHandle(db, w.author_name)
+        ? await makerHandle(db, maker)
         : w.kind === 'external'
           ? 'web'
           : await ownerHandle(db, { user: w.owner_user, device: w.owner_device, name: w.author_name });

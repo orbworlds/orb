@@ -9,8 +9,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import sharp from 'sharp';
-import { launch, routeCdn } from './pw.mjs';
+import { launch, routeCdn } from '../kit/lib/browser.mjs';
 import { originalFile } from './original.mjs';
+import { grain, steady, svg, titleShot } from './thumb.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -161,14 +162,7 @@ async function drawTitle(T) {
 
 const browser = await launch();
 const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2 });
-// Full quality on any machine (the game gives up shadows, MSAA and resolution on 4 cores or slow frames) and a
-// steady 60 fps clock, so the shot comes out the same every time.
-await ctx.addInitScript(() => {
-  Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
-  const raf = window.requestAnimationFrame.bind(window);
-  let t = 0;
-  window.requestAnimationFrame = (cb) => raf(() => cb((t += 1000 / 60)));
-});
+await steady(ctx);
 const page = await ctx.newPage();
 await routeCdn(page);
 page.on('pageerror', (e) => console.error('page error:', e.message));
@@ -179,33 +173,22 @@ await page.evaluate(() => new Promise((done) => { let n = 0; const f = () => (++
 const shot = await page.screenshot();
 await ctx.close();
 
-// The title on a transparent page of its own, in the font the game embeds.
-const template = fs.readFileSync(GAME, 'utf8');
-const fontFace = template.match(/@font-face\s*\{[^}]*"Pixelify Sans"[^}]*\}/)[0];
-const titlePage = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 2 });
-await titlePage.setContent(`<!doctype html><style>${fontFace} html, body { margin: 0; background: transparent; }</style><body></body>`);
-await titlePage.evaluate(drawTitle, TITLE);
-const title = await titlePage.screenshot({ omitBackground: true });
+const title = await titleShot(browser, GAME, drawTitle, TITLE, W, H);
 await browser.close();
 
 // Finishing: a Lanczos downsample, a little more contrast and colour, the top of the sky deepened toward indigo (not
 // around the moon), a soft vignette, light sharpening and a faint grain so the smooth sky doesn't band in WebP.
-const svg = (body) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">${body}</svg>`);
-const sky = svg(`<defs>
+const sky = svg(W, H, `<defs>
   <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22145a"/><stop offset="0.55" stop-color="#22145a" stop-opacity="0"/></linearGradient>
   <radialGradient id="h" gradientUnits="userSpaceOnUse" cx="${mx * W}" cy="${my * H}" r="${0.36 * H}"><stop offset="0.35" stop-color="#000"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
   <mask id="k"><rect width="${W}" height="${H}" fill="#fff"/><rect width="${W}" height="${H}" fill="url(#h)"/></mask>
 </defs><rect width="${W}" height="${H}" fill="url(#g)" mask="url(#k)" opacity="0.45"/>`);
-const vignette = svg(`<defs><radialGradient id="v" cx="54%" cy="46%" r="72%"><stop offset="0.55" stop-color="#0c0418" stop-opacity="0"/>
+const vignette = svg(W, H, `<defs><radialGradient id="v" cx="54%" cy="46%" r="72%"><stop offset="0.55" stop-color="#0c0418" stop-opacity="0"/>
   <stop offset="1" stop-color="#0c0418" stop-opacity="0.42"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#v)"/>`);
-const noise = Buffer.alloc(W * H);
-let n = 1234567;
-for (let i = 0; i < noise.length; i++) { n = (n * 1103515245 + 12345) & 0x7fffffff; noise[i] = 128 + Math.round((n / 0x7fffffff - 0.5) * 10); }
-const grain = await sharp(noise, { raw: { width: W, height: H, channels: 1 } }).png().toBuffer();
 
 const graded = await sharp(shot).resize(W, H, { kernel: 'lanczos3' }).modulate({ saturation: 1.08 }).linear(1.08, -6).png().toBuffer();
 const finished = await sharp(graded)
-  .composite([{ input: sky, blend: 'multiply' }, { input: vignette, blend: 'over' }, { input: grain, blend: 'soft-light' }])
+  .composite([{ input: sky, blend: 'multiply' }, { input: vignette, blend: 'over' }, { input: await grain(W, H), blend: 'soft-light' }])
   .sharpen({ sigma: 0.55, m1: 0.6, m2: 1.2 })
   .png().toBuffer();
 const done = sharp(finished).composite([{ input: await sharp(title).resize(W, H, { kernel: 'lanczos3' }).png().toBuffer() }]);

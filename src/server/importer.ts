@@ -14,7 +14,7 @@ const MAX_DOWNLOAD = 300_000_000; // compressed bytes
 export const SKIP_DIR = /(^|\/)(\.git|node_modules|\.github|\.vscode|\.idea|__pycache__|orb-kit)(\/|$)/;
 const ENTRY_DIRS = ['', 'public', 'docs', 'dist', 'build', 'www', 'web', 'site', 'app'];
 
-export interface RepoRef {
+interface RepoRef {
   owner: string;
   repo: string;
   ref: string | null;
@@ -39,14 +39,11 @@ export function parseRepoUrl(raw: string): RepoRef | null {
   return { owner, repo, ref: null, dir: '' };
 }
 
-/** Minimal tar reader (ustar + GNU long names + pax paths) over a byte stream. */
-export async function* untar(stream: AsyncIterable<Buffer>): AsyncGenerator<{ path: string; type: string; data: Buffer }> {
+/** Minimal tar reader (ustar + GNU long names + pax paths) over a byte stream: its regular files. */
+export async function* untar(stream: AsyncIterable<Buffer>): AsyncGenerator<{ path: string; data: Buffer }> {
   let buf: Buffer = Buffer.alloc(0);
   let longName: string | null = null;
-  const take = async function* (): AsyncGenerator<Buffer> {
-    for await (const chunk of stream) yield chunk;
-  };
-  const it = take();
+  const it = stream[Symbol.asyncIterator]();
   const need = async (n: number): Promise<boolean> => {
     while (buf.length < n) {
       const { value, done } = await it.next();
@@ -82,7 +79,7 @@ export async function* untar(stream: AsyncIterable<Buffer>): AsyncGenerator<{ pa
       name = longName;
       longName = null;
     }
-    yield { path: name, type, data: Buffer.from(data) };
+    if (type === '0' || type === '7') yield { path: name, data: Buffer.from(data) };
   }
 }
 
@@ -102,11 +99,10 @@ async function download(url: string, headers: Record<string, string> = {}): Prom
   return limited.pipe(gunzip);
 }
 
-export interface Imported {
+interface Imported {
   tree: string;
   name: string;
   description: string;
-  sourceUrl: string;
   files: number;
   /** The repository's license (SPDX-ish id), or null when it has none (all rights reserved). */
   license: string | null;
@@ -117,6 +113,12 @@ export interface Imported {
   /** Where the world's files are in the repository ('' for its top; `dir` and the web folder the page is in). */
   root: string;
 }
+
+/** A license file's name (at a folder's top). */
+export const LICENSE_FILE = /^(license|licence|copying)(\.\w+)?$/i;
+
+/** A page's own title ('' without one). */
+export const titleOf = (html: string): string => /<title>([^<]{1,80})<\/title>/i.exec(html)?.[1]?.trim() ?? '';
 
 /** The license of a LICENSE file's text, as an SPDX-ish id (null if unknown). */
 export function detectLicense(text: string): string | null {
@@ -186,16 +188,12 @@ function depVersion(pkgJson: string | null | undefined, name: string): string | 
   }
 }
 
-function threeVersion(pkgJson: string | null | undefined): string {
-  return depVersion(pkgJson, 'three')?.replace(/^[\^~]/, '') ?? THREE_DEFAULT;
-}
-
 /**
  * An import map for packages imported by name: three from jsdelivr (as Orb's own worlds load it),
  * the rest from esm.sh, sharing that three (`external`) so there's one copy of it.
  */
 function importMapFor(names: readonly string[], pkgJson: string | null | undefined): Record<string, string> {
-  const cdn = threeCdn(threeVersion(pkgJson));
+  const cdn = threeCdn(pkgJson);
   const imports: Record<string, string> = {};
   for (const name of names) {
     if (name === 'three') {
@@ -203,7 +201,8 @@ function importMapFor(names: readonly string[], pkgJson: string | null | undefin
       Object.assign(imports, { three: cdn.three, 'three/webgpu': `${build}three.webgpu.js`, 'three/tsl': `${build}three.tsl.js`, 'three/addons/': cdn.addons, 'three/examples/jsm/': cdn.addons });
     }
     else {
-      const at = `https://esm.sh/${name}${depVersion(pkgJson, name) ? `@${depVersion(pkgJson, name)}` : ''}`;
+      const v = depVersion(pkgJson, name);
+      const at = `https://esm.sh/${name}${v ? `@${v}` : ''}`;
       imports[name] = `${at}?external=three`;
       imports[`${name}/`] = `${at}/`;
     }
@@ -349,7 +348,9 @@ export function rewriteModuleForOrb(js: string, at?: { path: string; files: Read
     .replace(/\bimport\.meta\.env\b/g, `({ MODE: 'production', PROD: true, DEV: false, SSR: false, BASE_URL: './' })`);
 }
 
-function threeCdn(ver: string): { three: string; addons: string } {
+/** Where three.js and its addons load from: jsdelivr, in the version package.json names. */
+function threeCdn(pkgJson: string | null | undefined): { three: string; addons: string } {
+  const ver = depVersion(pkgJson, 'three')?.replace(/^[\^~]/, '') ?? THREE_DEFAULT;
   return {
     three: `https://cdn.jsdelivr.net/npm/three@${ver}/build/three.module.js`,
     addons: `https://cdn.jsdelivr.net/npm/three@${ver}/examples/jsm/`,
@@ -362,7 +363,7 @@ function threeCdn(ver: string): { three: string; addons: string } {
  * `src`/`href` of files in the tree become relative so they follow the tree `<base>`.
  */
 export function rewritePageForOrb(html: string, files: ReadonlySet<string>, pkgJson?: string | null, opts: { bare?: readonly string[] } = {}): string {
-  const cdn = threeCdn(threeVersion(pkgJson));
+  const cdn = threeCdn(pkgJson);
   // Code that imports packages by name, as a bundler would resolve them, gets an import map for them.
   if (opts.bare?.length && !/<script\b[^>]*\btype\s*=\s*["']importmap["']/i.test(html)) {
     const map = `<script type="importmap">${JSON.stringify({ imports: importMapFor(opts.bare, pkgJson) })}</script>`;
@@ -408,12 +409,11 @@ export function rewritePageForOrb(html: string, files: ReadonlySet<string>, pkgJ
  * Read a repository tarball (GitHub's "<repo>-<sha>/" top folder is dropped) into path → bytes,
  * skipping .git, node_modules and files that are too big or oddly named.
  */
-export async function readTarball(url: string, opts: { headers?: Record<string, string>; dir?: string } = {}): Promise<{ files: Map<string, Buffer>; skipped: number }> {
+async function readTarball(url: string, opts: { headers?: Record<string, string>; dir?: string } = {}): Promise<{ files: Map<string, Buffer>; skipped: number }> {
   const raw = new Map<string, Buffer>();
   let total = 0;
   let skipped = 0;
   for await (const entry of untar(await download(url, opts.headers))) {
-    if (entry.type !== '0' && entry.type !== '\0' && entry.type !== '7') continue; // files only
     let p = entry.path.split('/').slice(1).join('/');
     if (opts.dir) {
       if (!p.startsWith(`${opts.dir}/`)) continue;
@@ -436,7 +436,6 @@ const CODELOAD = process.env.ORB_GITHUB_CODELOAD || 'https://codeload.github.com
 
 const GITHUB_API = process.env.ORB_GITHUB_API || 'https://api.github.com';
 
-/** A repository's files as a world. With a token (a private repository, or one of the person's own), through GitHub's API. */
 /**
  * TypeScript modules as a browser runs them: Node strips the types (keeping every line where it
  * was) and `x.ts` is served as `x.js` (imports of it follow, see rewriteModuleForOrb).
@@ -463,7 +462,11 @@ async function fromTypeScript(raw: Map<string, Buffer>): Promise<void> {
   }
 }
 
-/** `page`: an index.html to run the repository's code with (a curated world whose repository has none, src/data/seed-pages.ts). */
+/**
+ * A repository's files as a world. With a token (a private repository, or one of the person's
+ * own), through GitHub's API. `page`: an index.html to run the repository's code with (a curated
+ * world whose repository has none, src/data/seed-pages.ts).
+ */
 export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | null; page?: string } = {}): Promise<Imported> {
   const at = ref.ref ? encodeURIComponent(ref.ref) : 'HEAD';
   const url = opts.token ? `${GITHUB_API}/repos/${ref.owner}/${ref.repo}/tarball/${at}` : `${CODELOAD}/${ref.owner}/${ref.repo}/tar.gz/${at}`;
@@ -481,25 +484,22 @@ export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | 
     for (const [p, data] of [...raw]) if (p.startsWith('public/') && !raw.has(p.slice(7))) raw.set(p.slice(7), data);
   }
   const tree: Tree = {};
-  const names = new Set<string>();
-  for (const p of raw.keys()) {
-    if (root && !p.startsWith(`${root}/`)) continue;
-    names.add(root ? p.slice(root.length + 1) : p);
-  }
-  const pkgJson = (root ? raw.get(`${root}/package.json`) : null)?.toString('utf8') ?? raw.get('package.json')?.toString('utf8') ?? null;
-  const bare = [...new Set([...raw].flatMap(([p, data]) => ((!root || p.startsWith(`${root}/`)) && /\.(m?js|html?)$/i.test(p) ? bareImports(data.toString('utf8')) : [])))];
+  const rootPath = (f: string) => (root ? `${root}/${f}` : f);
+  const relOf = (p: string) => (root ? p.slice(root.length + 1) : p);
+  const inRoot = [...raw].filter(([p]) => !root || p.startsWith(`${root}/`));
+  const names = new Set(inRoot.map(([p]) => relOf(p)));
+  const pkgJson = (raw.get(rootPath('package.json')) ?? raw.get('package.json'))?.toString('utf8') ?? null;
+  const bare = [...new Set(inRoot.flatMap(([p, data]) => (/\.(m?js|html?)$/i.test(p) ? bareImports(data.toString('utf8')) : [])))];
   const pages = new Map<string, string>();
-  for (const [p, data] of raw) {
-    if (root && !p.startsWith(`${root}/`)) continue;
+  for (const [p, data] of inRoot) {
     if (/\.html?$/i.test(p)) pages.set(p, rewritePageForOrb(stripTrackers(data.toString('utf8')), names, pkgJson, { bare }));
   }
   // Workers don't see the page's import map: the modules they load import packages by address.
-  const entryPage = pages.get(root ? `${root}/${ENTRY}` : ENTRY) ?? '';
+  const entryPage = pages.get(rootPath(ENTRY)) ?? '';
   const inWorkers = workerModules(raw, root);
   const imports = inWorkers.size ? pageImports(entryPage) : {};
-  for (const [p, data] of raw) {
-    if (root && !p.startsWith(`${root}/`)) continue;
-    const rel = root ? p.slice(root.length + 1) : p;
+  for (const [p, data] of inRoot) {
+    const rel = relOf(p);
     let bytes: Buffer = data;
     if (pages.has(p)) bytes = Buffer.from(pages.get(p)!);
     else if (/\.css$/i.test(rel)) bytes = Buffer.from(rewriteCssForOrb(data.toString('utf8'), rel, names));
@@ -510,13 +510,13 @@ export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | 
     tree[rel] = (await putBlob(db, bytes)).sha;
   }
   // The license travels with the files (also when the page lives in a subfolder).
-  const licenseFile = [...raw.keys()].find((k) => /^(license|licence|copying)(\.\w+)?$/i.test(k));
+  const licenseFile = [...raw.keys()].find((k) => LICENSE_FILE.test(k));
   if (licenseFile && root && !tree[licenseFile]) tree[licenseFile] = (await putBlob(db, raw.get(licenseFile)!)).sha;
   const license = licenseFile ? detectLicense(raw.get(licenseFile)!.toString('utf8')) : null;
   const sha = await putTree(db, tree);
 
-  const html = raw.get(root ? `${root}/${ENTRY}` : ENTRY)!.toString('utf8');
-  const title = /<title>([^<]{1,80})<\/title>/i.exec(html)?.[1]?.trim();
+  const html = raw.get(rootPath(ENTRY))!.toString('utf8');
+  const title = titleOf(html);
   const readme = [...raw.keys()].find((k) => /^readme(\.md)?$/i.test(k));
   const description = readme ? firstParagraph(raw.get(readme)!.toString('utf8')) : '';
   let warning: string | undefined;
@@ -535,7 +535,6 @@ export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | 
     tree: sha,
     name: title || ref.repo.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
     description,
-    sourceUrl: `https://github.com/${ref.owner}/${ref.repo}${ref.ref ? `/tree/${ref.ref}${ref.dir ? `/${ref.dir}` : ''}` : ''}`,
     files: Object.keys(tree).length,
     license,
     warning,

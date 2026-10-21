@@ -7,16 +7,12 @@
 //   - orb.shop:             the page's own orb-shop list; buying asks in a sheet and charges nothing
 // Each tab's player comes from ?player=<n> (1 by default); "+ Player" opens the next one.
 
-import { injectRuntime } from './runtime.js';
+import { injectRuntime, ROOM_NAME_RE, ROOMS_PER_WORLD, STORE_VALUE_LIMIT } from './runtime.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const PLAYER = Math.max(1, Math.min(99, parseInt(params.get('player') || '1', 10) || 1));
 const COLORS = ['#5ed1ff', '#ff8fb1', '#ffd36e', '#8ef0a8', '#b69cff', '#ff9f5e', '#6ee7e0', '#f78bff'];
-const ROOM_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/;
-const ITEM_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
-const STORE_VALUE_LIMIT = 8 * 1024;
-const STORAGE_LIMIT = 2 * 1024 * 1024;
 
 const info = await (await fetch('/__orb/world.json', { cache: 'no-store' })).json();
 const me = {
@@ -94,13 +90,11 @@ function applyStorage(op, k, v) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(flushSaves, 300);
 }
+// The runtime keeps a world within its storage cap, so what it posts always fits.
 function flushSaves() {
   clearTimeout(saveTimer);
-  const size = Object.entries(saves).reduce((n, [k, v]) => n + k.length + v.length, 0);
-  if (size > STORAGE_LIMIT) return showError({ message: `World storage is full (max ${STORAGE_LIMIT / 1048576} MB); a localStorage write was dropped` });
   writeJson(saveKey, saves);
 }
-addEventListener('pagehide', flushSaves);
 
 // ---- orb.store (shared by all tabs, same semantics as Orb's server) ------------------------------
 
@@ -195,10 +189,8 @@ function joinRoom(name, onEvent) {
         if (m.to === self.id) add(m.peer);
         return;
       case 'ping':
-        if (!peers.has(m.from)) post({ t: 'who', to: m.from });
-        return;
-      case 'who':
-        if (m.to === self.id) post({ t: 'hello', peer: self });
+        // one dropped after a silence (a throttled background tab) is back
+        if (!peers.has(m.from) && m.peer) add(m.peer);
         return;
       case 'state':
         if (!peers.has(m.from)) return add(m.peer);
@@ -220,7 +212,7 @@ function joinRoom(name, onEvent) {
     onEvent({ type: 'joined', self: peerOf(self), peers: [...peers.values()], live: true });
   }, 150);
   const beat = setInterval(() => {
-    post({ t: 'ping' });
+    post({ t: 'ping', peer: self });
     const now = Date.now();
     for (const [id, at] of seen) if (now - at > GONE_MS) drop(id);
   }, HEARTBEAT_MS);
@@ -231,7 +223,6 @@ function joinRoom(name, onEvent) {
     clearInterval(beat);
     channel.close();
   };
-  addEventListener('pagehide', leave);
   return {
     peers,
     send: (data) => post({ t: 'msg', data }),
@@ -246,7 +237,6 @@ function joinRoom(name, onEvent) {
 // ---- shop ----------------------------------------------------------------------------------------
 
 const ownedKey = key('owned', me.id);
-let sheetOpen = false;
 function askToBuy(item) {
   return new Promise((resolve) => {
     $('sheet-emoji').textContent = item.emoji || '🛍️';
@@ -268,6 +258,10 @@ function askToBuy(item) {
 
 const frame = $('world');
 const rooms = new Map();
+addEventListener('pagehide', () => {
+  flushSaves();
+  for (const r of rooms.values()) r.leave();
+});
 const people = () => {
   const own = rooms.get('');
   $('here').textContent = `${(own ? own.peers.size : 0) + 1} here`;
@@ -282,8 +276,6 @@ addEventListener('message', async (event) => {
   const d = event.data;
   if (!d || d.__orb !== 1 || typeof d.type !== 'string') return;
   switch (d.type) {
-    case 'ready':
-      return;
     case 'error':
       if (typeof d.message === 'string') showError(d);
       return;
@@ -302,8 +294,6 @@ addEventListener('message', async (event) => {
     case 'title':
       if (typeof d.text === 'string' && d.text.trim()) document.title = `${d.text.slice(0, 120)} · Orb Local`;
       return;
-    case 'capture':
-      return;
     case 'store': {
       const req = parseStore(d);
       try {
@@ -315,9 +305,9 @@ addEventListener('message', async (event) => {
       return;
     }
     case 'room': {
-      const name = d.room === undefined || d.room === '' ? '' : typeof d.room === 'string' && ROOM_RE.test(d.room) ? d.room : null;
+      const name = d.room === undefined || d.room === '' ? '' : typeof d.room === 'string' && ROOM_NAME_RE.test(d.room) ? d.room : null;
       if (name === null) return;
-      if (d.op === 'join' && !rooms.has(name) && rooms.size < 4) {
+      if (d.op === 'join' && !rooms.has(name) && rooms.size < ROOMS_PER_WORLD) {
         rooms.set(
           name,
           joinRoom(name, (ev) => {
@@ -335,7 +325,7 @@ addEventListener('message', async (event) => {
       return;
     }
     case 'invite': {
-      const ok = typeof d.room === 'string' && ROOM_RE.test(d.room);
+      const ok = typeof d.room === 'string' && ROOM_NAME_RE.test(d.room);
       post({ type: 'invite-result', reqId: d.reqId, url: ok ? `${location.origin}/?room=${encodeURIComponent(d.room)}` : null });
       return;
     }
@@ -345,13 +335,11 @@ addEventListener('message', async (event) => {
       if (d.op === 'items') return reply(info.shop);
       if (d.op === 'owned') return reply(owned);
       if (d.op !== 'buy') return post({ type: 'shop-result', reqId: d.reqId, ok: false, error: 'orb.shop: unknown call' });
-      const item = typeof d.item === 'string' && ITEM_RE.test(d.item) ? info.shop.find((i) => i.id === d.item) : null;
+      const item = info.shop.find((i) => i.id === d.item);
       if (!item) return reply({ ok: false, item: d.item ?? null, reason: 'unknown_item' });
       if (owned.includes(item.id)) return reply({ ok: true, item: item.id });
-      if (sheetOpen) return reply({ ok: false, item: item.id, reason: 'busy' });
-      sheetOpen = true;
+      if ($('sheet').classList.contains('open')) return reply({ ok: false, item: item.id, reason: 'busy' });
       const ok = await askToBuy(item);
-      sheetOpen = false;
       if (ok) writeJson(ownedKey, [...readJson(ownedKey, []), item.id]);
       return reply(ok ? { ok: true, item: item.id } : { ok: false, item: item.id, reason: 'cancelled' });
     }
@@ -362,8 +350,7 @@ function withBase(html, base) {
   const tag = `<base data-orb-base href="${location.origin}${base}">`;
   const head = /<head(\s[^>]*)?>/i.exec(html);
   if (head) return html.slice(0, head.index + head[0].length) + tag + html.slice(head.index + head[0].length);
-  const top = /^(\uFEFF?\s*<!doctype[^>]*>)?(\s*<html(\s[^>]*)?>)?/i.exec(html);
-  const at = top ? top[0].length : 0;
+  const at = /^(\uFEFF?\s*<!doctype[^>]*>)?(\s*<html(\s[^>]*)?>)?/i.exec(html)[0].length;
   return html.slice(0, at) + tag + html.slice(at);
 }
 
@@ -379,7 +366,7 @@ async function load() {
     worldName: info.name,
     me,
     storage: saves,
-    room: room && ROOM_RE.test(room) ? room : null,
+    room: room && ROOM_NAME_RE.test(room) ? room : null,
   });
   frame.focus();
 }
@@ -387,14 +374,9 @@ async function load() {
 await load();
 
 // Live reload: the dev server says when a file of the world changed.
-try {
-  const events = new EventSource('/__orb/events');
-  events.onmessage = async (e) => {
-    if (e.data !== 'reload') return;
-    Object.assign(info, await (await fetch('/__orb/world.json', { cache: 'no-store' })).json());
-    await load();
-    toast('Reloaded');
-  };
-} catch {
-  /* no live reload */
-}
+new EventSource('/__orb/events').onmessage = async (e) => {
+  if (e.data !== 'reload') return;
+  Object.assign(info, await (await fetch('/__orb/world.json', { cache: 'no-store' })).json());
+  await load();
+  toast('Reloaded');
+};

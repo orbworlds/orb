@@ -5,11 +5,12 @@
 // passed on when you share the page yourself, nor said twice after a reload.
 import { useEffect } from 'react';
 import { track } from '@/lib/analytics';
-import { api, ApiError } from '@/lib/api';
+import { api } from '@/lib/api';
 import type { Profile } from '@/lib/types';
 import { useSession } from '@/components/orb/AccountCard';
 import { useFriends } from './friends';
-import { toast, useToasts } from './toast';
+import { takeParams } from './share';
+import { apiMessage, toast, useToasts } from './toast';
 import { useUi } from './ui';
 import { useWorld } from './world';
 
@@ -18,16 +19,8 @@ let handled = false;
 
 /** The inviter's handle in this page's address, taken out of it. */
 function takeInviter(): string | null {
-  const url = new URL(window.location.href);
-  const raw = url.searchParams.get('with');
-  if (raw === null) return null;
-  url.searchParams.delete('with');
-  try {
-    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
-  } catch {
-    /* the toast still comes */
-  }
-  const handle = raw.trim().toLowerCase();
+  const [raw] = takeParams('with');
+  const handle = raw?.trim().toLowerCase() ?? '';
   return HANDLE_RE.test(handle) ? handle : null;
 }
 
@@ -40,7 +33,7 @@ async function befriend(p: Profile, signedIn: boolean): Promise<void> {
     const r = await useFriends.getState().add(p.handle, 'invite');
     toast(r.state === 'friends' ? `You and ${p.name} are friends now ✨` : `Asked ${p.name} to be friends`, 'success');
   } catch (e) {
-    toast(e instanceof ApiError && e.status < 500 && e.message ? e.message : 'Couldn’t send that. Please try again.', 'error');
+    toast(apiMessage(e, 'Couldn’t send that. Please try again.'), 'error');
   }
 }
 

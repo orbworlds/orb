@@ -4,9 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-export async function originalFile(id, args = process.argv.slice(2)) {
-  const i = args.indexOf('--game');
-  if (i >= 0) return path.resolve(args[i + 1]);
+export async function originalFile(id) {
+  const i = process.argv.indexOf('--game');
+  if (i >= 0) return path.resolve(process.argv[i + 1]);
   const site = process.env.ORB_SITE || 'https://orbworlds.com';
   const res = await fetch(`${site}/api/worlds/${id}`);
   const code = res.ok ? (await res.json()).world?.code : null;

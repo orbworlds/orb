@@ -5,58 +5,52 @@ import { LAB_KEY } from '@/server/lab';
 import { payoutRequests } from '@/server/payouts';
 import { pulse, type PulseDay, type PulseProblem } from '@/server/pulse';
 import { ready } from '@/server/schema';
-import { ago, CARD, LINK, MAIN, TITLE } from './ui';
+import { ago, CARD, LINK, MAIN, Section, Table, TITLE, type Column } from './ui';
 import { PayoutRequests } from './PayoutRequests';
 
 // How Orb is doing: the last 7 days, the free builder, and problems worth a look (with alerts in
 // a chat when ORB_ALERT_WEBHOOK is set). Who came and what they did: ../analytics.
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Pulse', robots: { index: false, follow: false } };
-
-const COLUMNS: Array<[keyof PulseDay, string]> = [
-  ['visitors', 'Visitors'],
-  ['started', 'New worlds'],
-  ['built', 'Built by AI'],
-  ['remixes', 'Remixes'],
-  ['builds', 'Builds'],
-  ['failed', 'Failed builds'],
-  ['accounts', 'Accounts'],
-  ['spend', 'Free builder $'],
-];
+export const metadata: Metadata = { title: 'Pulse' };
 
 const usd = (n: number) => `$${n.toFixed(2)}`;
 
-function Problems({ title, about, list, now }: { title: string; about: string; list: PulseProblem[]; now: number }) {
+const COLUMNS: Column<PulseDay>[] = [
+  { label: 'Day', cell: (d) => d.day },
+  { label: 'Visitors', num: true, cell: (d) => d.visitors },
+  { label: 'New worlds', num: true, cell: (d) => d.started },
+  { label: 'Built by AI', num: true, cell: (d) => d.built },
+  { label: 'Remixes', num: true, cell: (d) => d.remixes },
+  { label: 'Builds', num: true, cell: (d) => d.builds },
+  { label: 'Failed builds', num: true, cell: (d) => d.failed },
+  { label: 'Accounts', num: true, cell: (d) => d.accounts },
+  { label: 'Free builder $', num: true, cell: (d) => usd(d.spend) },
+];
+
+function Problems({ list, now }: { list: PulseProblem[]; now: number }) {
+  if (list.length === 0) return <p className={`${CARD} text-[14px] text-ink-2`}>Nothing so far.</p>;
   return (
-    <>
-      <h2 className="mt-10 text-[17px] font-semibold text-ink">{title}</h2>
-      <p className="mt-1 text-[13.5px] text-ink-2">{about}</p>
-      {list.length === 0 ? (
-        <p className={`${CARD} mt-4 text-[14px] text-ink-2`}>Nothing so far.</p>
-      ) : (
-        <ul className="mt-4 flex flex-col gap-3">
-          {list.map((e) => (
-            <li key={`${e.kind}-${e.firstAt}-${e.message}`} className={CARD}>
-              <div className="flex flex-wrap items-baseline gap-x-2 text-[12.5px] text-ink-2">
-                <span className="font-medium text-ink">{e.kind}</span>
-                {e.path && <span>{e.path}</span>}
-                <span>
-                  · {e.count}× · last {ago(now, e.lastAt)} · first {ago(now, e.firstAt)}
-                </span>
-              </div>
-              <div className="mt-1 text-[14px] break-words text-ink">{e.message}</div>
-              {e.detail && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-[12.5px] text-ink-2">Details</summary>
-                  <pre className="mt-2 overflow-x-auto font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap text-ink-2">{e.detail}</pre>
-                </details>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
+    <ul className="flex flex-col gap-3">
+      {list.map((e) => (
+        <li key={`${e.kind}-${e.firstAt}-${e.message}`} className={CARD}>
+          <div className="flex flex-wrap items-baseline gap-x-2 text-[12.5px] text-ink-2">
+            <span className="font-medium text-ink">{e.kind}</span>
+            {e.path && <span>{e.path}</span>}
+            <span>
+              · {e.count}× · last {ago(now, e.lastAt)} · first {ago(now, e.firstAt)}
+            </span>
+          </div>
+          <div className="mt-1 text-[14px] break-words text-ink">{e.message}</div>
+          {e.detail && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-[12.5px] text-ink-2">Details</summary>
+              <pre className="mt-2 overflow-x-auto font-mono text-[11.5px] leading-relaxed whitespace-pre-wrap text-ink-2">{e.detail}</pre>
+            </details>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -105,49 +99,26 @@ export default async function PulsePage({ params }: { params: Promise<{ key: str
         </div>
       </section>
 
-      <h2 className="mt-10 text-[17px] font-semibold text-ink">Payout requests</h2>
-      <p className="mt-1 text-[13.5px] text-ink-2">
-        Makers cashing out what their worlds earned. Look at who bought: many players, no one buyer most of it, worlds people play.
-      </p>
-      <PayoutRequests requests={requests} card={CARD} />
+      <Section title="Payout requests" about="Makers cashing out what their worlds earned. Look at who bought: many players, no one buyer most of it, worlds people play.">
+        <PayoutRequests requests={requests} />
+      </Section>
 
-      <section className={`${CARD} mt-4 overflow-x-auto`}>
-        <table className="w-full min-w-[620px] text-left text-[14px] tabular-nums">
-          <thead className="text-[12.5px] text-ink-2">
-            <tr>
-              <th className="pb-2 font-medium">Day</th>
-              {COLUMNS.map(([, label]) => (
-                <th key={label} className="pb-2 text-right font-medium">
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {p.days.map((d) => (
-              <tr key={d.day} className="border-t border-[var(--ink-5)]">
-                <td className="py-2 text-ink-2">{d.day}</td>
-                {COLUMNS.map(([k]) => (
-                  <td key={k} className="py-2 text-right text-ink">
-                    {k === 'spend' ? usd(d.spend) : d[k]}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="mt-3 text-[12.5px] text-ink-3">
-          All time: {p.totals.worlds} worlds by people · {p.totals.accounts} accounts · {p.totals.devices} devices · {p.totals.plays} plays · {p.totals.likes} likes
-        </p>
-      </section>
+      <div className="mt-4">
+        <Table
+          rows={p.days}
+          columns={COLUMNS}
+          rowKey={(d) => d.day}
+          minWidth={780}
+          footer={`All time: ${p.totals.worlds} worlds by people · ${p.totals.accounts} accounts · ${p.totals.devices} devices · ${p.totals.plays} plays · ${p.totals.likes} likes`}
+        />
+      </div>
 
-      <Problems
-        title="Server and builder"
-        about="Errors in routes and page renders, and the free builder being refused, newest first."
-        list={p.problems.server}
-        now={p.now}
-      />
-      <Problems title="Pages" about="Crashes in Orb’s own pages, as browsers report them (worlds’ own errors aren’t here)." list={p.problems.pages} now={p.now} />
+      <Section title="Server and builder" about="Errors in routes and page renders, and the free builder being refused, newest first.">
+        <Problems list={p.problems.server} now={p.now} />
+      </Section>
+      <Section title="Pages" about="Crashes in Orb’s own pages, as browsers report them (worlds’ own errors aren’t here).">
+        <Problems list={p.problems.pages} now={p.now} />
+      </Section>
     </main>
   );
 }

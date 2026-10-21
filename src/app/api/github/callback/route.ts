@@ -3,25 +3,9 @@
 // redirects to `<next>#gh_token=<token>` (default next = "/"): the browser holds the device key that
 // says whose token it is, so `consumeGitHubTokenFromHash()` (components/orb/GitHubConnect.tsx) cleans
 // the URL and hands it to POST /api/me/github. Failures redirect with `#gh_error=<code>`.
-import crypto from 'node:crypto';
-import { readCookie } from '@/server/auth';
+import { GH_STATE_COOKIE, GH_STATE_PATH, readCookie, safeNext, sameString } from '@/server/auth';
 import { error, handle } from '@/server/http';
-import { requestOrigin } from '@/server/passkeys';
-
-// Keep in sync with ../login/route.ts
-const STATE_COOKIE = 'orb_gh_state';
-const STATE_PATH = '/api/github';
-
-function safeNext(raw: string | null): string {
-  if (!raw || raw.length > 300 || !raw.startsWith('/') || raw.startsWith('//') || raw.startsWith('/\\')) return '/';
-  return raw.split('#')[0] || '/';
-}
-
-function sameString(a: string, b: string): boolean {
-  const x = Buffer.from(a);
-  const y = Buffer.from(b);
-  return x.length === y.length && crypto.timingSafeEqual(x, y);
-}
+import { requestOrigin } from '@/server/origins';
 
 /** Exchange the OAuth code for an access token (null on any failure). */
 async function exchangeCode(code: string, redirectUri: string, clientId: string, clientSecret: string): Promise<string | null> {
@@ -58,7 +42,7 @@ export const GET = handle(async (req: Request): Promise<Response> => {
   const url = new URL(req.url);
 
   // Cookie value: "<state>.<encoded next path>" (state is base62, so the first "." splits it).
-  const raw = readCookie(req, STATE_COOKIE) ?? '';
+  const raw = readCookie(req, GH_STATE_COOKIE) ?? '';
   const dot = raw.indexOf('.');
   const expectedState = dot > 0 ? raw.slice(0, dot) : '';
   let next = '/';
@@ -74,7 +58,7 @@ export const GET = handle(async (req: Request): Promise<Response> => {
       status: 302,
       headers: {
         location: `${origin}${next}#${fragment}`,
-        'set-cookie': `${STATE_COOKIE}=; Path=${STATE_PATH}; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
+        'set-cookie': `${GH_STATE_COOKIE}=; Path=${GH_STATE_PATH}; HttpOnly; SameSite=Lax; Max-Age=0${secure}`,
         'cache-control': 'no-store',
         'referrer-policy': 'no-referrer',
       },

@@ -115,7 +115,8 @@ describe('next.config.ts redirects', () => {
       else process.env[k] = env[k];
     }
     try {
-      return await nextConfig.redirects();
+      // The move's rules (by host); the replaced worlds' fixed redirects are another matter.
+      return (await nextConfig.redirects()).filter((r) => r.has);
     } finally {
       keys.forEach((k, i) => (saved[i] === undefined ? delete process.env[k] : (process.env[k] = saved[i])));
     }

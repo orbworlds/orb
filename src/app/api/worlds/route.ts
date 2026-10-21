@@ -3,12 +3,12 @@
 
 import { getViewer } from '@/server/auth';
 import { after } from 'next/server';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, fail, handle, json, readJson } from '@/server/http';
 import { pushRepo } from '@/server/reposync';
 import { ready } from '@/server/schema';
-import { actorKey, createWorld, fail, limitOrThrow, listWorlds, parseListParams, route } from '@/server/worlds';
+import { actorKey, createWorld, limitOrThrow, listWorlds, parseListParams } from '@/server/worlds';
 
-export const GET = route(async (req: Request) => {
+export const GET = handle(async (req: Request) => {
   const params = parseListParams(new URL(req.url).searchParams);
   const viewer = getViewer(req);
   const db = await ready();
@@ -18,7 +18,7 @@ export const GET = route(async (req: Request) => {
   return json(result, { headers: { 'cache-control': cache } });
 });
 
-export const POST = route(async (req: Request) => {
+export const POST = handle(async (req: Request) => {
   const viewer = getViewer(req);
   const body = await readJson<unknown>(req, 4_400_000); // worlds up to 3 MB of code
   if (body === null) fail(400, 'bad_request', 'Expected a JSON body (or it was too large).');

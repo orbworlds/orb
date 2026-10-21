@@ -13,6 +13,21 @@ export function error(status: number, code: string, message?: string, extra: Rec
   return json({ error: code, message: message ?? code, ...extra }, { status });
 }
 
+/** An error that says when to try again (`retryAfter` seconds, also as Retry-After). */
+export function retryLater(status: number, code: string, message: string, retryAfter: number): Response {
+  return json({ error: code, message, retryAfter }, { status, headers: { 'retry-after': String(retryAfter) } });
+}
+
+/** Append Set-Cookie headers (several cookies can't be expressed with a header record). */
+export function withCookies(res: Response, ...cookies: string[]): Response {
+  for (const c of cookies) res.headers.append('set-cookie', c);
+  return res;
+}
+
+/** Sent by Orb's own pages: same-origin (or no Sec-Fetch-Site) JSON. */
+export const ownPageJson = (req: Request): boolean =>
+  [null, 'same-origin'].includes(req.headers.get('sec-fetch-site')) && (req.headers.get('content-type') ?? '').includes('application/json');
+
 export async function readJson<T>(req: Request, maxBytes = 2_000_000): Promise<T | null> {
   try {
     const text = await req.text();
@@ -48,12 +63,35 @@ export function ipBlock(ip: string): string {
     .join(':')}::/64`;
 }
 
-/** Wrap a handler so unexpected errors become a JSON 500 instead of an HTML page. */
+/** An expected failure that maps to a JSON error response (`{ error, message, ...extra }`). */
+export class HttpError extends Error {
+  status: number;
+  code: string;
+  extra: Record<string, unknown>;
+  headers: Record<string, string>;
+  constructor(status: number, code: string, message?: string, extra: Record<string, unknown> = {}, headers: Record<string, string> = {}) {
+    super(message ?? code);
+    this.status = status;
+    this.code = code;
+    this.extra = extra;
+    this.headers = headers;
+  }
+}
+
+export function fail(status: number, code: string, message?: string, extra?: Record<string, unknown>): never {
+  throw new HttpError(status, code, message, extra);
+}
+
+/**
+ * Wrap a route handler: an HttpError (fail(), limitOrThrow()) becomes its JSON error, anything
+ * unexpected a JSON 500 instead of an HTML page.
+ */
 export function handle<A extends unknown[]>(fn: (...args: A) => Promise<Response>) {
   return async (...args: A): Promise<Response> => {
     try {
       return await fn(...args);
     } catch (e) {
+      if (e instanceof HttpError) return json({ error: e.code, message: e.message, ...e.extra }, { status: e.status, headers: e.headers });
       console.error('[orb] route error', e);
       const path = args[0] instanceof Request ? new URL(args[0].url).pathname : undefined;
       try {

@@ -1,33 +1,32 @@
 'use client';
-// The world's name tag: a compact glass pill, top-left. Owners rename inline, share, and find
-// the rest under "⋯"; visitors like and remix.
+// The world's row at the top of the Orb panel (nothing floats over the world itself, whose own UI
+// often lives in the corners): the way back to Explore, its name and its maker (and who's here).
+// Owners rename inline, share, and find the rest under "⋯"; visitors like and remix.
 import { track } from '@/lib/analytics';
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, IconButton } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Menu, type MenuEntry } from '@/components/ui/Menu';
 import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
-import { getWorldStorage } from '@/lib/local';
-import { injectRuntime } from '@/lib/runtime/sdk';
 import type { WorldFull, WorldRepo } from '@/lib/types';
 import { PersonAvatar } from '@/components/orb/People';
 import { formatCount, platformName } from '@/components/orb/WorldCard';
 import { useFriends } from '@/state/friends';
 import { useClip } from '@/state/clips';
-import { shareUrl } from '@/state/share';
+import { copyLink, downloadZip, shareUrl } from '@/state/share';
 import { toast } from '@/state/toast';
 import { useUi } from '@/state/ui';
-import { useWorld, type Player } from '@/state/world';
+import { useWorld } from '@/state/world';
 import { RemixesSheet } from './RemixesSheet';
-import { downloadZip } from './ShareSheet';
-import { WORLD_ALLOW, WORLD_SANDBOX } from './WorldFrame';
 
 export interface WorldBarActions {
+  onExplore(): void;
   onShare(): void;
   onHistory(): void;
   onOpenWorld(id: string): void;
-  onMakeLikeThis(): void;
+  /** Start a new chat about this world (while the current one has messages and nothing builds). */
+  onNewChat?(): void;
 }
 
 function hostOf(url: string): string {
@@ -38,59 +37,17 @@ function hostOf(url: string): string {
   }
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-}
-
-
-/**
- * Open a native world full-window in a new tab. The world still runs in an opaque-origin sandboxed
- * iframe (with the runtime shims), so it can never reach Orb's storage from the new tab.
- */
-export function openWorldStandalone(world: WorldFull, code: string, me: Player | null): void {
-  const w = window.open('', '_blank');
-  if (!w) {
-    toast('Allow pop-ups to open the world in a new tab.');
-    return;
-  }
-  const srcdoc = injectRuntime(code, {
-    worldId: world.id,
-    worldName: world.name,
-    me: me ?? { id: '', name: 'Guest', color: '#8b7bff' },
-    storage: getWorldStorage(world.id),
-  });
-  w.document.open();
-  w.document.write(
-    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>${escapeHtml(world.name)} · Orb</title>` +
-      `<style>html,body{margin:0;height:100%;overflow:hidden;background:#111}iframe{position:fixed;inset:0;width:100%;height:100%;border:0;display:block}</style></head>` +
-      `<body><iframe title="${escapeHtml(world.name)}"></iframe></body></html>`,
-  );
-  w.document.close();
-  const frame = w.document.querySelector('iframe');
-  if (frame) {
-    frame.setAttribute('sandbox', WORLD_SANDBOX);
-    frame.setAttribute('allow', WORLD_ALLOW);
-    frame.srcdoc = srcdoc;
-    frame.focus();
-  }
-  try {
-    w.opener = null;
-  } catch {
-    /* ignore */
-  }
-}
-
 /** Fullscreen the whole app (the world fills the screen; the Orb stays reachable). */
-export function canFullscreen(): boolean {
+function canFullscreen(): boolean {
   return typeof document !== 'undefined' && !!document.documentElement.requestFullscreen;
 }
-export function toggleFullscreen(): void {
+function toggleFullscreen(): void {
   if (document.fullscreenElement) void document.exitFullscreen?.();
   else void document.documentElement.requestFullscreen?.().catch(() => toast("Fullscreen isn't available here."));
 }
 
 /** Share a world's link: the phone's share sheet when available, else copy it. */
-export async function shareWorldLink(world: WorldFull): Promise<void> {
+async function shareWorldLink(world: WorldFull): Promise<void> {
   const url = shareUrl(world);
   try {
     if (navigator.share && matchMedia('(pointer: coarse)').matches) {
@@ -101,13 +58,7 @@ export async function shareWorldLink(world: WorldFull): Promise<void> {
   } catch {
     return; // cancelled
   }
-  try {
-    await navigator.clipboard.writeText(url);
-    track('share_copy', { world_id: world.id, how: 'copy', where: 'bar' });
-    toast('Link copied', 'success');
-  } catch {
-    toast(url);
-  }
+  if (await copyLink(url, 'Link copied')) track('share_copy', { world_id: world.id, how: 'copy', where: 'bar' });
 }
 
 function repoStatus(r: WorldRepo): string {
@@ -133,36 +84,29 @@ async function githubAction(w: WorldFull, action: 'sync' | 'create' | 'unlink'):
   }
 }
 
-/**
- * World name, author and actions. 'panel' (default) lives inside the Orb panel so nothing floats
- * over the world itself (worlds often have their own UI in the corners); 'floating' is the
- * standalone glass pill.
- */
-export function WorldBar({ visible, style, actions, variant = 'panel' }: { visible: boolean; style?: CSSProperties; actions: WorldBarActions; variant?: 'panel' | 'floating' }) {
-  const { world, canEdit, isExternal, rename, like, remix, deleteWorld } = useWorld();
+/** World name, author and actions. */
+export function WorldBar({ visible, actions }: { visible: boolean; actions: WorldBarActions }) {
+  const { world, canEdit, isExternal, rename, like, remix } = useWorld();
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [madeOpen, setMadeOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [remixesOpen, setRemixesOpen] = useState(false);
-  // Keep the last world while fading out, so the pill doesn't empty itself mid-animation.
-  const shown = useLastDefined(world);
   const friends = useFriends((s) => s.data?.friends);
-  const shownId = shown?.id;
-  const here = useMemo(() => (friends ?? []).filter((f) => f.world?.id === shownId), [friends, shownId]);
+  const worldId = world?.id;
+  const here = useMemo(() => (friends ?? []).filter((f) => f.world?.id === worldId), [friends, worldId]);
   // Everyone else in the world's room right now (friends among them), or at least the friends Orb knows are here.
-  const roomCount = useWorld((s) => (s.people && s.people.worldId === shownId ? s.people.count : 0));
+  const roomCount = useWorld((s) => (s.people && s.people.worldId === worldId ? s.people.count : 0));
   const others = Math.max(roomCount, here.length);
 
-  if (!shown) return null;
-  const w = shown;
+  if (!visible || !world) return null;
+  const w = world;
   const maker = makerOf(w);
   const strangers = others - here.length;
-  // The pill counts you too: with one other person here it says "2 here".
+  // Who's here counts you too: with one other person here it says 2.
   const hereNames = ['You', ...here.map((f) => f.name), ...(strangers ? [`${strangers} other${strangers === 1 ? '' : 's'}`] : [])];
   const hereTitle = `${hereNames.slice(0, -1).join(', ')} and ${hereNames[hereNames.length - 1]} are here`;
   const native = w.kind === 'native';
-  const owner = canEdit && !!world;
+  const owner = canEdit;
 
   const fullscreen: MenuEntry[] = canFullscreen() ? [{ label: 'Fullscreen', icon: 'maximize', onSelect: toggleFullscreen }] : [];
   const site: MenuEntry[] =
@@ -190,67 +134,71 @@ export function WorldBar({ visible, style, actions, variant = 'panel' }: { visib
         { label: 'Sync with GitHub now', icon: 'refresh', onSelect: () => void githubAction(w, 'sync') },
         { label: 'Stop syncing with GitHub', icon: 'x', onSelect: () => void githubAction(w, 'unlink') },
       ]
-    : [{ label: 'Keep on GitHub', hint: 'A private repository, synced both ways', stacked: true, icon: 'github', onSelect: () => void githubAction(w, 'create') }];
+    : [{ label: 'Keep on GitHub', icon: 'github', onSelect: () => void githubAction(w, 'create') }];
+  // Where it came from and what came of it: the remix tree, both ways.
+  const from = w.forkedFrom;
+  const openFrom = () => {
+    if (!from) return;
+    track('world_open', { world_id: from.id, source: 'remixed_from' });
+    actions.onOpenWorld(from.id);
+  };
+  const openRemixes = () => {
+    track('remixes_open', { world_id: w.id, remixes: w.remixes });
+    setRemixesOpen(true);
+  };
+  const lineage: MenuEntry[] = [
+    ...(from ? [{ label: `Remixed from ${from.name}`, icon: 'remix', onSelect: openFrom }] : []),
+    ...(w.remixes > 0 ? [{ label: `${w.remixes} ${w.remixes === 1 ? 'remix' : 'remixes'}`, icon: 'users', onSelect: openRemixes }] : []),
+  ];
+  const withLineage = (items: MenuEntry[]): MenuEntry[] => (lineage.length ? [...lineage, { kind: 'separator' }, ...items] : items);
 
+  const newChat: MenuEntry[] = actions.onNewChat && !isExternal ? [{ label: 'New chat', icon: 'chat', onSelect: actions.onNewChat }] : [];
+  // (Download .zip is in the owner's Share sheet.)
   const ownerItems = (): MenuEntry[] => {
-    // An embedded world has no code here to remix or download.
+    // An embedded world has no code here to copy or download.
     if (isExternal) {
       const items = [...story, ...site, ...source, ...fullscreen];
       return items.length ? [...items, { kind: 'separator' }, remove] : [remove];
     }
-    return [
+    return withLineage([
+      ...newChat,
       { label: 'History', icon: 'history', onSelect: actions.onHistory },
-      { label: 'Remix a copy', icon: 'remix', onSelect: () => void remix() },
+      { label: 'Duplicate', icon: 'remix', onSelect: () => void remix() },
       recordClip,
       ...fullscreen,
       { kind: 'separator' },
-      { label: 'Download .zip', icon: 'download', onSelect: () => void downloadZip(w) },
       ...github,
       { kind: 'separator' },
       remove,
-    ];
+    ]);
   };
-  const visitorItems = (): MenuEntry[] => {
-    const items: MenuEntry[] = [...story];
-    if (native) items.push(recordClip);
-    items.push(...site, ...fullscreen);
-    if (native && w.forkable) items.push({ label: 'Download .zip', icon: 'download', onSelect: () => void downloadZip(w) });
-    items.push(...source);
-    items.push({ kind: 'separator' }, { label: 'Make something like this', icon: 'sparkle', onSelect: actions.onMakeLikeThis });
-    return items;
-  };
+  const visitorItems = (): MenuEntry[] =>
+    withLineage([
+      ...newChat,
+      ...story,
+      ...(native ? [recordClip] : []),
+      ...site,
+      ...fullscreen,
+      ...(native && w.forkable ? [{ label: 'Download .zip', icon: 'download', onSelect: () => void downloadZip(w) }] : []),
+      ...source,
+    ]);
 
-  // Remix always gives you your own world: a copy when Orb has the code, otherwise a new world
-  // inspired by this one.
-  const onRemix = () => (isExternal ? actions.onMakeLikeThis() : void remix());
-  const showRemix = !owner && ((native && w.forkable) || isExternal);
+  // Remix: your own copy, where Orb has the code (an embedded world runs on its maker's site).
+  const showRemix = !owner && native && w.forkable;
 
-  const panel = variant === 'panel';
-  if (panel && !visible) return null;
   return (
     <>
-      <div
-        className={
-          panel
-            ? 'mx-3 mb-2 flex min-h-[52px] items-center gap-1 rounded-[18px] bg-[var(--field-bg)] py-1.5 pr-1.5 pl-3.5'
-            : 'glass fixed z-20 flex h-[52px] max-w-[calc(100vw-24px-var(--safe-l)-var(--safe-r)-64px)] items-center gap-1 rounded-full py-1.5 pr-1.5 pl-4 transition-[opacity,transform,filter,left] duration-500 ease-[var(--ease)] sm:max-w-[min(560px,calc(100vw-120px))]'
-        }
-        style={
-          panel
-            ? style
-            : {
-                top: 'calc(var(--safe-t) + 12px)',
-                left: 'calc(var(--safe-l) + 12px)',
-                ...style,
-                opacity: visible ? 1 : 0,
-                transform: visible ? 'none' : 'translateY(-8px) scale(.97)',
-                filter: visible ? 'none' : 'blur(4px)',
-                pointerEvents: visible ? 'auto' : 'none',
-              }
-        }
-        inert={!visible}
+      <button
+        type="button"
+        onClick={actions.onExplore}
+        // A phone's whole 44 px to tap, in the same room (it reaches into the gaps around it).
+        className="mx-3 -mt-1.5 -mb-1 flex h-11 items-center gap-1 self-start rounded-full pr-2 pl-1 text-[13px] font-medium text-ink-2 transition-colors hover:text-ink sm:-mt-0.5 sm:mb-1 sm:h-8"
       >
-        <div className={`mr-1 flex min-w-0 flex-col justify-center ${panel ? 'flex-1' : ''}`}>
+        <Icon name="arrow-left" size={15} strokeWidth={2} />
+        Explore
+      </button>
+      <div className="mx-3 mb-2 flex min-h-[52px] items-center gap-1 rounded-[18px] bg-[var(--field-bg)] py-1.5 pr-1.5 pl-3.5">
+        <div className="mr-1 flex min-w-0 flex-1 flex-col justify-center">
           <div className="flex min-w-0 items-center gap-1.5">
             {editing ? (
               <RenameInput
@@ -274,17 +222,16 @@ export function WorldBar({ visible, style, actions, variant = 'panel' }: { visib
             )}
             {w.visibility === 'private' && <Icon name="lock" size={13} className="shrink-0 text-ink-3" aria-label="Private" />}
           </div>
-          <div className="flex min-w-0 items-center gap-1 text-[12px] leading-4 text-ink-3">
+          <div className="flex min-w-0 items-center gap-1.5 text-[12px] leading-4 text-ink-3">
             {maker ? (
               <button type="button" onClick={() => useUi.getState().openProfile(maker)} title="See their profile" className="min-w-0 truncate hover:text-ink-2 hover:underline">
-                by {w.authorName || 'someone'}
+                by {owner ? 'you' : w.authorName || 'someone'}
               </button>
             ) : (
-              <span className="truncate">by {w.authorName || 'someone'}</span>
+              <span className="truncate">by {owner ? 'you' : w.authorName || 'someone'}</span>
             )}
             {others > 0 && (
-              <span className={`flex shrink-0 items-center gap-1 font-medium ${here.length ? 'text-[var(--ok)]' : 'text-ink-2'}`} title={hereTitle}>
-                <span aria-hidden="true">·</span>
+              <span className="flex shrink-0 items-center gap-1 font-medium text-ink-2 tabular-nums" title={hereTitle}>
                 {here.length > 0 ? (
                   <span aria-hidden="true" className="flex -space-x-1">
                     {here.slice(0, 3).map((f) => (
@@ -292,41 +239,11 @@ export function WorldBar({ visible, style, actions, variant = 'panel' }: { visib
                     ))}
                   </span>
                 ) : (
-                  <Icon name="users" size={13} aria-hidden="true" />
+                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#4ade80]" />
                 )}
-                <span aria-hidden="true">{others + 1} here</span>
+                <span aria-hidden="true">{others + 1}</span>
                 <span className="sr-only">{hereTitle}</span>
               </span>
-            )}
-            {w.forkedFrom && (
-              <>
-                <span aria-hidden="true">·</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    track('world_open', { world_id: w.forkedFrom!.id, source: 'remixed_from' });
-                    actions.onOpenWorld(w.forkedFrom!.id);
-                  }}
-                  className="min-w-0 truncate hover:text-ink-2 hover:underline"
-                >
-                  Remixed from {w.forkedFrom.name}
-                </button>
-              </>
-            )}
-            {w.remixes > 0 && (
-              <>
-                <span aria-hidden="true">·</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    track('remixes_open', { world_id: w.id, remixes: w.remixes });
-                    setRemixesOpen(true);
-                  }}
-                  className="shrink-0 hover:text-ink-2 hover:underline"
-                >
-                  {w.remixes} {w.remixes === 1 ? 'remix' : 'remixes'}
-                </button>
-              </>
             )}
           </div>
         </div>
@@ -347,10 +264,10 @@ export function WorldBar({ visible, style, actions, variant = 'panel' }: { visib
               className={`flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium tabular-nums transition-colors hover:bg-[var(--hover)] ${w.liked ? 'text-[#f0457e]' : 'text-ink-2 hover:text-ink'}`}
             >
               <Icon name="heart" size={17} fill={w.liked ? 'currentColor' : 'none'} className={w.liked ? 'animate-pop' : ''} key={String(w.liked)} />
-              {w.likes > 0 && <span>{compact(w.likes)}</span>}
+              {w.likes > 0 && <span>{formatCount(w.likes)}</span>}
             </button>
             {showRemix && (
-              <Button size="sm" variant="primary" icon="remix" onClick={onRemix} className="h-9 shrink-0 px-3.5">
+              <Button size="sm" variant="primary" icon="remix" onClick={() => void remix()} className="h-9 shrink-0 px-3.5">
                 Remix
               </Button>
             )}
@@ -366,55 +283,8 @@ export function WorldBar({ visible, style, actions, variant = 'panel' }: { visib
       </div>
 
       <RemixesSheet world={remixesOpen ? w : null} onClose={() => setRemixesOpen(false)} onOpenWorld={actions.onOpenWorld} />
-      <Modal open={madeOpen} onClose={() => setMadeOpen(false)} title={`How “${w.name}” was made`} width={480}>
-        {origin?.prompt && (
-          <blockquote className="max-h-[50vh] overflow-y-auto rounded-[14px] bg-[var(--field-bg)] px-4 py-3 text-[14px] leading-relaxed whitespace-pre-wrap text-ink italic">“{origin.prompt}”</blockquote>
-        )}
-        <p className="mt-3 text-[13px] leading-relaxed text-ink-2">
-          {origin?.prompt ? 'The prompt ' : 'Made '}
-          {origin?.prompt ? 'it was made with, as ' : 'by '}
-          {origin?.authorUrl ? (
-            <a href={origin.authorUrl} target="_blank" rel="noopener noreferrer" className="text-ink underline-offset-2 hover:underline">
-              {w.authorName || origin.handle}
-            </a>
-          ) : (
-            <span className="text-ink">{w.authorName || origin?.handle || 'its maker'}</span>
-          )}
-          {origin?.prompt ? ' shared it' : ''}
-          {origin?.madeWith ? `${origin.prompt ? ',' : ''} with ${origin.madeWith}` : ''}.
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          {origin?.postUrl && (
-            <Button variant="glass" icon="external" onClick={() => window.open(origin.postUrl!, '_blank', 'noopener,noreferrer')}>
-              The maker’s post
-            </Button>
-          )}
-          <Button variant="primary" onClick={() => setMadeOpen(false)}>
-            Done
-          </Button>
-        </div>
-      </Modal>
-      <Modal open={confirmDelete} onClose={() => !deleting && setConfirmDelete(false)} title={`Delete “${w.name}”?`} width={400}>
-        <p className="text-[14px] leading-relaxed text-ink-2">This removes the world and its link for everyone. Remixes others made stay theirs. This can’t be undone.</p>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => setConfirmDelete(false)} disabled={deleting}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            className="!bg-[var(--bad)] !text-white"
-            disabled={deleting}
-            onClick={async () => {
-              setDeleting(true);
-              await deleteWorld();
-              setDeleting(false);
-              setConfirmDelete(false);
-            }}
-          >
-            {deleting ? 'Deleting…' : 'Delete world'}
-          </Button>
-        </div>
-      </Modal>
+      {madeOpen && <HowItWasMade world={w} onClose={() => setMadeOpen(false)} />}
+      {confirmDelete && <ConfirmDelete world={w} onClose={() => setConfirmDelete(false)} />}
     </>
   );
 }
@@ -425,8 +295,74 @@ function makerOf(w: WorldFull): string | null {
   return handle && handle !== 'orb' && handle !== 'web' ? handle : null;
 }
 
-function compact(n: number): string {
-  return n < 1000 ? String(n) : n < 10_000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : `${Math.round(n / 1000)}k`;
+/** A curated world's story: the prompt its maker shared, and what they made it with. */
+function HowItWasMade({ world: w, onClose }: { world: WorldFull; onClose(): void }) {
+  const origin = w.origin;
+  const author = origin?.authorUrl ? (
+    <a href={origin.authorUrl} target="_blank" rel="noopener noreferrer" className="text-ink underline-offset-2 hover:underline">
+      {w.authorName || origin.handle}
+    </a>
+  ) : (
+    <span className="text-ink">{w.authorName || origin?.handle || 'its maker'}</span>
+  );
+  const madeWith = origin?.madeWith;
+  return (
+    <Modal open onClose={onClose} title={`How “${w.name}” was made`} width={480}>
+      {origin?.prompt && (
+        <blockquote className="max-h-[50vh] overflow-y-auto rounded-[14px] bg-[var(--field-bg)] px-4 py-3 text-[14px] leading-relaxed whitespace-pre-wrap text-ink italic">“{origin.prompt}”</blockquote>
+      )}
+      <p className="mt-3 text-[13px] leading-relaxed text-ink-2">
+        {origin?.prompt ? (
+          <>
+            The prompt it was made with, as {author} shared it{madeWith && `, with ${madeWith}`}.
+          </>
+        ) : (
+          <>
+            Made by {author}
+            {madeWith && ` with ${madeWith}`}.
+          </>
+        )}
+      </p>
+      <div className="mt-5 flex justify-end gap-2">
+        {origin?.postUrl && (
+          <Button variant="glass" icon="external" onClick={() => window.open(origin.postUrl!, '_blank', 'noopener,noreferrer')}>
+            The maker’s post
+          </Button>
+        )}
+        <Button variant="primary" onClick={onClose}>
+          Done
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function ConfirmDelete({ world: w, onClose }: { world: WorldFull; onClose(): void }) {
+  const deleteWorld = useWorld((s) => s.deleteWorld);
+  const [deleting, setDeleting] = useState(false);
+  return (
+    <Modal open onClose={() => !deleting && onClose()} title={`Delete “${w.name}”?`} width={400}>
+      <p className="text-[14px] leading-relaxed text-ink-2">This removes the world and its link for everyone. Remixes others made stay theirs. This can’t be undone.</p>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button variant="ghost" onClick={onClose} disabled={deleting}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          className="!bg-[var(--bad)] !text-white"
+          disabled={deleting}
+          onClick={async () => {
+            setDeleting(true);
+            await deleteWorld();
+            setDeleting(false);
+            onClose();
+          }}
+        >
+          {deleting ? 'Deleting…' : 'Delete world'}
+        </Button>
+      </div>
+    </Modal>
+  );
 }
 
 function RenameInput({ initial, onDone }: { initial: string; onDone(name: string | null): void }) {
@@ -461,11 +397,4 @@ function RenameInput({ initial, onDone }: { initial: string; onDone(name: string
       className="-mx-1 w-[min(240px,50vw)] rounded-md bg-[var(--field-bg-focus)] px-1 text-[15px] leading-5 font-semibold tracking-[-0.01em] text-ink shadow-[0_0_0_2px_color-mix(in_oklab,var(--iris-1)_45%,transparent)] outline-none"
     />
   );
-}
-
-/** The latest non-null value (so exit animations keep their content). */
-function useLastDefined<T>(value: T | null): T | null {
-  const [last, setLast] = useState(value);
-  if (value && value !== last) setLast(value);
-  return value ?? last;
 }

@@ -362,8 +362,8 @@ describe('looks in the database', () => {
     await db.query(`insert into orb_agent_jobs (id, world_id) values ($1, 'w1')`, [JOB3]);
     const req = (n) => ({ tree: String(n).repeat(64), actions: [{ type: 'key', key: 'w', ms: 800 }], skipped: n, ...(n === 2 ? { viewport: 'phone' } : {}) });
     const own = await look.openLook(db, JOB3); // the look tool's: never handed out or closed here
-    const first = await look.requestLook(db, JOB3, req(1));
-    const second = await look.requestLook(db, JOB3, req(2));
+    const first = await look.openLook(db, JOB3, req(1));
+    const second = await look.openLook(db, JOB3, req(2));
     assert.ok(look.isLookId(first));
     assert.deepEqual(await look.closeLooks(db, JOB3), [], 'nothing was asked yet');
     const asked = await look.takeLookRequests(db, JOB3);
@@ -383,19 +383,19 @@ describe('looks in the database', () => {
     assert.deepEqual(await look.waitForLook(db, JOB3, second, { timeoutMs: 20_000 }), { unavailable: 'The world is not on screen in the page that watches the build.' });
     assert.deepEqual((await look.closeLooks(db, JOB3)).map((l) => [l.id, l.answer]), [[second, { unavailable: 'The world is not on screen in the page that watches the build.' }]]);
 
-    const third = await look.requestLook(db, JOB3, req(3));
+    const third = await look.openLook(db, JOB3, req(3));
     await look.takeLookRequests(db, JOB3);
     assert.deepEqual(await look.waitForLook(db, JOB3, third, { timeoutMs: 600 }), { timeout: true });
     assert.deepEqual((await look.closeLooks(db, JOB3)).map((l) => [l.id, l.answer]), [[third, { timeout: true }]]);
 
-    const stuck = await look.requestLook(db, JOB3, req(4));
+    const stuck = await look.openLook(db, JOB3, req(4));
     await look.takeLookRequests(db, JOB3);
     assert.deepEqual(await look.closeLooks(db, JOB3), [], 'still waited for');
     await db.query(`update orb_agent_looks set asked_at = now() - interval '6 minutes' where id = $1`, [stuck]);
     assert.deepEqual((await look.closeLooks(db, JOB3)).map((l) => l.id), [stuck], 'quiet for long: whoever waited is gone');
 
-    const cut = await look.requestLook(db, JOB3, req(5));
-    const unasked = await look.requestLook(db, JOB3, req(6));
+    const cut = await look.openLook(db, JOB3, req(5));
+    const unasked = await look.openLook(db, JOB3, req(6));
     await look.takeLookRequests(db, JOB3);
     await db.query(`update orb_agent_looks set asked_at = null where id = $1`, [unasked]);
     assert.deepEqual(await look.closeOpenLooks(db, JOB3), [cut], 'a finished job closes what the pages were told about');

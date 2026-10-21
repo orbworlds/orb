@@ -1,14 +1,14 @@
-// Orb on GitHub, for the scripts that change the orbworlds org (sync-org.mjs, game-shots.mjs): its
-// GitHub App (ORB_APP_ID, and its private key as ORB_APP_KEY), so whatever they make or push there
-// is by the app's bot and no person's account appears. git is given the token as a header, never in
-// a URL or .git/config.
+// Orb on GitHub, for the scripts that act in the orbworlds org (sync-org.mjs, game-shots.mjs,
+// publish-public.mjs, app-token.mjs for the backup): its GitHub App (ORB_APP_ID, and its private key
+// as ORB_APP_KEY), so whatever they make or push there is by the app's bot and no person's account
+// appears. git is given the token as a header, never in a URL or .git/config.
 import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 
 const API = 'https://api.github.com';
 
 /** A private key as PEM, also from a secret holding only its base64 body (or its newlines as `\n`). */
-function pemKey(key) {
+export function pemKey(key) {
   const k = key.trim().replace(/\\n/g, '\n');
   if (k.includes('-----BEGIN')) return `${k}\n`;
   return `-----BEGIN RSA PRIVATE KEY-----\n${k.replace(/\s+/g, '').replace(/(.{64})/g, '$1\n').trim()}\n-----END RSA PRIVATE KEY-----\n`;

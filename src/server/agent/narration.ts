@@ -29,3 +29,10 @@ export function narration(text: string): string {
       .replace(/^#+\s*/gm, ''),
   );
 }
+
+/** The newest complete-ish sentence of a thought, for the "thinking" peek. */
+export function latestSentence(s: string): string {
+  const t = s.replace(/\s+/g, ' ').trim();
+  const parts = t.split(/(?<=[.!?])\s+/).filter((x) => x.length > 12);
+  return (parts[parts.length - 1] ?? t).slice(-200);
+}

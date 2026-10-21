@@ -31,7 +31,7 @@ type Params = { params: Promise<{ handle: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const found = await maker((await params).handle);
-  if (!found) return { title: { absolute: 'Nothing out here · Orb' }, robots: { index: false } };
+  if (!found) notFound();
   const description = `Worlds by ${found.name} on Orb. Play them, add ${found.name} as a friend, then make your own by chatting.`;
   return {
     title: found.name,

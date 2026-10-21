@@ -18,10 +18,12 @@ If you change a contract, update this file in the same change.
    canvas. A 5‑year‑old can type "a pink castle on a cloud" and get something magical.
 2. **Calm, luminous, minimal.** One always-present element: the **Orb** (a floating, draggable,
    iridescent sphere; on phones, past the start screen, it tucks half behind the screen's edge,
-   clear of a world's own controls and Explore's tiles). Everything else (chat, explore, settings,
-   account) lives inside it. The one exception: as a world opens, "Explore" top-left goes back
-   to Explore in one click; after a few seconds it fades away, leaving the world the whole screen
-   (the Orb's Explore tab and the browser's back go back from then on).
+   clear of a world's own controls; home has it in its header instead). Everything else (chat,
+   settings, account) lives inside it, in a panel only as tall as what it holds. The one exception: as
+   a world opens, "Explore" top-left goes back to Explore in one click; a few seconds after the world
+   is ready it fades away, leaving the world the whole screen, and the pointer reaching the top-left
+   corner (a tap there on a phone) brings it back (the world bar's "← Explore" and the browser's back
+   go back too). Toasts never print over the world: there they're a small bubble beside the Orb.
    No clutter, no chrome, no ads, no badges-everywhere. The world is the hero.
 3. **Live.** Users see their instructions executed (a request that fails can be tried again, in its place): narration streams, each build step lands in
    the world as it completes (cross-faded, no flashes).
@@ -36,8 +38,8 @@ If you change a contract, update this file in the same change.
 - **World**: a single self-contained HTML document (HTML + CSS + JS, three.js etc. from a CDN),
   run inside a sandboxed iframe. `kind: 'native'`.
 - **External world**: a curated showcase entry that embeds an existing website by URL
-  (e.g. Hikari Dream House). `kind: 'external'`. Not editable here; "Remix" links to its source
-  repository (if any) or starts a new world inspired by it. Orb can't read its code, so what's
+  (e.g. Hikari Dream House). `kind: 'external'`. Not editable here and has no Remix (its menu links to
+  its source repository, if any). Orb can't read its code, so what's
   typed in its chat starts a new world of one's own from that text. A curated world whose code is
   open source (`native` in `seeds.json`) is imported from its repository instead and runs from
   Orb's copy, remixable (a start page from `src/data/seed-pages.ts` when its repository has none
@@ -52,32 +54,56 @@ If you change a contract, update this file in the same change.
   any way ("Max Builds" → `max-builds`). Needed only for private worlds and cross-device
   ownership. Accounts made with a passkey (Face ID / Touch ID) still sign in with it and can add a
   password. Signing in links the device and claims its worlds. Passkeys on all
-  of Orb's addresses share one RP ID (§3 "Addresses").
-- **Chat**: per-world conversations stored locally (localStorage). A new chat starts per world;
-  a dropdown switches between chats.
-- **Home** (`/`) is Explore under an invitation to make a world (the start world shows through a
-  light veil behind it; the frosted backdrop comes in as the worlds scroll up): Orb's name and the headline ("Step into a
-  world": describe a world, and Orb's AI builds it), the big composer and under it "Or remix": two of Orb's worlds to remix (Orbcraft, Foxfire
-  Fjord: picking one remixes it), three templates (Star Runner, Glow Paint, Dream Room), each a
-  different kind of start, and **More to remix** (Explore on Remix), then (for people
-  who have some) a row of their friends' worlds and their own, then Explore's header and worlds,
-  scrolling on from there, down to a footer (orbworlds, Plans, the Orb kit on npm, `/llms.txt` (how to
-  make worlds, for AI agents), GitHub (the org: `GITHUB_URL`) and Back to top). Sending from the composer, picking a template or remixing hands
-  over to the chat on the canvas.
-  There is one Explore, and it is this page: the Orb's Explore tab, a world's "Explore" button, "See all",
-  `/explore` and a missing world's Explore button all go home, down at its worlds.
-  Tapping the Orb there opens its You tab, not an empty chat (the page's composer is the chat), unless a
-  build is running or has news.
+  of Orb's addresses share one RP ID (§3 "Addresses"). Signed out, the top of the You tab is the one
+  place that asks for an account ("Keep your worlds on every device": Create account · Sign in); the
+  plan shows for accounts, and Advanced (your own AI key, GitHub) once it's in use or asked for.
+- **Chat**: per-world conversations stored locally (localStorage). A world starts with one;
+  **New chat** (the world's ⋯ menu) starts another, and once it has two, a row above the chat
+  switches between them (and to recent chats in other worlds). A reply reads in the order it
+  streamed: what Orb said first, the build's steps as a checklist, what it said after. Only the
+  newest reply that changed the world offers **Undo**; an undone reply fades, with "Back to how it
+  was". Replies carry no version numbers or credits (the chat says so only when credits run low:
+  "12 credits left · See plans"). While Orb works, one word: "Thinking…" (answers in someone else's
+  world) or "Building…".
+- **Home** (`/`) is Explore under an invitation to make a world, on a calm background of its own
+  (no world behind it: light, the sky with a soft iris glow, fading into paper under the worlds;
+  dark, one deep dark with the same glow, low). A header row: Orb's name on the left; on the right
+  the Orb itself, docked (it floats only inside worlds), and before it, signed out, a quiet
+  **Sign in** (the You tab). Then the headline ("Step into a world": describe a world, and Orb's AI
+  builds it), the big composer, (for people who have some) one row of their own worlds or their
+  friends' (**Your worlds**, with **See all**), then Explore's header and a few of its worlds (the
+  lead and four rows, at every width), **See all worlds** (`/explore`: all of them, in place) and a
+  footer (orbworlds, Plans, the Orb kit on npm, `/llms.txt` (how to make worlds, for AI agents),
+  GitHub (the org: `GITHUB_URL`) and Back to top). Sending from the composer hands over to the chat
+  on the canvas. Once Explore's header reaches the top it stays there, opaque over a hairline, with
+  the Orb at its end.
+  There is one Explore, and it is this page: a world's way back, "See all", `/explore` and a missing
+  world's Explore button all go home, down at its worlds.
+  The Orb there opens its You tab (the page's composer is the chat), or the chat when a build there
+  has news; it swirls while a build runs.
+- **Opening a world** (a tile, a link, back/forward) shows one calm cover until the world has drawn
+  (its ready signal; 20 s at most): its preview (or picture) under a soft scrim and its name, never
+  another world in between. On a phone, a visitor's world that needs a keyboard (the `keyboard` tag)
+  stops there first: "Best on a computer" and **Play anyway**, which loads it (once a session).
+- **The world bar** (the top of the Orb's panel, above the chat): "← Explore"; the world's name, and
+  under it only its maker ("by you" on your own) and who's here (a green dot and how many, friends'
+  faces); then like · **Remix** · share · ⋯. Remix is the one name for making your own copy: it opens
+  the copy with its chat ("Your copy of Orbcraft. What should we change?" and a few ideas); a world
+  running on its maker's site has none. On your own world the ⋯ menu's copy is **Duplicate**, and
+  Download .zip is in its Share sheet.
 - **New world** (Explore, You, a missing world's page) opens the start canvas with the Orb's chat
-  open and its composer focused, not the start screen. The Orb's first line there ("What shall we
+  open and its composer focused, not the start screen. The Orb's first line there ("What should we
   make?") also offers "Or start from an existing world": three popular remixable worlds
-  (`StartFrom`; picking one remixes it) and **See more**, which opens Explore on Remix.
+  (`StartFrom`; picking one remixes it) and **See more**, which goes to Explore.
 - **Profile**: every maker's page at `/<handle>` (their name, friends and public worlds), shown
   as a sheet over the start canvas; a world's "by …" opens it. Worlds live at
   `/<handle>/<world>`. Worlds without an owner live under their maker's name: Orb's own are by
   **orbworlds** (`/orbworlds/orbcraft`), the curated worlds other people made by them
-  (`/leon-lin/athenaion`). That handle is kept for the maker (no account can take it) and its page
-  lists their worlds. Every address a world ever had keeps working (`/orb/…`, `/web/…`).
+  (`/leon-lin/athenaion`; a name in another script goes by the handle they posted with). That handle
+  is kept for the maker (no account can take it) and its page lists their worlds. Every address a
+  world ever had keeps working (`/orb/…`, `/web/…`). One no world has is the site's 404 (HTTP 404:
+  "Nothing out here", with New world and Explore); a private world's answers as usual, and the page
+  opens it for its maker only.
 - **Friends** (accounts only): asked by username (or from a profile) and accepted by the other
   person; asking someone who asked you is saying yes. Friends see where each other are (the
   public world on their screen; a private one just shows "Online"), join them there (in the same
@@ -91,12 +117,14 @@ If you change a contract, update this file in the same change.
   them and can ask them to be friends in one tap (signed out: their profile, where adding them
   makes an account first); the handle leaves the address at once.
 - **Asking in someone else's world**: the chat is a guide there. Questions are answered in place
-  (charged like any build on Orb's AI) and never copy the world. A change request gets the offer
-  of their own copy under the answer, **Make my own copy**: it remixes the world and builds the
-  request in the copy. The welcome line offers questions and the same button (a copy, no build).
+  (charged like any build on Orb's AI) and never copy the world. A change request gets **Remix**
+  under the answer (the world bar's word): it remixes the world and builds the request in the copy.
+  The welcome line ("Ask me anything about Glow Paint.") offers two questions, and the composer
+  says "Ask about Glow Paint…".
 - **Remix credit**: when someone makes a remix of a public world their own (its first change), the
-  world's maker (with an account) hears who did. A world's bar counts its changed public remixes
-  and lists them; each remix says what it came from, so the remix tree can be walked both ways.
+  world's maker (with an account) hears who did. A world's ⋯ menu counts its changed public remixes
+  and lists them; each remix says what it came from ("Remixed from …" there too), so the remix tree
+  can be walked both ways.
 - **Orb Originals and their repositories**: Orb's own worlds (`src/data/originals.json`: what Orb
   says about each, its repository and the branch Orb plays; never their code). **Each is made in a
   GitHub repository of its own** in the `orbworlds` org, the only place its code is: pull requests
@@ -123,8 +151,8 @@ If you change a contract, update this file in the same change.
   is protected (a reviewed pull request whose test passed; the app goes around it) once it is
   public. Once a world is
   public, its Original links to its repository ("Source code · MIT" in the world's menu), and so
-  do its remixes. The links: `?remix` on a world's page opens its chat, whose welcome line offers
-  **Make my own copy** (never a copy made by opening a link); `?import=<owner>/<repo>` opens the
+  do its remixes. The links: `?remix` on a world's page opens its chat, beside its bar's **Remix**
+  (never a copy made by opening a link); `?import=<owner>/<repo>` opens the
   You tab with that repository in the import form. Both leave the address at once
   (`src/state/links.ts`). A repository whose `orb.json` names an Orb world (`world`: a fork of a
   game) is imported as a remix of it when that world is public and remixable: credited, counted
@@ -398,7 +426,7 @@ scripts/publish-kit.mjs the kit on npm (@orbworlds/kit, with Orb's runtime): the
 scripts/sync-org.mjs    the orbworlds org: repositories' descriptions, links, topics, visibility; the profile
                         and the worlds' shared test (org-app.mjs: Orb's GitHub App)
 scripts/game-shots.mjs  the Originals' screenshots, committed to their repositories
-scripts/pw.mjs          the kit's browser helpers (Chrome with software WebGL, CDN routed to node_modules)
+scripts/harness.mjs     what the test scripts share: checks, a `next dev` of their own, requests, passkeys
 ```
 
 ## 5. Data model (Postgres, all tables prefixed `orb_`)
@@ -416,28 +444,37 @@ post's `views` and `likes`, the repository's `stars`, `postedAt`, the maker's `h
 `authorUrl`, the `prompt` they shared and what they `madeWith`; cards carry it as `origin`).
 
 Explore lists `visibility='public'` worlds that have a thumbnail and a name other than
-"Untitled world", as tiles that fill the screen edge to edge (as many ~340px columns as fit; while
-trending without a search the first tile leads, two columns by two rows, on wide screens). A tile
-is the world's picture (or preview); its name, maker, description (or the prompt it was made with,
-quoted) and numbers (plays, likes, views of its maker's post, remixes; none that are zero) show on
-hover or keyboard focus, and on touch screens its name and maker stay on it. A world with people in
-it right now always says so ("● 3 playing": `WorldCard.live`, from `orb_here`). A click plays it. The
-header (filters, sort, search, New world) slips away while scrolling down and comes back on the way
-up. Sorts: Trending (default), Most played (`plays`), Most liked (`likes`), Most viewed (the views
-of the maker's post, or its plays if more) and Newest (people's worlds only, newest first: curated
-worlds arrive in batches and would bury them). People's own worlds join the ranked sorts (all but
-Newest) once they've earned it: a like, 10 plays (`EARNED_PLAYS`) or Orb's pick (`featured`,
-`verified`). A world just built (changed since it began: version 2 on) gets its first 2 days there
+"Untitled world", as tiles that fill the screen edge to edge (2 columns on phones, 3 from 768px, 4
+from 1280px, 5 from 1800px; while trending without a search the first tile leads, two columns wide,
+and two rows tall from 768px). A tile is the world's picture (or preview; a quiet tint while it
+loads) with its name and maker on it; hovered or focused, it also says what the world is (its
+description, never the prompt it was made with: that's in the world's "How it was made") and how
+many played it (not when none). A world with people in it right now always says so ("● 3 playing":
+`WorldCard.live`, from `orb_here`). A tile is a link to the world: a click plays it in place, a
+click with a modifier key (or the middle button) opens it in a new tab. The header (filters,
+always-visible sort, search) stays at the top while scrolling the worlds. Sorts: Trending (default)
+and New (people's worlds only, newest first: curated worlds arrive in batches and would bury them).
+People's own worlds join Trending once they've earned it: a like, 10 plays (`EARNED_PLAYS`) or Orb's
+pick (`featured`, `verified`). A world just built (changed since it began: version 2 on) gets its first 2 days there
 (`FRESH_DAYS`), wearing a "New" badge, so its first players can find it; Trending's fading boost for
-new worlds does the rest. Untouched templates and bare copies wait. Otherwise they're under Newest,
-in search and on their maker's page. Curated worlds
-that don't hold up are `hidden` in `src/data/seeds.json` (playable by link). `/explore` opens home at its worlds and
-carries them in its address (`?filter=games&sort=liked&q=…`). Explore stays as it was left (filter,
-sort, search, scroll) while a world is played: going back to it (the world's arrow, the Orb's tab)
+new worlds does the rest. Untouched templates and bare copies wait. Otherwise they're under New,
+in search and on their maker's page. Trending leads with Orb's own order of the curated worlds
+(`src/lib/curation.ts`), each maker's spread out so none shows twice among four neighbours. Curated
+worlds that don't hold up are `hidden` in `src/data/seeds.json` (playable by link). On touch
+screens, worlds that need a keyboard (tagged `keyboard`) come after the others in each page (not in
+a search). At home the worlds fill four rows under the lead, then **See all worlds** (when there
+are more). A search looks through every listed world (not only the ranked ones; no filter shows as
+picked, and picking one ends the search): names and makers from the start of a word (found as
+they're typed), descriptions and tags by whole words or their plurals ("car" finds cars, not a
+carpet). It shows all it finds, and one that finds nothing says so in a line and shows what's
+trending instead.
+`/explore` opens home at its worlds, all of them (more load as you scroll), and carries them in its
+address (`?filter=games&sort=new&q=…`), which the server renders as asked. A new filter, sort or
+search keeps the header where it is, its worlds starting right under it. Explore stays as it was
+left (filter, sort, search, scroll) while a world is played: going back to it (the world's way back)
 leaves the world (a build of one's own goes on in the background) and goes home (pushed, so the
-browser's back returns to the world), down where it was left. Its filters: All, Games (`tag=game`), Worlds (`tag=world`), Art & toys
-(`tag=art,toy`) and Remix (`remixable=1`: Orb worlds anyone may remix). The first three are one
-category per world: the first of `game`, `world`, `art`/`toy` in its tags (a game has a goal, a
+browser's back returns to the world), down where it was left. Its filters: All, Games
+(`tag=game`), Places (`tag=world`) and Art & toys (`tag=art,toy`), one category per world: the first of `game`, `world`, `art`/`toy` in its tags (a game has a goal, a
 world is a place to wander, a toy is something to make or play with freely, or a scene to look at),
 else its template's. The curated worlds name exactly one (`src/data/seeds.json`,
 `src/data/originals.json`); the in-house agent says a new world's when it names it (`name_world`'s
@@ -547,13 +584,13 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `GET /api/config` | | `ApiConfig` |
 | `GET /api/me` | | `MeResponse` (an account's `user` has its blob's `look`: `color`, `wear`) |
 | `PATCH /api/me` | `{ name }` | `MeResponse` |
-| `GET /api/worlds` | `?sort=trending\|featured\|popular\|played\|liked\|views\|new&q=&tag=&verified=1&limit=&cursor=&mine=1` (tag matches tags, kind, or a category (above); `remixable=1`: only Orb worlds anyone may remix; `mine` includes private + untitled) | `{ worlds: WorldCard[], nextCursor?: string }` |
+| `GET /api/worlds` | `?sort=trending\|featured\|popular\|played\|liked\|views\|new&q=&tag=&verified=1&limit=&cursor=&mine=1` (tag matches tags, kind, or a category (above); `q` matches words (above); `remixable=1`: only Orb worlds anyone may remix; `mine` includes private + untitled) | `{ worlds: WorldCard[], nextCursor?: string }` |
 | `POST /api/worlds` | `CreateWorldInput` | `{ world: WorldFull }` |
 | `GET /api/worlds/:id` | | `{ world: WorldFull }` (404 if private & not owner; `remixes`: its changed public remixes; `size`: bytes of its files, for a multi-file world: over 25 MB, the world says while it opens that it can take a minute, its preview playing behind its name) |
 | `GET /api/worlds/:id/remixes` | | `{ worlds: WorldCard[] }`: its public remixes their makers changed (version > 1), newest first, ≤ 24 |
 | `PATCH /api/worlds/:id` | `UpdateWorldInput` | `{ world: WorldFull }` (owner only) |
 | `DELETE /api/worlds/:id` | | `{ ok: true }` |
-| `GET /api/worlds/:id/zip` | | `application/zip`: the world's files (its index.html when it has no tree), for the owner or when it can be remixed; else 404. The world's menu and Share sheet offer it ("Download .zip") (Orb has no code panel: a world's files change through its builds) |
+| `GET /api/worlds/:id/zip` | | `application/zip`: the world's files (its index.html when it has no tree), for the owner or when it can be remixed; else 404. A visitor's world menu and the owner's Share sheet offer it ("Download .zip") (Orb has no code panel: a world's files change through its builds) |
 | `GET /api/worlds/:id/versions` | | `{ versions: WorldVersionInfo[] }` |
 | `GET /api/worlds/:id/versions/:v` | | `{ version: number, code: string }` |
 | `POST /api/worlds/:id/fork` | `{ authorName? }` | `{ world: WorldFull }` |
@@ -634,8 +671,8 @@ used: after each call, or when it is cut short (Stop, a time limit, a failure af
 writing) at an estimate of the prompt it read and what it wrote (`cutCallUsd` in
 `src/server/budget.ts`; Cursor agents are estimated from their stream all along). So a stopped
 build costs what it used. The job's output carries a control frame `{ t: 'credits', used }`
-(what the build used so far) after each charge and at the end, and the chat shows it under the
-build. Builds have no time limit: Cursor runs that hit Cursor's 30 minutes are continued, and a
+(what the build used so far) after each charge and at the end; the chat doesn't show it (the
+plan in the You tab has the balance). Builds have no time limit: Cursor runs that hit Cursor's 30 minutes are continued, and a
 build ends when it's done, paused when the credits or the day's free budget run out. Every build
 on Orb's AI uses the same model, Free or Pro.
 
@@ -674,7 +711,7 @@ everyone who came, each with a timeline at `/lab/<key>/analytics/person/<public 
 | event | when | props |
 |---|---|---|
 | `page_view` | a page loads, the app goes to another address (not when it only rewrites it), back/forward | the tab's first: `landing: true`, `utm_source`, `utm_medium`, `utm_campaign` (and the referring site) |
-| `world_open` | a world is opened | `source`: `home` (the home page: its worlds, with `filter`, `sort`, `q`, or its row of friends' and the person's own, with `tab`: `friends` \| `mine` and its `position`), `explore` (with `filter`, `sort`, `q`), `chat`, `my_worlds`, `liked`, `remixed_from`, `built` (a build finished elsewhere), `friend` (joining a friend; `room: true` when into the room they're in), `invite`, `profile`, `remixes` (a world's remixes sheet), `remix_note` (a note that your world was remixed), or by address: `link`, `reload`, `back` |
+| `world_open` | a world is opened | `source`: `home` (the home page: its worlds, with `filter`, `sort`, `q`, or its row of friends' and the person's own, with `tab`: `friends` \| `mine` and its `position`), `chat`, `my_worlds`, `liked`, `remixed_from`, `built` (a build finished elsewhere), `friend` (joining a friend; `room: true` when into the room they're in), `invite`, `profile`, `remixes` (a world's remixes sheet), `remix_note` (a note that your world was remixed), or by address: `link`, `reload`, `back` |
 | `invite_open` | a world opened from someone's share link (`?with=`) | `by` (their handle), `signed_in`, `friend` (how the visitor stands with them) |
 | `remixes_open` | a world's remixes sheet opens | `remixes` (how many) |
 | `clip_record` | a clip is recorded (or couldn't be) | `ok`; `type`, `kb`; or `error` |
@@ -684,8 +721,8 @@ everyone who came, each with a timeline at `/lab/<key>/analytics/person/<public 
 | `prompt_send` | a prompt is sent | `where`: `hero` \| `chat` \| `suggestion`, `text` (first 200 characters), `length`, `provider` (`free` or the person's own), `model`, `is_new_world`, `mode`: `build` \| `ask` |
 | `build_done` | a build ends, on screen or in the background | `status`: `done` \| `error` \| `stopped`, `seconds`, `steps`, `saved` (made a version), `repair`, `error` (first 120 characters), `background` |
 | `build_undo` | a build is undone | |
-| `remix` | a world is remixed (Remix, or Make my own copy in its chat) | `world_id` (the copy), `from_world`, `how`: `button` \| `build` |
-| `remix_offer` | Make my own copy in the chat of someone else's world | `world_id`, `with_request` (the change they asked for is built in the copy) |
+| `remix` | a world is remixed (Remix in its world bar, or under a guide's answer) | `world_id` (the copy), `from_world`, `how`: `button` \| `build` |
+| `remix_offer` | Remix under a guide's answer in someone else's world | `world_id`, `with_request` (the change they asked for is built in the copy) |
 | `like` | like or unlike | `liked` |
 | `history_restore` | an earlier version is brought back | `version` |
 | `world_download` | the world's files are downloaded as a .zip | |
@@ -698,7 +735,7 @@ everyone who came, each with a timeline at `/lab/<key>/analytics/person/<public 
 | `payout` | a cash-out asked for (or sent) | `credits`, `currency` |
 | `remix_link` | a `?remix` link (an open-source game's README) opened its world's chat | `world_id` |
 | `import_link` | an `?import=` link (the kit's `orb share`) opened the import form | `repo` (`owner/name`) |
-| `sign_up`, `sign_in`, `sign_out` | account made, signed in, signed out | `where`: `you` \| `share` \| `nudge` \| `profile`; `method`: `password` \| `passkey` |
+| `sign_up`, `sign_in`, `sign_out` | account made, signed in, signed out | `where`: `you` \| `share` \| `profile`; `method`: `password` \| `passkey` |
 | `key_added` | the person adds their own model key | `provider` (never the key) |
 | `checkout_start`, `checkout_done` | Go Pro or a credit pack is clicked (on to Stripe); back from paying | `item`: `pro` or the pack's id; `where`: `plans` \| `you` \| `chat` |
 | `billing_portal` | Manage billing (on to Stripe's portal) | |
@@ -710,10 +747,9 @@ everyone who came, each with a timeline at `/lab/<key>/analytics/person/<public 
 | `look_wear` | what the blob wears changed | `wear` (ids, or `nothing`) |
 | `blob_color` | a blob color picked | `color` |
 | `error_toast` | an error toast shows | `text` (first 160 characters) |
-| `template_pick` | a starter template is picked on the start screen | `template` |
 | `home_tab` | the home page's row switches between friends' worlds and the person's own | `tab`: `friends` \| `mine` |
 | `start_from` | a world is picked under the Orb's first line on a new world (to remix) | `world_id` |
-| `start_from_more` | its See more (Explore on Remix) | |
+| `start_from_more` | its See more (Explore) | |
 | `profile_open` | a maker's profile opens | `handle` |
 | `friend_add`, `friend_accept` | a friend request is sent; one is accepted (also by asking back) | `how`: `username` \| `request` \| `invite` (from someone's share link) |
 | `friend_invite` | friends are invited into a world | `friends` (how many) |
@@ -762,8 +798,8 @@ A peer is `friend: true` while the viewer's friends sync vouches for it: a frien
 named that peer id (`rooms`), the answer was asked after the peer's presence appeared, and only
 one connection holds its presence key (peer ids aren't secret; a stranger reusing one after the
 friend left, or alongside them, is no friend). The world bar counts who's in the world's own
-room, you included (`onPeople` counts the others: one other person there makes "2 here"),
-friends first.
+room, you included (`onPeople` counts the others: one other person there makes 2, beside a green
+dot, or friends' faces when friends are among them).
 A **clip** (the world bar's "Record a clip", `src/state/clips.ts`) is `ms` (1–15 s; the app asks
 for 8) of the world's main canvas, redrawn each frame onto a canvas of at most 1280 px with the
 visitors' name tags and `label` (the world's address) drawn in, recorded with MediaRecorder (mp4
@@ -864,19 +900,23 @@ control frames (`\u001e` + JSON + newline) that the page strips:
 <orb:say>Short, warm narration for the chat. Can appear several times.</orb:say>
 <orb:title>Cloud Castle</orb:title>
 <orb:suggest>Make it night|Add a dragon|Add music</orb:suggest>
-<orb:remix/>            (ask mode only: the user wants changes → the page offers Make my own copy under the answer)
+<orb:remix/>            (ask mode only: the user wants changes → the page offers Remix under the answer)
 <orb:error>…</orb:error> (the build failed: what to tell the person)
 ```
 Frames: `handle` (the job, to reconnect to), `step` (a file change: pending, its label, done or
-failed), `progress` (the change being written, for the code peek), `tree` (the files changed:
+failed), `progress` (the change being written; the page doesn't show it), `tree` (the files changed:
 preview them), `version` (a version saved), `status` (thinking…), `look` / `looked` (the agent
 wants to see the world run: the page showing it plays it and answers), `credits` (what the build
 used so far), `repo`, `resume` (continue in a new request).
 - The page previews the newest tree (debounced, cross-faded), takes over each saved version
-  (undo goes back to the version before the build) and shows the steps as a checklist.
+  (undo goes back to the version before the build) and shows the steps as a checklist, where they
+  came in the output (text before a frame is shown before it).
 - Runtime errors in the first ~4 s after a build saved the world trigger one automatic repair
   round in the same message.
 - Stop ends the job within a moment: what it saved stays, and what it used is charged (§6).
+- When the AI keeps failing, the job retries for about half a minute, then ends with "Couldn't build
+  that right now." (and Try again); the person never sees a provider's own message (their own key's
+  setup errors excepted).
 
 **Traces.** Every build run is recorded in full for looking back at how builds go
 (`src/server/traces.ts`, tables in §5, pages in §6): agent jobs and Cursor jobs (older traces also
@@ -897,11 +937,25 @@ queue per trace and failures are only logged (`[orb] trace … failed`).
   1px hairline `rgba(255,255,255,.6)` + outer `rgba(15,15,30,.08)`, layered soft shadow;
   dark (prefers-color-scheme): `rgba(20,20,28,.62)`, hairline `rgba(255,255,255,.08)`.
 - Ink `#0c0c14`, secondary ink 60% alpha. Radii: 999 (pills), 22 (panels), 16 (cards).
+- Backgrounds: light, the lavender-to-peach sky; dark, one deep neutral dark (`#0d0d14`, the iris
+  glow low at its top) that never changes after load. Orb's own cards (404, error, the kit's and
+  the move's) sit on it.
 - Accent = iridescence (violet `#8b7bff` → sky `#5ec8ff` → peach `#ffb38a` → rose `#ff8fc8`), used
-  only for the Orb, the send button glow, focus rings and the verified seal.
+  only for the Orb, the send button glow and the verified seal.
+- Focus rings: a 2px ink outline, 2px out, along each element's own shape, in either scheme.
 - Motion: springy but calm (`cubic-bezier(.2,.8,.2,1)`, 250–450 ms). Respect `prefers-reduced-motion`.
-- Mobile first: Orb panel = bottom sheet on < 640 px; side panel (400 px) on desktop.
+- Mobile first: Orb panel = bottom sheet on < 640 px, as tall as what it holds (up to ¾ of the screen;
+  "full", nearly all of it, adds the world's row): a tap on its handle switches, a swipe down closes it,
+  and the system Back closes it (then a profile over it) before leaving the page. Desktop: a 400 px
+  panel on the Orb's side, anchored at the bottom and as tall as what it holds, closed by its "—" (or
+  Esc). Its glass is nearly opaque (94% paper), so it reads the same over any world. Tabs: Chat · You;
+  the world's row shows above the chat only.
 - Copy: warm, short, never technical by default ("Building your castle…", not "Applying patch").
+- Toasts: in a world, a small bubble beside the Orb (beside its panel when that's open on a wide
+  screen, above or below it on a phone); just above the sheet while it's open on a phone; elsewhere
+  at the bottom centre, above the safe area.
+- Tab titles: "Orb — make and play worlds" at home, "<Name> by <maker> · Orb" in a world,
+  "<Page> · Orb" elsewhere.
 
 ## 10. Conventions
 
@@ -911,5 +965,5 @@ queue per trace and failures are only logged (`[orb] trace … failed`).
 - Next.js 16: read `node_modules/next/dist/docs/` before using an API you are unsure of
   (route handler `params` are Promises; `middleware` is now `proxy`).
 - Server-only modules import `'server-only'`-free plain code but must never be imported from client components.
-- Local verification: `ORB_MOCK_AI=1 npm run dev` (PGlite, mock AI); Playwright via `scripts/pw.mjs`
+- Local verification: `ORB_MOCK_AI=1 npm run dev` (PGlite, mock AI); Playwright via `kit/lib/browser.mjs`
   (`launch()`, `routeCdn(page)` — the sandbox cannot reach CDNs).

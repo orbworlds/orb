@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { track } from '@/lib/analytics';
-import { api } from '@/lib/api';
+import { api, worldHref } from '@/lib/api';
 import type { WorldCard } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
@@ -12,9 +12,11 @@ import { Spinner } from '@/components/ui/Spinner';
 import { toast } from '@/state/toast';
 import { useUi } from '@/state/ui';
 import { useMe } from './AccountCard';
-import { formatCount, groupClass, SectionHeader, Skeleton, Thumb, timeAgo } from './WorldCard';
+import { EmptyNote, groupClass, onPlainClick, playsLabel, SectionHeader, Skeleton, Thumb, timeAgo } from './WorldCard';
 
 const PAGE = 12;
+const MINE = { mine: true };
+const LIKED = { liked: true };
 
 interface ListState {
   key: string;
@@ -26,7 +28,7 @@ interface ListState {
 export function MyWorlds({ onOpenWorld, onNewWorld, liked = false }: { onOpenWorld(id: string): void; onNewWorld?(): void; /** Worlds the viewer ♥'d instead of their own. */ liked?: boolean }) {
   const { me, status: meStatus } = useMe();
   const [nonce, setNonce] = useState(0);
-  const query = liked ? { liked: true } : { mine: true };
+  const query = liked ? LIKED : MINE;
   // A ♥ anywhere refreshes the liked list.
   useEffect(() => {
     if (!liked) return;
@@ -50,8 +52,7 @@ export function MyWorlds({ onOpenWorld, onNewWorld, liked = false }: { onOpenWor
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `query` is derived from `liked`
-  }, [key, meStatus, liked]);
+  }, [key, meStatus, query]);
 
   const loadMore = async () => {
     if (!current?.cursor || more === 'loading') return;
@@ -111,15 +112,7 @@ export function MyWorlds({ onOpenWorld, onNewWorld, liked = false }: { onOpenWor
           </Button>
         </div>
       ) : current.worlds.length === 0 ? (
-        <div className="rounded-[18px] px-5 py-6 text-center shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--ink)_10%,transparent)] [background:color-mix(in_oklab,var(--ink)_2%,transparent)]">
-          <span className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--field-bg)] text-ink-2">
-            <Icon name="sparkle" size={18} />
-          </span>
-          <p className="text-[14px] font-medium text-ink">{liked ? 'No favorites yet' : 'No worlds yet'}</p>
-          <p className="mx-auto mt-1 max-w-[260px] text-[13px] leading-snug text-ink-2">
-            {liked ? 'Tap ♥ on worlds you love to keep them here.' : 'Your worlds will show up here.'}
-          </p>
-        </div>
+        <EmptyNote icon="sparkle" title={liked ? 'No favorites yet' : 'No worlds yet'} text={liked ? 'Tap ♥ on worlds you love to keep them here.' : 'Your worlds will show up here.'} />
       ) : (
         <div className={`${groupClass} p-1.5`}>
           <ul>
@@ -201,7 +194,7 @@ function ImportRow({ onImported }: { onImported(id: string): void }) {
         onChange={(e) => setUrl(e.target.value)}
         placeholder="https://github.com/owner/repo"
         aria-label="GitHub repository link"
-        className="h-9 min-w-0 flex-1 rounded-[12px] bg-[var(--field-bg)] px-3 text-[13px] text-ink outline-none placeholder:text-ink-3"
+        className="h-9 min-w-0 flex-1 rounded-[12px] bg-[var(--field-bg)] px-3 text-[13px] text-ink placeholder:text-ink-3"
       />
       <Button variant="glass" size="sm" type="submit" disabled={busy || !url.trim()}>
         {busy ? <Spinner size={14} /> : 'Import'}
@@ -213,9 +206,9 @@ function ImportRow({ onImported }: { onImported(id: string): void }) {
 function WorldRow({ world, onOpen }: { world: WorldCard; onOpen(id: string): void }) {
   const isPrivate = world.visibility === 'private';
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(world.id)}
+    <a
+      href={worldHref(world)}
+      onClick={onPlainClick(() => onOpen(world.id))}
       className="group flex w-full items-center gap-3 rounded-[13px] px-2 py-2 text-left transition-colors duration-200 hover:bg-[color-mix(in_oklab,var(--ink)_5%,transparent)] focus-visible:rounded-[13px] focus-visible:outline-offset-0"
     >
       <Thumb src={world.thumbUrl} seed={world.id} name={world.name} initialSize={20} className="h-[45px] w-[72px] shrink-0 rounded-[10px]" />
@@ -228,9 +221,7 @@ function WorldRow({ world, onOpen }: { world: WorldCard; onOpen(id: string): voi
               <span aria-hidden="true" className="text-ink-3">
                 ·
               </span>
-              <span className="shrink-0 tabular-nums">
-                {formatCount(world.plays)} {world.plays === 1 ? 'play' : 'plays'}
-              </span>
+              <span className="shrink-0 tabular-nums">{playsLabel(world.plays)}</span>
             </>
           )}
         </span>
@@ -241,6 +232,6 @@ function WorldRow({ world, onOpen }: { world: WorldCard; onOpen(id: string): voi
         <Icon name={isPrivate ? 'lock' : 'globe'} size={11} strokeWidth={2} />
         {isPrivate ? 'Private' : 'Public'}
       </span>
-    </button>
+    </a>
   );
 }

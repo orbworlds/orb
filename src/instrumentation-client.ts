@@ -2,12 +2,8 @@
 import { initBotId } from 'botid/client/core';
 import { reportError } from '@/lib/report';
 
-try {
-  window.addEventListener('error', (e) => reportError(e.error ?? e.message, { where: e.filename ? `at ${e.filename}:${e.lineno}:${e.colno}` : '', ownCode: true }));
-  window.addEventListener('unhandledrejection', (e) => reportError(e.reason, { ownCode: true }));
-} catch {
-  // Reporting must never break the page.
-}
+window.addEventListener('error', (e) => reportError(e.error ?? e.message, { where: e.filename ? `at ${e.filename}:${e.lineno}:${e.colno}` : '', ownCode: true }));
+window.addEventListener('unhandledrejection', (e) => reportError(e.reason, { ownCode: true }));
 
 // The requests src/server/botid.ts checks for bots: they carry BotID's proof that a person's browser sent them.
 try {

@@ -4,16 +4,12 @@
 
 import type { Friend, Person } from '@/lib/types';
 import { Avatar } from '@/components/ui/Avatar';
-import { timeAgo } from './WorldCard';
+import { hash, timeAgo } from './WorldCard';
 
 const COLORS = ['#8b7bff', '#5ec8ff', '#ffb38a', '#ff8fc8', '#7ee0b8', '#ffd36e', '#a0a8ff', '#ff9e7a'];
 
 /** The same color for the same person everywhere. */
-export function colorFor(seed: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
-  return COLORS[(h >>> 0) % COLORS.length];
-}
+const colorFor = (seed: string) => COLORS[hash(seed) % COLORS.length];
 
 export function PersonAvatar({ person, size = 36, online = false }: { person: Pick<Person, 'id' | 'name'>; size?: number; online?: boolean }) {
   const dot = Math.max(8, Math.round(size * 0.3));

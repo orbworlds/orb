@@ -4,11 +4,11 @@
 // Native worlds only; private worlds only for their owner; 120 ops/min per device per world (a list counts 5).
 
 import { getViewer } from '@/server/auth';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, fail, handle, json, readJson } from '@/server/http';
 import { ready } from '@/server/schema';
-import { fail, route, storeOp, worldIdParam, type IdContext } from '@/server/worlds';
+import { storeOp, worldIdParam, type IdContext } from '@/server/worlds';
 
-export const POST = route(async (req: Request, ctx: IdContext) => {
+export const POST = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   // Values are capped at 8 KB; leave room for the envelope and JSON escaping.
   const body = await readJson<unknown>(req, 64_000);

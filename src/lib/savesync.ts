@@ -46,7 +46,6 @@ async function push(worldId: string, leaving = false): Promise<void> {
   await fetch(`/api/saves/${encodeURIComponent(worldId)}`, {
     method: 'PUT',
     headers: deviceHeaders({ 'content-type': 'application/json' }),
-    credentials: 'same-origin',
     body,
     keepalive: leaving && body.length <= KEEPALIVE_MAX,
   }).catch(() => {});
@@ -86,7 +85,6 @@ export async function pullSave(worldId: string, timeoutMs = 4000): Promise<{ dat
   try {
     const res = await fetch(`/api/saves/${encodeURIComponent(worldId)}?since=${local}`, {
       headers: deviceHeaders(),
-      credentials: 'same-origin',
       cache: 'no-store',
       signal: AbortSignal.timeout(Math.max(500, timeoutMs - (Date.now() - started))),
     });
@@ -120,7 +118,7 @@ export async function setSaveSync(isSignedIn: boolean): Promise<void> {
   hookPage();
   unsubscribe ??= onWorldStorageSaved(schedule);
   try {
-    const res = await fetch('/api/saves', { headers: deviceHeaders(), credentials: 'same-origin', cache: 'no-store' });
+    const res = await fetch('/api/saves', { headers: deviceHeaders(), cache: 'no-store' });
     if (!res.ok) return;
     const { saves } = (await res.json()) as { saves: Array<{ worldId: string; at: number }> };
     const theirs = new Map(saves.map((s) => [s.worldId, s.at]));

@@ -3,18 +3,18 @@
 // the player (src/server/shop.ts): the price leaves their credits and the maker earns their share.
 
 import { getViewer } from '@/server/auth';
-import { json, readJson } from '@/server/http';
+import { handle, json, readJson } from '@/server/http';
 import { ready } from '@/server/schema';
 import { buyItem, shopView } from '@/server/shop';
-import { limitOrThrow, route, worldIdParam, type IdContext } from '@/server/worlds';
+import { limitOrThrow, worldIdParam, type IdContext } from '@/server/worlds';
 
-export const GET = route(async (req: Request, ctx: IdContext) => {
+export const GET = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const db = await ready();
   return json(await shopView(db, getViewer(req), id), { headers: { 'cache-control': 'private, no-store' } });
 });
 
-export const POST = route(async (req: Request, ctx: IdContext) => {
+export const POST = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const viewer = getViewer(req);
   const body = await readJson<{ item?: unknown; price?: unknown }>(req, 10_000);

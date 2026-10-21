@@ -14,7 +14,7 @@ import { execFileSync } from 'node:child_process';
 import sharp from 'sharp';
 import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { launch } from './pw.mjs';
+import { launch } from '../kit/lib/browser.mjs';
 import { serve, TREE } from '../kit/lib/server.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -51,6 +51,8 @@ const QUICK = !!process.env.QUICK;
 // autopilot, a stage). `blank` clears the picture before each frame, for a world that counts on the browser to (it draws
 // over the last one, leaving ghosts here, where frames are kept until captured).
 const swing = (dx, dy, x = W / 2, y = H / 2) => (t) => { const e = (1 - Math.cos((2 * Math.PI * t) / SECONDS)) / 2; return [x + dx * e, y + dy * e]; };
+// The pointer hopping from point to point of `p` (0.7 s each), pressing for a moment at each.
+const hop = (p) => (t) => { const m = p.length - 1, k = Math.floor(t / 0.7), f = Math.min(1, ((t % 0.7) / 0.7) * 1.6), [a, b] = [p[k % m], p[(k % m) + 1]]; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, t % 0.7 > 0.5 && t % 0.7 < 0.6]; };
 const SHOTS = {
   // Monolith Wilds: a slow glide in over the basin of monuments toward the red peaks (its `cam` view leaves its controls out)
   'aw-monolith-wilds': {
@@ -87,23 +89,15 @@ const SHOTS = {
   // Tiny Planet: building a little town across the planet, a house at a time (its buttons and credit cropped off)
   'ext-tiny-planet': {
     wait: 40000, steps: [{ click: [48, 112], wait: 3000 }], scale: 3, crop: [110, 50, 416, 260],
-    mouse: (t) => {
-      // from cell to cell over the planet's face, pressing for a moment on each
-      const p = [[270, 170], [300, 158], [332, 172], [350, 200], [322, 218], [290, 228], [264, 206], [298, 192], [270, 170]];
-      const k = Math.floor(t / 0.7), f = Math.min(1, ((t % 0.7) / 0.7) * 1.6), [a, b] = [p[k % 8], p[(k % 8) + 1]];
-      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, t % 0.7 > 0.5 && t % 0.7 < 0.6];
-    },
+    // from cell to cell over the planet's face, pressing for a moment on each
+    mouse: hop([[270, 170], [300, 158], [332, 172], [350, 200], [322, 218], [290, 228], [264, 206], [298, 192], [270, 170]]),
   },
   // Brick Town: houses going up on an empty block, a click a storey (the town it starts with knocked down first, a
   // right click a block; its buttons and credit cropped off)
   'ext-brick-town': {
     wait: 30000, scale: 3, crop: [152, 140, 336, 210],
     steps: [0, 1, 2].flatMap(() => Array.from({ length: 13 * 15 }, (_, i) => ({ click: [200 + (i % 13) * 20, 60 + Math.floor(i / 13) * 20], button: 'right', wait: 250 }))),
-    mouse: (t) => {
-      const p = [[270, 282], [322, 302], [372, 280], [322, 252], [290, 262], [352, 266], [322, 282], [262, 298], [270, 282]];
-      const k = Math.floor(t / 0.7), f = Math.min(1, ((t % 0.7) / 0.7) * 1.6), [a, b] = [p[k % 8], p[(k % 8) + 1]];
-      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, t % 0.7 > 0.5 && t % 0.7 < 0.6];
-    },
+    mouse: hop([[270, 282], [322, 302], [372, 280], [322, 252], [290, 262], [352, 266], [322, 282], [262, 298], [270, 282]]),
   },
   // Fluid: ink swirled through the water with the pointer held down, round and round in a figure eight (let go for a
   // moment now and then: each stroke takes a new colour)
@@ -145,7 +139,6 @@ const SHOTS = {
       };
     },
   },
-  // Walden walks with WASD (not the arrows), and a held mouse button swings the sword: walking down the path to the arch
   // Tiny Skies: flying in toward the little planet, its islands and airships coming up to meet the plane
   // (its sky runs a 195 s day and night on the wall clock, offset by the world's seed: `init` reads the seed as the world
   // joins and `setup` moves its clock to mid-morning)
@@ -165,6 +158,7 @@ const SHOTS = {
       Date.now = () => now() + off;
     },
   },
+  // Walden walks with WASD (not the arrows), and a held mouse button swings the sword: walking down the path to the arch
   'ext-walden': { wait: 60000, steps: [{ click: [320, 200], wait: 35000 }], hold: ['w'], crf: [47, 32] },
   'aw-fall-line': { wait: 40000, crf: [50, 32] },
   'ext-cyber-city-orion': { crf: [48, 32], wait: 60000, steps: [{ click: [320, 276], wait: 60000 }], hold: ['w'], drag: [10, 0] },
@@ -634,13 +628,11 @@ async function record(browser, id, shot) {
     if (!code.includes(find)) throw new Error(`the world's code has no ${JSON.stringify(find)} to patch`);
     code = code.replace(find, replace);
   }
+  const dir = shot.file != null || world.kind === 'native' ? fs.mkdtempSync(path.join(os.tmpdir(), 'orb-preview-')) : null;
+  if (dir) fs.writeFileSync(path.join(dir, 'index.html'), code);
   if (shot.file != null) {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'orb-preview-'));
-    fs.writeFileSync(path.join(dir, 'index.html'), code);
     url = pathToFileURL(path.join(dir, 'index.html')).href + shot.file;
   } else if (world.kind === 'native') {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'orb-preview-'));
-    fs.writeFileSync(path.join(dir, 'index.html'), code);
     kit = await serve({ dir, port: 0, watch: false, quiet: true });
     url = `${kit.url}?bare`;
   }
@@ -768,8 +760,8 @@ function encode(dir, base, [vp9, h264] = [40, 27]) {
   execFileSync('ffmpeg', [...input, '-c:v', 'libx264', '-preset', 'slow', '-crf', String(h264), '-movflags', '+faststart', `${base}.mp4`]);
 }
 
-// the kit's host needs Orb's runtime, which is built from src/lib/runtime
-if (!fs.existsSync(path.join(root, 'kit/lib/runtime.js'))) execFileSync('node', [path.join(root, 'scripts/publish-kit.mjs'), '--runtime'], { stdio: 'inherit' });
+// the kit's host needs Orb's runtime, built from src/lib/runtime each time (an older build lacks what host.js imports)
+execFileSync('node', [path.join(root, 'scripts/publish-kit.mjs'), '--runtime'], { stdio: 'inherit' });
 const ids = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(SHOTS);
 const browser = await launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=IsolateSandboxedIframes', '--autoplay-policy=no-user-gesture-required'] });
 const listFile = path.join(root, 'src/data/previews.json');

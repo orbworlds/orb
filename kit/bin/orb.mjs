@@ -1,34 +1,21 @@
 #!/usr/bin/env node
-// orb dev [folder]   play the world in that folder (default: here) at http://127.0.0.1:4242
-// orb test [folder]  run it in a headless Chrome: it has to draw, and nothing may throw
-// orb share          the links that open this repository (your fork) on Orb
-// orb push [folder]  put the world on Orb as you: a new version each time (lib/push.mjs)
-// orb login/logout   sign this computer in or out (push signs in by itself)
-// A project with tools/package.mjs is packaged first (into .orb/), as Orb serves it.
+// The orb command: dev, test, share, push, login, logout (usage at the end; README → Commands).
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { serve } from '../lib/server.mjs';
+import { readJson, serve } from '../lib/server.mjs';
 
 const SITE = 'https://orbworlds.com';
 const [cmd = 'dev', ...rest] = process.argv.slice(2);
 
-function flag(name, fallback) {
-  const i = rest.indexOf(`--${name}`);
-  if (i < 0) return fallback;
-  const v = rest[i + 1];
-  rest.splice(i, 2);
-  return v;
-}
+/** The value after `name` in the arguments (both taken out of them), else `fallback`. */
+const flag = (name, fallback) => {
+  const i = rest.indexOf(name);
+  return i < 0 ? fallback : rest.splice(i, 2)[1];
+};
 
-function orbJson(dir) {
-  try {
-    return JSON.parse(fs.readFileSync(path.join(dir, 'orb.json'), 'utf8'));
-  } catch {
-    return {};
-  }
-}
+const orbJson = (dir) => readJson(path.join(dir, 'orb.json')) ?? {};
 
 /** The folder to serve: the world itself, or for a project its package (tools/package.mjs <out>). */
 function worldDir(dir) {
@@ -62,8 +49,8 @@ function githubRepo() {
 }
 
 if (cmd === 'dev') {
-  const port = Number(flag('port', process.env.PORT || 4242));
-  const host = flag('host', '127.0.0.1');
+  const port = Number(flag('--port', process.env.PORT || 4242));
+  const host = flag('--host', '127.0.0.1');
   try {
     await serve({ dir: worldDir(rest[0] || '.'), port, host });
   } catch (e) {
@@ -71,7 +58,7 @@ if (cmd === 'dev') {
     process.exit(1);
   }
 } else if (cmd === 'test') {
-  const shot = flag('shot', null);
+  const shot = flag('--shot', null);
   const { smoke } = await import('../lib/smoke.mjs');
   const problems = await smoke(worldDir(rest[0] || '.'), { shot });
   for (const p of problems) console.log(`✗ ${p}`);
@@ -96,9 +83,7 @@ if (cmd === 'dev') {
   }
   console.log('');
 } else if (cmd === 'push') {
-  let message = flag('message', null);
-  const m = rest.indexOf('-m');
-  if (m >= 0) [, message] = rest.splice(m, 2);
+  const message = flag('-m', flag('--message', null));
   const fresh = rest.includes('--new');
   const shot = !rest.includes('--no-shot');
   const folder = rest.find((a) => !a.startsWith('--')) || '.';
@@ -116,7 +101,7 @@ if (cmd === 'dev') {
 } else if (cmd === 'login') {
   const { signIn } = await import('../lib/push.mjs');
   try {
-    const token = await signIn(siteOf('.'), { quiet: true });
+    const token = await signIn(siteOf('.'));
     if (!token) process.exit(2);
     console.log('✓ This computer can push to Orb.');
   } catch (e) {

@@ -14,8 +14,7 @@
 //   ORB_APP_ID=… ORB_APP_KEY=… node scripts/sync-org.mjs
 //
 // It runs as the org's GitHub App, so what it changes there is by its bot, never a person
-// (.github/workflows/org.yml runs it when the catalog changes; scripts/setup-org.mjs gives that
-// workflow the app).
+// (.github/workflows/org.yml runs it when the catalog changes).
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -32,7 +31,7 @@ const urlOf = (w) => `${SITE}/${catalog.org}/${slugify(w.name)}`;
 const utm = (repo) => `utm_source=github&utm_medium=profile&utm_campaign=${repo}`;
 
 /** The test every world's repository runs: npm test, and for a project a push to main packages it into the `orb` branch Orb plays. */
-export const WORLD_WORKFLOW = `# Orb's test for its worlds, which every world's repository in the org runs (its
+const WORLD_WORKFLOW = `# Orb's test for its worlds, which every world's repository in the org runs (its
 # .github/workflows/test.yml calls this): npm test on every pull request and push. A project (with
 # tools/package.mjs) is also packaged on every push to main into the \`orb\` branch, which is what Orb
 # plays. Made by Orb (scripts/sync-org.mjs).

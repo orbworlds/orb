@@ -19,7 +19,6 @@ async function push(threadId: string): Promise<void> {
   await fetch(`/api/chats/${encodeURIComponent(threadId)}`, {
     method: 'PUT',
     headers: deviceHeaders({ 'content-type': 'application/json' }),
-    credentials: 'same-origin',
     body: JSON.stringify({ worldId: t.worldId, title: t.title, messages, updatedAt: t.updatedAt }),
   }).catch(() => {});
 }
@@ -30,18 +29,17 @@ function schedule(threadId: string): void {
   timers.set(threadId, setTimeout(() => void push(threadId), 2500));
 }
 
-/** Pull the account's chats into this browser. Returns how many were new or newer. */
-async function pull(): Promise<number> {
+/** Pull the account's chats into this browser (newer ones win). */
+async function pull(): Promise<void> {
   try {
-    const res = await fetch('/api/chats', { headers: deviceHeaders(), credentials: 'same-origin' });
-    if (!res.ok) return 0;
+    const res = await fetch('/api/chats', { headers: deviceHeaders() });
+    if (!res.ok) return;
     const { chats } = (await res.json()) as { chats: Array<{ thread: ChatThread; messages: ChatMessage[] }> };
     const merged: string[] = [];
     for (const c of chats) if (mergeRemoteChat(c.thread, c.messages)) merged.push(c.thread.id);
     if (merged.length && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('orb:chats-merged', { detail: merged }));
-    return merged.length;
   } catch {
-    return 0;
+    /* offline: the next start pulls again */
   }
 }
 

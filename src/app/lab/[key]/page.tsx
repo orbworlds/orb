@@ -9,7 +9,7 @@ import { HiddenWorlds } from './HiddenWorlds';
 // play by link; this lists them for a second look.
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Hidden worlds', robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: 'Hidden worlds' };
 
 export default async function HiddenWorldsPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;

@@ -6,11 +6,11 @@
 
 import { getViewer } from '@/server/auth';
 import { accountId, friendsData, heartbeat, leave } from '@/server/friends';
-import { json, readJson } from '@/server/http';
+import { handle, json, readJson } from '@/server/http';
 import { ready } from '@/server/schema';
-import { limitOrThrow, route } from '@/server/worlds';
+import { limitOrThrow } from '@/server/worlds';
 
-export const POST = route(async (req: Request) => {
+export const POST = handle(async (req: Request) => {
   const db = await ready();
   const me = await accountId(db, getViewer(req));
   const body = await readJson<{ worldId?: unknown; rooms?: unknown; leave?: unknown }>(req, 10_000);

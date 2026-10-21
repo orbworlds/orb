@@ -1,11 +1,11 @@
 // GET /api/worlds/:id/versions/:v — the code of one saved version.
 
 import { getViewer } from '@/server/auth';
-import { json } from '@/server/http';
+import { fail, handle, json } from '@/server/http';
 import { ready } from '@/server/schema';
-import { fail, getVersion, isWorldId, route } from '@/server/worlds';
+import { getVersion, isWorldId } from '@/server/worlds';
 
-export const GET = route(async (req: Request, ctx: { params: Promise<{ id: string; v: string }> }) => {
+export const GET = handle(async (req: Request, ctx: { params: Promise<{ id: string; v: string }> }) => {
   const { id, v } = await ctx.params;
   if (!isWorldId(id)) fail(404, 'not_found', 'This world does not exist.');
   const version = /^\d{1,9}$/.test(v) ? Number(v) : 0;

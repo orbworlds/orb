@@ -3,15 +3,13 @@
 // back on the page they came from, with ?billing=pro|topup|pending for the page to say so.
 
 import { applyCheckoutById } from '@/server/billing';
-import { returnTo } from '@/server/billingurls';
+import { backWith } from '@/server/billingurls';
 import { recordServerError } from '@/server/errors';
 import { ready } from '@/server/schema';
 import { after } from 'next/server';
 
 export async function GET(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const to = new URL(returnTo(url.searchParams.get('to')), url.origin);
-  const id = url.searchParams.get('session_id') ?? '';
+  const id = new URL(req.url).searchParams.get('session_id') ?? '';
   let note = 'pending';
   if (/^cs_[\w-]{4,200}$/.test(id)) {
     try {
@@ -22,6 +20,5 @@ export async function GET(req: Request): Promise<Response> {
       after(() => recordServerError(e, '/api/billing/return'));
     }
   }
-  to.searchParams.set('billing', note);
-  return new Response(null, { status: 303, headers: { location: `${to.pathname}${to.search}`, 'cache-control': 'no-store' } });
+  return backWith(req, note);
 }

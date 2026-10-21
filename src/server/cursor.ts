@@ -3,6 +3,7 @@
 // catalog — for Cursor builds (./agent/cursor.ts): the free builder on Orb's own key, and people's
 // own Cursor keys.
 
+import { setTimeout as wait } from 'node:timers/promises';
 import { withDeadline } from './signals';
 
 export const BASE = process.env.ORB_CURSOR_API || 'https://api.cursor.com'; // overridable for tests
@@ -46,14 +47,8 @@ export async function call<T>(apiKey: string, method: string, path: string, body
   return (text ? JSON.parse(text) : {}) as T;
 }
 
-const sleep = (ms: number, signal: AbortSignal) =>
-  new Promise<void>((resolve, reject) => {
-    const t = setTimeout(resolve, ms);
-    signal.addEventListener('abort', () => {
-      clearTimeout(t);
-      reject(signal.reason ?? new Error('aborted'));
-    }, { once: true });
-  });
+/** Wait `ms`, or reject with why `signal` aborted. */
+const sleep = (ms: number, signal: AbortSignal) => wait(ms, undefined, { signal }).catch(() => Promise.reject(signal.reason ?? new Error('aborted')));
 
 interface AgentInfo {
   id: string;
@@ -76,8 +71,8 @@ export interface CursorRequest {
   /** Model options as Cursor lists them per model (e.g. effort, fast, thinking). */
   modelParams?: Array<{ id: string; value: string }>;
   signal: AbortSignal;
-  /** Upper bound for the whole run. */
-  maxWaitMs?: number;
+  /** How long to wait for Cursor to start the agent. */
+  maxWaitMs: number;
 }
 
 /** A started agent run. */
@@ -97,7 +92,7 @@ export async function startCursorAgent(req: CursorRequest): Promise<CursorRun> {
     prompt: { text: req.text, ...(req.images?.length ? { images: req.images.slice(0, 5).map((i) => ({ data: i.data, mimeType: i.mimeType })) } : {}) },
     model: { id: req.model || DEFAULT_CURSOR_MODEL, ...(req.modelParams?.length ? { params: req.modelParams } : {}) },
   };
-  const deadline = Date.now() + (req.maxWaitMs ?? 280000);
+  const deadline = Date.now() + req.maxWaitMs;
 
   // The create call can take a long time to answer (it may wait for the agent to boot, and
   // proxies may give up first), but the agent and its run exist much sooner. So race it against a
@@ -118,7 +113,7 @@ export async function startCursorAgent(req: CursorRequest): Promise<CursorRun> {
       return null;
     },
   );
-  const lookup = async (): Promise<{ agentId: string; runId: string } | null> => {
+  const lookup = async (): Promise<CursorRun> => {
     await sleep(1500, signal);
     for (;;) {
       if (createFailed) throw createFailed;
@@ -133,9 +128,7 @@ export async function startCursorAgent(req: CursorRequest): Promise<CursorRun> {
     }
   };
   try {
-    const first = await Promise.race([created.then((r) => r ?? (createFailed ? Promise.reject(createFailed) : lookup())), lookup()]);
-    if (!first) throw new CursorError(502, 'Cursor agent did not start');
-    return first;
+    return await Promise.race([created.then((r) => r ?? (createFailed ? Promise.reject(createFailed) : lookup())), lookup()]);
   } finally {
     // Stop the loser (the create request itself has already been received by Cursor).
     local.abort();

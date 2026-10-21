@@ -5,8 +5,10 @@
 //
 // Words in the request: "mockslow" (slower steps, to interrupt), "mockcrash" (main.js throws at
 // load), "mockerror" (the provider fails), "mocklong" (many steps, to span several ticks),
-// "mocklook" (plays the world with the look tool and says what it saw). A visitor's request (guide
-// mode) gets an answer, and with "mockchange" the offer of their own copy.
+// "mockchain" (even more of them, each tick ending early, to exercise the hand-over), "mockcutoff"
+// (a reply cut off at the output limit), "mocklook" (plays the world with the look tool and says
+// what it saw), "mockfirstlook" (a big new world's first look, ending with a question). A visitor's
+// request (guide mode) gets an answer, and with "mockchange" the offer of their own copy.
 
 import type { LanguageModel } from 'ai';
 
@@ -84,7 +86,7 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
   let lastUser = -1;
   for (let i = prompt.length - 1; i >= 0; i--) {
     const t = prompt[i].role === 'user' ? textOf(prompt[i]) : '';
-    if (prompt[i].role === 'user' && !t.startsWith('(Your previous reply was cut off') && !t.startsWith('(Automatic check before you finish') && !t.startsWith('(Screenshots from your look')) {
+    if (prompt[i].role === 'user' && !t.startsWith('(Your previous reply was cut off') && !t.startsWith('(Screenshots from your look')) {
       lastUser = i;
       break;
     }
@@ -97,7 +99,7 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
   // gets the offer of their own copy.
   if (prompt.some((m) => m.role === 'system' && textOf(m).includes('# Mode: guide'))) {
     return request.includes('mockchange')
-      ? { text: "This world is someone else's — make your own copy and I'll change it there!", calls: [{ name: 'offer_remix', input: {} }, { name: 'suggest_next', input: { ideas: ['How does it work?', 'What can I do here?', 'Is there a secret?'] } }] }
+      ? { text: "This world is someone else's — remix it and I'll change it in your copy!", calls: [{ name: 'offer_remix', input: {} }, { name: 'suggest_next', input: { ideas: ['How does it work?', 'What can I do here?', 'Is there a secret?'] } }] }
       : { text: 'Walk around with the arrow keys and tap things to see what they do!', calls: [{ name: 'suggest_next', input: { ideas: ['What can I do here?', 'Is there a secret?', 'How do I win?'] } }] };
   }
   if (request.includes('mockfirstlook')) return { calls: [{ name: 'suggest_next', input: { ideas: ['Keep going like this', 'Softer painted look', 'Golden sunset'], question: 'Is this the feel you want?' } }] };
@@ -150,7 +152,6 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
 }
 
 export function mockAgentModel(): LanguageModel {
-  const speed = Number(process.env.ORB_MOCK_SPEED) || 1;
   return {
     specificationVersion: 'v4',
     provider: 'orb-mock',
@@ -166,7 +167,7 @@ export function mockAgentModel(): LanguageModel {
       if (unanswered.length) throw Object.assign(new Error(`Tool results are missing for tool calls ${unanswered.map((c) => c.toolCallId).join(', ')}.`), { statusCode: 400 });
       const p = plan(options.prompt);
       const slow = options.prompt.some((m) => m.role === 'user' && textOf(m).toLowerCase().includes('mockslow'));
-      const delay = (slow ? 400 : 40) / speed;
+      const delay = slow ? 400 : 40;
       const parts: Part[] = [];
       if (p.text) {
         parts.push({ type: 'text-start', id: 't' });

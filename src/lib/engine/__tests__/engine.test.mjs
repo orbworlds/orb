@@ -35,7 +35,7 @@ const pause = (ms, signal) =>
 
 /**
  * Fake agent jobs, one script per build request (or an Error to fail it): each entry waits a
- * little, then yields protocol text or hands the engine a frame (handle, step, tree, version, credits).
+ * little, then yields protocol text or hands the engine a frame (handle, step, tree, version).
  */
 function jobs(scripts) {
   const requests = [];
@@ -54,14 +54,13 @@ function jobs(scripts) {
       if (s.step) hooks.onStep?.(s.step);
       if (s.tree) hooks.onTree?.(s.tree);
       if (s.version) hooks.onVersion?.(s.version);
-      if (s.credits != null) hooks.onCredits?.(s.credits);
     }
   }
   run.requests = requests;
   return run;
 }
 
-/** A build on world `w`: narration, two file steps with their trees, the saved version, the credits. */
+/** A build on world `w`: narration, two file steps with their trees, the saved version, more narration. */
 const island = (w = 'w1', version = 4) => [
   { handle: { kind: 'agent', id: `job-${w}` } },
   { text: '<orb:say>Ooh, a floating' },
@@ -73,7 +72,6 @@ const island = (w = 'w1', version = 4) => [
   { step: { id: 's2', kind: 'edit', label: 'Adding drifting clouds', status: 'done' }, wait: 200 },
   { tree: T2 },
   { version: { worldId: w, version, tree: T2, name: 'Sky Island' }, wait: 200 },
-  { credits: 12.5 },
   { text: '<orb:title>Sky Island</orb:title>\n<orb:say>Drag to look around — the clouds drift by slowly.</orb:say>\n<orb:suggest>Make it night|Add a little waterfall|Add soft music</orb:suggest>\n' },
 ];
 
@@ -128,7 +126,7 @@ const lastAssistant = (e) => e.getSnapshot().messages.filter((m) => m.role === '
 beforeEach(() => localStorage.clear());
 
 describe('BuildEngine — building', () => {
-  test('follows the job: narration as it streams, steps, live previews of the files, the saved version and its credits', async () => {
+  test('follows the job: narration as it streams, steps, live previews of the files and the saved version', async () => {
     const run = jobs([island()]);
     const e = engineWith(run);
     const { host, calls, state } = makeHost();
@@ -144,7 +142,6 @@ describe('BuildEngine — building', () => {
     const a = snap.messages[1];
     assert.equal(a.text, 'Ooh, a floating island — let’s make it!\n\nDrag to look around — the clouds drift by slowly.');
     assert.equal(a.build.status, 'done');
-    assert.equal(a.build.title, 'Sky Island');
     assert.deepEqual(a.build.steps.map((s) => [s.label, s.status]), [
       ['Raising the island', 'done'],
       ['Adding drifting clouds', 'done'],
@@ -152,7 +149,7 @@ describe('BuildEngine — building', () => {
     assert.deepEqual(a.build.suggestions, ['Make it night', 'Add a little waterfall', 'Add soft music']);
     assert.equal(a.build.fromVersion, 3);
     assert.equal(a.build.toVersion, 4);
-    assert.equal(a.build.credits, 12.5);
+    assert.equal(a.text.slice(0, a.build.stepsAt), 'Ooh, a floating island — let’s make it!', 'what was said before the first step');
     assert.equal(a.build.handles, undefined, 'finished: nothing to reconnect to');
     // the job saved the world; the page took that version over
     assert.deepEqual(calls.adopted.map((v) => [v.version, v.tree, v.code]), [[4, T2, PAGES[T2]]]);
@@ -200,7 +197,7 @@ describe('BuildEngine — building', () => {
   });
 
   test('ask mode: a change request offers their own copy on the answer', async () => {
-    const run = jobs([[{ text: '<orb:say>You could make your own copy!</orb:say>\n<orb:remix/>\n<orb:suggest>a|b|c</orb:suggest>\n' }, { credits: 2 }]]);
+    const run = jobs([[{ text: '<orb:say>You could make your own copy!</orb:say>\n<orb:remix/>\n<orb:suggest>a|b|c</orb:suggest>\n' }]]);
     const e = engineWith(run);
     const { host, calls } = makeHost({ host: { mode: 'ask' } });
     e.setHost(host);
@@ -208,7 +205,6 @@ describe('BuildEngine — building', () => {
     const a = lastAssistant(e);
     assert.equal(a.build.remix, true);
     assert.deepEqual(a.build.steps, []);
-    assert.equal(a.build.credits, 2, 'an answer costs what it used too');
     assert.equal(calls.previews.length, 0);
     assert.equal(calls.adopted.length, 0);
     assert.equal(run.requests[0].mode, 'ask');
@@ -318,8 +314,8 @@ describe('BuildEngine — the repair round', () => {
 });
 
 describe('BuildEngine — stop, errors, undo', () => {
-  test('Stop ends the build at once: what it saved stays, open steps fail, and it shows the credits it used', async () => {
-    const run = jobs([[...saves('Lanterns!', 4).slice(0, 3), { credits: 5 }, { step: { id: 's9', kind: 'edit', label: 'Hanging the moon', status: 'pending' } }, { text: '', wait: 10_000 }]]);
+  test('Stop ends the build at once: what it saved stays, open steps fail', async () => {
+    const run = jobs([[...saves('Lanterns!', 4).slice(0, 3), { step: { id: 's9', kind: 'edit', label: 'Hanging the moon', status: 'pending' } }, { text: '', wait: 10_000 }]]);
     const e = engineWith(run);
     e.setHost(makeHost().host);
     const p = e.send('lanterns and a moon');
@@ -329,7 +325,6 @@ describe('BuildEngine — stop, errors, undo', () => {
     const a = lastAssistant(e);
     assert.equal(a.build.status, 'stopped');
     assert.equal(a.build.toVersion, 4);
-    assert.equal(a.build.credits, 5);
     assert.deepEqual(a.build.steps.map((s) => [s.label, s.status]), [
       ['Lighting lanterns', 'done'],
       ['Hanging the moon', 'failed'],

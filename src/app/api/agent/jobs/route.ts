@@ -18,11 +18,10 @@ import { canEdit, getViewer, isAdmin } from '@/server/auth';
 import { botCheck } from '@/server/botid';
 import { buildCost, checkByoLimits, checkCredits, checkRateLimits, refundQuota, type Billing } from '@/server/buildlimits';
 import { DEFAULT_CURSOR_MODEL, serverCursorParams } from '@/server/cursor';
-import { recordServerError } from '@/server/errors';
 import { freeTierConfig, type LimitCheck } from '@/server/freetier';
 import type { Db } from '@/server/db';
 import { getText, isText, getBlob, type Tree } from '@/server/files';
-import { error, readJson } from '@/server/http';
+import { error, handle, readJson } from '@/server/http';
 import { requestOrigin } from '@/server/origins';
 import { ready } from '@/server/schema';
 import { traceGroup } from '@/server/traces';
@@ -52,7 +51,7 @@ async function firstMessage(db: Db, files: Tree, name: string, req: BuildRequest
     if (!bytes) continue;
     total += bytes.length;
     if (total > INLINE_ALL) break;
-    if (isText(p, bytes)) texts.set(p, new TextDecoder().decode(bytes));
+    if (isText(bytes)) texts.set(p, new TextDecoder().decode(bytes));
   }
   const inlineAll = total <= INLINE_ALL;
   const parts: Array<TextPart | FilePart> = [];
@@ -105,98 +104,92 @@ function parseCursorParams(raw: string | null): Array<{ id: string; value: strin
   }
 }
 
-export async function POST(req: Request): Promise<Response> {
-  try {
-    const body = await readJson<Record<string, unknown>>(req, MAX_BODY);
-    if (body === null) return error(400, 'bad_request', 'Expected a JSON body (or it was too large).');
-    const valid = validateBuildRequest(body);
-    if (!valid.ok) return error(400, 'bad_request', valid.message);
-    const build = valid.req;
-    if (!build.worldId) return error(400, 'bad_request', 'A build needs a world.');
+export const POST = handle(async (req: Request): Promise<Response> => {
+  const body = await readJson<Record<string, unknown>>(req, MAX_BODY);
+  if (body === null) return error(400, 'bad_request', 'Expected a JSON body (or it was too large).');
+  const valid = validateBuildRequest(body);
+  if (!valid.ok) return error(400, 'bad_request', valid.message);
+  const build = valid.req;
+  if (!build.worldId) return error(400, 'bad_request', 'A build needs a world.');
 
-    const provider = ((req.headers.get('x-orb-agent-provider') ?? 'free').trim() || 'free') as AgentProvider;
-    const mock = provider === 'mock' && isAdmin(req); // admins can check production with the scripted model
-    if (!AGENT_PROVIDERS.includes(provider) && !mock) return error(400, 'bad_request', 'Unknown AI provider.');
-    const apiKey = provider === 'free' || mock ? null : (req.headers.get('x-orb-agent-key') ?? '').trim();
-    if (provider !== 'free' && !mock && (!apiKey || apiKey.length > 400 || /\s/.test(apiKey))) return error(400, 'bad_key', "That doesn't look like an API key — check it in You → Model.");
-    const model = (req.headers.get('x-orb-agent-model') ?? '').trim().slice(0, 120) || null;
-    const effort = (req.headers.get('x-orb-agent-effort') ?? '').trim() as AgentEffort;
-    if (provider === 'free' && !aiConfigured()) return error(503, 'ai_unavailable', "The free builder isn't set up here yet. Add your own AI key in You → Model to keep building.");
-    const viaCursor = provider === 'free' && !mock && freeOnCursor();
-    if (provider === 'free' && !mock && !isAdmin(req)) {
-      const bot = await botCheck();
-      if (bot) return bot;
-    }
-
-    const db = await ready();
-    const viewer = getViewer(req);
-    if (!viewer.deviceHash && !viewer.userId) return error(400, 'device_required', 'Missing device key.');
-    const rows = await db.query<{ id: string; kind: string; visibility: string; owner_device: string | null; owner_user: string | null }>(
-      `select id, kind, visibility, owner_device, owner_user from orb_worlds where id = $1`,
-      [build.worldId],
-    );
-    const w = rows[0];
-    const owner = w ? await canEdit(db, viewer, w) : false;
-    if (!w || w.kind !== 'native' || (w.visibility === 'private' && !owner)) return error(404, 'not_found', 'This world does not exist.');
-    const mode = build.mode === 'ask' || !owner ? 'ask' : 'build';
-
-    let charged: LimitCheck[] = [];
-    let billing: Billing | null = null;
-    if (provider === 'free' && !mock) {
-      const credits = await checkCredits(req);
-      if ('response' in credits) return credits.response;
-      billing = credits.billing;
-      const quota = await checkRateLimits(req, buildCost(build), freeTierConfig(process.env, mockAi(), viaCursor), billing?.paid);
-      if ('response' in quota) return quota.response;
-      charged = quota.charged;
-    } else if (!mock) {
-      const limited = await checkByoLimits(req);
-      if (limited) return limited;
-    }
-    if ((await runningJobs(db, viewer)) >= MAX_RUNNING) {
-      await refundQuota(charged);
-      return error(429, 'rate_limited', `You already have ${MAX_RUNNING} builds running — wait for one to finish, then try again.`, { retryAfter: 30 });
-    }
-
-    const world = await worldTree(db, build.worldId);
-    if (!world) return error(404, 'not_found', 'This world does not exist.');
-    const messages: ModelMessage[] =
-      provider === 'cursor' || viaCursor
-        ? [cursorMessage(build, world.name, mode)]
-        : [...normalizeHistory(build.messages.slice(0, -1)), await firstMessage(db, world.files, build.worldName ?? world.name, build)];
-    const { origin } = requestOrigin(req);
-    // Orb's AI builds with one model for everyone; Pro only has more credits.
-    const freeModel = viaCursor ? DEFAULT_CURSOR_MODEL : null;
-    const ext: Record<string, unknown> = viaCursor
-      ? { backend: 'cursor', params: await serverCursorParams(serverCursorKey()!, freeModel!, req.signal) }
-      : provider === 'cursor'
-        ? { params: parseCursorParams(req.headers.get('x-orb-cursor-params')) }
-        : AGENT_EFFORTS.includes(effort) && provider !== 'free'
-          ? { effort }
-          : {};
-    if (billing) ext.billing = billing;
-    const id = await createAgentJob(db, {
-      owner: viewer,
-      worldId: build.worldId,
-      mode,
-      provider,
-      model: provider === 'free' ? freeModel : model,
-      apiKey,
-      origin,
-      messages,
-      prompt: build.messages[build.messages.length - 1].content,
-      ext: Object.keys(ext).length ? ext : undefined,
-      trace: { group: traceGroup(req), meta: build.errors?.length ? { repair: build.errors.length } : undefined },
-    });
-    // The first tick runs right here; later ones chain through /api/agent/tick.
-    const first = runTick(db, id)
-      .then((r) => (r === 'continue' ? kick(origin, id, db) : undefined))
-      .catch((e) => console.error('[orb] agent first tick failed', e));
-    after(() => first);
-    return followJob(req, db, id, 0, { announce: true });
-  } catch (e) {
-    console.error('[orb] /api/agent/jobs failed', e);
-    after(() => recordServerError(e, '/api/agent/jobs'));
-    return error(500, 'server_error', 'Something went wrong. Please try again.');
+  const provider = ((req.headers.get('x-orb-agent-provider') ?? 'free').trim() || 'free') as AgentProvider;
+  const mock = provider === 'mock' && isAdmin(req); // admins can check production with the scripted model
+  if (!AGENT_PROVIDERS.includes(provider) && !mock) return error(400, 'bad_request', 'Unknown AI provider.');
+  const apiKey = provider === 'free' || mock ? null : (req.headers.get('x-orb-agent-key') ?? '').trim();
+  if (provider !== 'free' && !mock && (!apiKey || apiKey.length > 400 || /\s/.test(apiKey))) return error(400, 'bad_key', "That doesn't look like an API key — check it in You → Model.");
+  const model = (req.headers.get('x-orb-agent-model') ?? '').trim().slice(0, 120) || null;
+  const effort = (req.headers.get('x-orb-agent-effort') ?? '').trim() as AgentEffort;
+  if (provider === 'free' && !aiConfigured()) return error(503, 'ai_unavailable', "The free builder isn't set up here yet. Add your own AI key in You → Model to keep building.");
+  const viaCursor = provider === 'free' && !mock && freeOnCursor();
+  if (provider === 'free' && !mock && !isAdmin(req)) {
+    const bot = await botCheck();
+    if (bot) return bot;
   }
-}
+
+  const db = await ready();
+  const viewer = getViewer(req);
+  if (!viewer.deviceHash && !viewer.userId) return error(400, 'device_required', 'Missing device key.');
+  const rows = await db.query<{ id: string; kind: string; visibility: string; owner_device: string | null; owner_user: string | null }>(
+    `select id, kind, visibility, owner_device, owner_user from orb_worlds where id = $1`,
+    [build.worldId],
+  );
+  const w = rows[0];
+  const owner = w ? await canEdit(db, viewer, w) : false;
+  if (!w || w.kind !== 'native' || (w.visibility === 'private' && !owner)) return error(404, 'not_found', 'This world does not exist.');
+  const mode = build.mode === 'ask' || !owner ? 'ask' : 'build';
+
+  let charged: LimitCheck[] = [];
+  let billing: Billing | null = null;
+  if (provider === 'free' && !mock) {
+    const credits = await checkCredits(req);
+    if ('response' in credits) return credits.response;
+    billing = credits.billing;
+    const quota = await checkRateLimits(req, buildCost(build), freeTierConfig(process.env, mockAi(), viaCursor), billing?.paid);
+    if ('response' in quota) return quota.response;
+    charged = quota.charged;
+  } else if (!mock) {
+    const limited = await checkByoLimits(req);
+    if (limited) return limited;
+  }
+  if ((await runningJobs(db, viewer)) >= MAX_RUNNING) {
+    await refundQuota(charged);
+    return error(429, 'rate_limited', `You already have ${MAX_RUNNING} builds running — wait for one to finish, then try again.`, { retryAfter: 30 });
+  }
+
+  const world = await worldTree(db, build.worldId);
+  if (!world) return error(404, 'not_found', 'This world does not exist.');
+  const messages: ModelMessage[] =
+    provider === 'cursor' || viaCursor
+      ? [cursorMessage(build, world.name, mode)]
+      : [...normalizeHistory(build.messages.slice(0, -1)), await firstMessage(db, world.files, build.worldName ?? world.name, build)];
+  const { origin } = requestOrigin(req);
+  // Orb's AI builds with one model for everyone; Pro only has more credits.
+  const freeModel = viaCursor ? DEFAULT_CURSOR_MODEL : null;
+  const ext: Record<string, unknown> = viaCursor
+    ? { backend: 'cursor', params: await serverCursorParams(serverCursorKey()!, freeModel!, req.signal) }
+    : provider === 'cursor'
+      ? { params: parseCursorParams(req.headers.get('x-orb-cursor-params')) }
+      : AGENT_EFFORTS.includes(effort) && provider !== 'free'
+        ? { effort }
+        : {};
+  if (billing) ext.billing = billing;
+  const id = await createAgentJob(db, {
+    owner: viewer,
+    worldId: build.worldId,
+    mode,
+    provider,
+    model: provider === 'free' ? freeModel : model,
+    apiKey,
+    origin,
+    messages,
+    prompt: build.messages[build.messages.length - 1].content,
+    ext: Object.keys(ext).length ? ext : undefined,
+    trace: { group: traceGroup(req), meta: build.errors?.length ? { repair: build.errors.length } : undefined },
+  });
+  // The first tick runs right here; later ones chain through /api/agent/tick.
+  const first = runTick(db, id)
+    .then((r) => (r === 'continue' ? kick(origin, id, db) : undefined))
+    .catch((e) => console.error('[orb] agent first tick failed', e));
+  after(() => first);
+  return followJob(req, db, id, 0, { announce: true });
+});

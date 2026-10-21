@@ -5,13 +5,13 @@ import { SITE } from '@/lib/site';
 import './globals.css';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
-// Only the code, history and GitHub panels use it: fetched when they first show, not on every page.
+// Only some panels and the lab use it: fetched when first shown, not on every page.
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'], preload: false });
 const instrumentSerif = Instrument_Serif({ variable: '--font-instrument-serif', subsets: ['latin'], weight: '400', style: ['normal', 'italic'] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
-  title: { default: 'Orb', template: '%s · Orb' },
+  title: { default: 'Orb — make and play worlds', template: '%s · Orb' },
   description: 'Say what you imagine and watch it come alive. Build games, worlds and toys by chatting — share them with a link. No install, no sign-up.',
   openGraph: { siteName: 'Orb', type: 'website' },
   twitter: { card: 'summary_large_image' },
@@ -31,8 +31,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}>
-      <body className="h-full">
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable}`}>
+      <body>
         {children}
         <PageViews />
       </body>

@@ -19,16 +19,13 @@ import { fieldClass, groupClass, SectionHeader, Skeleton, useHydrated } from './
 const EXPLAINER = 'Keep your worlds’ code in your own GitHub repositories. Orb keeps its copy either way.';
 const TOKEN_URL = 'https://github.com/settings/tokens/new?scopes=repo&description=Orb%20worlds';
 
-let consuming: Promise<GitHubConnection | null> | null = null;
-
 /**
  * Finish the OAuth round-trip: if the URL hash carries `gh_token=…` or `gh_error=…` (set by
- * /api/github/callback), strip it from the address bar and hand the token to Orb. Safe to call
- * more than once; the app shell calls it on startup.
+ * /api/github/callback), strip it from the address bar and hand the token to Orb. The app shell
+ * calls it on startup.
  */
 export function consumeGitHubTokenFromHash(): Promise<GitHubConnection | null> {
   if (typeof window === 'undefined') return Promise.resolve(null);
-  if (consuming) return consuming;
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const token = params.get('gh_token');
   const failure = params.get('gh_error');
@@ -41,7 +38,7 @@ export function consumeGitHubTokenFromHash(): Promise<GitHubConnection | null> {
     if (failure !== 'access_denied') toast('Couldn’t connect GitHub. Please try again.', 'error');
     return Promise.resolve(null);
   }
-  consuming = api
+  return api
     .connectGitHub(token)
     .then((c) => {
       toast(`GitHub connected as @${c.login}`, 'success');
@@ -52,11 +49,7 @@ export function consumeGitHubTokenFromHash(): Promise<GitHubConnection | null> {
       console.warn('[orb] GitHub OAuth token rejected', e);
       toast('Couldn’t connect GitHub. Please try again.', 'error');
       return null;
-    })
-    .finally(() => {
-      consuming = null;
     });
-  return consuming;
 }
 
 /**
@@ -97,7 +90,6 @@ function GitHubConnectInner() {
   useEffect(() => {
     const load = () => api.github().then((r) => setConn(r.login ? r : null), () => setConn(null));
     load();
-    void consumeGitHubTokenFromHash().then((c) => c && setConn(c));
     window.addEventListener('orb:github', load);
     return () => window.removeEventListener('orb:github', load);
   }, []);

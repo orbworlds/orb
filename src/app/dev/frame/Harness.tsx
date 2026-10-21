@@ -9,21 +9,19 @@ import { setFriendPeers, setRoomIdentity } from '@/lib/runtime/realtime';
 import { injectRuntime } from '@/lib/runtime/sdk';
 import type { ProbeResult, ProbeUnavailable, RuntimeContext, WorldRuntimeError } from '@/lib/types';
 
-export interface HarnessEvent {
+interface HarnessEvent {
   t: number;
   type: 'ready' | 'error' | 'toast' | 'title' | 'capture' | 'invite' | 'people' | 'purchase';
   data?: unknown;
 }
 
-export interface HarnessApi {
+interface HarnessApi {
   setHtml(html: string | null): void;
-  setSample(key: string): void;
   setExternal(url: string | null): void;
   setWorldId(id: string): void;
   capture(): Promise<string | null>;
   probe(req: FrameProbe): Promise<ProbeResult | ProbeUnavailable>;
   reload(): void;
-  focus(): void;
   inject(html: string): string;
   /** As a friends sync would: these peer ids are friends, vouched for by an answer asked at `askedAt`. */
   setFriendPeers(peers: string[], askedAt?: number): void;
@@ -35,7 +33,6 @@ export interface HarnessApi {
   shopAnswer: { ok: boolean; reason?: string };
   shopDelay: number;
   events: HarnessEvent[];
-  samples: Record<string, string>;
 }
 
 declare global {
@@ -218,17 +215,11 @@ export default function Harness({ params }: { params: Record<string, string> }) 
         setExternal(null);
         setCustom(h);
       },
-      setSample: (key) => {
-        setExternal(null);
-        setCustom(null);
-        setSample(key);
-      },
       setExternal,
       setWorldId,
       capture: () => frame.current?.capture() ?? Promise.resolve(null),
       probe: (req) => frame.current?.probe(req) ?? Promise.resolve({ unavailable: 'no frame' }),
       reload: () => frame.current?.reload(),
-      focus: () => frame.current?.focus(),
       inject: (h) => injectRuntime(h, ctxRef.current),
       setFriendPeers: (peers, askedAt = Date.now()) => setFriendPeers(peers, askedAt),
       setWears: (wears) => setRoomIdentity({ ...ctxRef.current.me, wears }),
@@ -239,7 +230,6 @@ export default function Harness({ params }: { params: Record<string, string> }) 
       shopAnswer: { ok: true },
       shopDelay: 0,
       events: events.current,
-      samples: SAMPLES,
     };
     window.__orbHarness = api;
     return () => {

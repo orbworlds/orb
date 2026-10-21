@@ -6,8 +6,8 @@
 //
 //   ORB_GITHUB_TOKEN=… ORB_APP_ID=… ORB_APP_KEY=… [VERCEL_TOKEN=…] node scripts/setup-org.mjs
 //
-//   - orbworlds/orb-private's Actions: the variable ORB_APP_ID and the secret ORB_APP_KEY, for the org
-//     workflow (.github/workflows/org.yml, scripts/sync-org.mjs);
+//   - orbworlds/orb-private's Actions: the variable ORB_APP_ID and the secret ORB_APP_KEY, for the
+//     Public workflow (.github/workflows/public.yml, scripts/publish-public.mjs);
 //   - with VERCEL_TOKEN, Orb's production environment: ORB_APP_ID and ORB_APP_KEY, which Orb's
 //     server uses to read its Originals' repositories while they're private (src/server/reposync.ts).
 //   ORB_APP_KEY may be the key file's text or only its base64 body; it is stored as the PEM.
@@ -15,13 +15,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pemKey } from './org-app.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ORG = JSON.parse(fs.readFileSync(path.join(root, 'src/data/originals.json'), 'utf8')).org;
 const token = process.env.ORB_GITHUB_TOKEN ?? '';
 const appId = process.env.ORB_APP_ID ?? '';
-const rawKey = (process.env.ORB_APP_KEY ?? '').trim().replace(/\\n/g, '\n');
-const appKey = !rawKey || rawKey.includes('-----BEGIN') ? rawKey : `-----BEGIN RSA PRIVATE KEY-----\n${rawKey.replace(/\s+/g, '').replace(/(.{64})/g, '$1\n').trim()}\n-----END RSA PRIVATE KEY-----\n`;
+const appKey = (process.env.ORB_APP_KEY ?? '').trim() ? pemKey(process.env.ORB_APP_KEY) : '';
 const vercelToken = process.env.VERCEL_TOKEN || process.env.ORB_VERCEL_TOKEN || '';
 if (!token || !appId || !appKey) {
   console.error('Needs ORB_GITHUB_TOKEN (an org owner’s), ORB_APP_ID and ORB_APP_KEY (Orb’s GitHub App).');
@@ -60,7 +60,7 @@ async function setVariable(repo, name, value) {
   console.log(`  ${ORG}/${repo}: variable ${name}`);
 }
 
-console.log(`${ORG}/orb (the org workflow)`);
+console.log(`${ORG}/orb-private (the Public workflow)`);
 await setVariable('orb-private', 'ORB_APP_ID', appId);
 await setSecret('orb-private', 'ORB_APP_KEY', appKey);
 

@@ -3,11 +3,11 @@
 // DELETE removes the world.
 
 import { isAdmin } from '@/server/auth';
-import { json, readJson } from '@/server/http';
+import { fail, handle, json, readJson } from '@/server/http';
 import { ready } from '@/server/schema';
-import { adminSetFlags, fail, route, worldIdParam, type IdContext } from '@/server/worlds';
+import { adminSetFlags, worldIdParam, type IdContext } from '@/server/worlds';
 
-export const POST = route(async (req: Request, ctx: IdContext) => {
+export const POST = handle(async (req: Request, ctx: IdContext) => {
   if (!isAdmin(req)) fail(401, 'unauthorized', 'Admin token required.');
   const id = await worldIdParam(ctx);
   const body = await readJson<unknown>(req, 10_000);
@@ -18,7 +18,7 @@ export const POST = route(async (req: Request, ctx: IdContext) => {
 });
 
 /** DELETE /api/admin/worlds/:id — remove a world (spam, tests). */
-export const DELETE = route(async (req: Request, ctx: IdContext) => {
+export const DELETE = handle(async (req: Request, ctx: IdContext) => {
   if (!isAdmin(req)) fail(401, 'unauthorized', 'Admin token required.');
   const id = await worldIdParam(ctx);
   const db = await ready();

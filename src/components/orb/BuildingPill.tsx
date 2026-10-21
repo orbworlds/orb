@@ -1,7 +1,7 @@
 'use client';
 // A slim glass pill at the top of the world while a build runs: tiny spinner, the current step in
-// shimmer ("Planting cherry trees…") and a step counter. Visible even with the panel collapsed;
-// when the build lands it shows a ✓ and fades away.
+// shimmer ("Planting cherry trees…") and a step counter. Shown while the panel is collapsed (the
+// open panel narrates the build); when the build lands it shows a ✓ and fades away.
 import { useEffect, useRef, useState } from 'react';
 import { Spinner } from '@/components/ui/Spinner';
 import type { BuildProgress } from '@/lib/engine/useBuild';
@@ -15,7 +15,7 @@ const VERB = new Set([
   'design', 'draw', 'drift', 'fill', 'fix', 'float', 'frame', 'give', 'glow', 'grow', 'hang', 'hide', 'improve', 'introduce', 'keep', 'lay', 'let', 'light', 'line', 'load', 'make',
   'move', 'paint', 'place', 'plant', 'polish', 'raise', 'refine', 'remove', 'render', 'replace', 'reshape', 'restore', 'rotate', 'scatter', 'sculpt', 'shape', 'show', 'smooth',
   'soften', 'spawn', 'spread', 'sprinkle', 'start', 'style', 'switch', 'teach', 'tidy', 'tune', 'turn', 'tweak', 'update', 'warm', 'write', 'brighten', 'darken', 'enlarge', 'shrink',
-  'speed', 'slow', 'stack', 'wire', 'hook', 'track', 'count', 'score', 'play', 'sound', 'mix', 'compose', 'invent', 'welcome', 'open', 'close', 'paint', 'fade', 'bake', 'pave',
+  'speed', 'slow', 'stack', 'wire', 'hook', 'track', 'count', 'score', 'play', 'sound', 'mix', 'compose', 'invent', 'welcome', 'open', 'close', 'fade', 'bake', 'pave',
   ...DOUBLE,
 ]);
 
@@ -37,10 +37,10 @@ export function gerund(label: string): string {
 
 type Phase = 'hidden' | 'building' | 'done';
 
-export function BuildingPill({ isBuilding, progress, messages, offset }: { isBuilding: boolean; progress: BuildProgress | null; messages: ChatMessage[]; offset: { left: string; top: string } }) {
+export function BuildingPill({ isBuilding, progress, messages, top }: { isBuilding: boolean; progress: BuildProgress | null; messages: ChatMessage[]; top: string }) {
   const [phase, setPhase] = useState<Phase>('hidden');
   const wasBuilding = useRef(false);
-  const last = [...messages].reverse().find((m) => m.role === 'assistant');
+  const last = messages.findLast((m) => m.role === 'assistant');
   const b = last?.build;
 
   useEffect(() => {
@@ -62,14 +62,13 @@ export function BuildingPill({ isBuilding, progress, messages, offset }: { isBui
   const current = progress?.label ?? pending?.label;
   const doneCount = steps.filter((s) => s.status === 'done').length;
   const stepNo = current ? doneCount + 1 : doneCount;
-  const label = phase === 'done' ? 'Done' : current ? gerund(current) : b?.repair ? 'Fixing a little thing…' : steps.length ? 'Finishing up…' : b?.thinkingSince ? 'Thinking it through…' : 'Dreaming it up…';
+  const label = phase === 'done' ? 'Done' : current ? gerund(current) : b?.repair ? 'Fixing a little thing…' : steps.length ? 'Finishing up…' : b ? 'Building…' : 'Thinking…';
 
   const visible = phase !== 'hidden';
   return (
     <div
-      aria-live="polite"
-      className="pointer-events-none fixed z-[25] flex justify-center transition-[left,top] duration-500 ease-[var(--ease)]"
-      style={{ left: offset.left, top: offset.top, transform: 'translateX(-50%)' }}
+      className="pointer-events-none fixed left-1/2 z-[25] flex -translate-x-1/2 justify-center"
+      style={{ top }}
     >
       <div
         className="glass flex h-9 max-w-[min(440px,calc(100vw-32px))] items-center gap-2.5 rounded-full pr-4 pl-3 text-[13.5px] transition-[opacity,transform,filter] duration-[450ms] ease-[var(--ease)]"

@@ -3,8 +3,7 @@
 import { createHash } from 'node:crypto';
 import { getDb, type Db } from './db';
 import { MIGRATION, SCHEMA_VERSION } from './ddl.mjs';
-
-export { DDL } from './ddl.mjs';
+import { backfillPaths, repathCurated } from './paths';
 
 // Shared by every bundle in the process (see ./db), so the schema and seeds are applied once.
 const shared = globalThis as typeof globalThis & { __orbReady?: Promise<Db> | null };
@@ -41,12 +40,11 @@ export function ready(): Promise<Db> {
         if (done.get('seeds') !== seeds || (await present()) < ids.length) {
           await applySeeds(db);
           await applyOriginals(db);
-          await (await import('./paths')).repathCurated(db);
+          await repathCurated(db);
           await db.query(`insert into orb_meta (key, value) values ('seeds', $1) on conflict (key) do update set value = excluded.value, at = now()`, [seeds]);
         }
         // Readable URLs for worlds that don't have one yet (a few per start; instant once done —
         // serverless functions freeze work left running after the response, so this is awaited).
-        const { backfillPaths } = await import('./paths');
         await backfillPaths(db, 80).catch((e) => console.error('[orb] path backfill failed', e));
       } catch (e) {
         console.error('[orb] seeding failed', e);

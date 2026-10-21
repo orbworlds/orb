@@ -390,7 +390,7 @@ export interface BuildRequest {
   worldId?: string | null;
   /** Prior conversation (trimmed) + the new user message as the last item. */
   messages: ModelMessage[];
-  /** Optional screenshot of the current world as a data URL (jpeg/webp, ≤ ~200 KB). */
+  /** Optional screenshot of the current world as a data URL (jpeg/png/webp/gif, ≤ BUILD_LIMITS.image characters). */
   image?: string | null;
   /** Runtime errors to repair (the automatic repair round). */
   errors?: string[];
@@ -406,32 +406,29 @@ export interface BuildStep {
   kind: 'write' | 'edit';
   label: string;
   status: StepStatus;
-  /** Reason for failure (e.g. "snippet not found"). */
+  /** Reason for failure (e.g. "old_string was not found"). */
   error?: string;
 }
 
 export interface BuildInfo {
   status: 'streaming' | 'done' | 'error' | 'stopped';
   steps: BuildStep[];
+  /** How much of the message's text came before its first step (shown above the checklist; the rest under it). */
+  stepsAt?: number;
   /** World version before this build (for undo). */
   fromVersion?: number;
   /** World version saved after this build. */
   toVersion?: number;
-  title?: string;
   suggestions?: string[];
-  /** Ask mode: they asked to change someone else's world, so the page offers them their own copy. */
+  /** Ask mode: they asked to change someone else's world, so the page offers Remix (their own copy). */
   remix?: boolean;
   error?: string;
   /** Why it failed, when the page offers a way out (out_of_credits: plans, top-ups, an account). */
   errorCode?: string;
-  /** Credits the build used (both rounds), as Orb's server counted them. */
-  credits?: number;
   /** True if this build was an automatic repair round. */
   repair?: boolean;
   /** Why the automatic fix after a saved build failed (not shown: the build stands; for analytics). */
   repairFailed?: string;
-  /** Raw model output (kept for the code peek / debugging, truncated). */
-  raw?: string;
   /** Set when the user undid this build. */
   undone?: boolean;
   /**
@@ -476,7 +473,7 @@ export interface ModelSettings {
   provider: ModelProvider;
   /** API key for BYO providers (stored only in this browser). */
   apiKey?: string;
-  /** Model id for BYO providers. Defaults per provider in engine/client.ts. */
+  /** Model id for BYO providers. Defaults: KEY_DEFAULT_MODELS in engine/prompt.ts (Cursor's in engine/client.ts). */
   model?: string;
   /** Model options (Cursor: e.g. { effort: 'high', fast: 'true' }). */
   params?: Record<string, string>;

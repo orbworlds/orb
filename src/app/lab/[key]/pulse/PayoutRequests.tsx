@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import type { PayoutRequest } from '@/server/payouts';
+import { CARD } from './ui';
 
 const TOKEN = 'orb:admin-token';
 
@@ -16,7 +17,7 @@ function money(amount: number, currency: string): string {
   }
 }
 
-export function PayoutRequests({ requests, card }: { requests: PayoutRequest[]; card: string }) {
+export function PayoutRequests({ requests }: { requests: PayoutRequest[] }) {
   const [done, setDone] = useState<Record<string, string>>({});
   const answer = async (id: string, action: 'approve' | 'reject') => {
     let token = sessionStorage.getItem(TOKEN);
@@ -32,11 +33,11 @@ export function PayoutRequests({ requests, card }: { requests: PayoutRequest[]; 
     else sessionStorage.setItem(TOKEN, token);
     setDone((d) => ({ ...d, [id]: res.ok ? (body.status ?? 'done') : (body.message ?? `failed (${res.status})`) }));
   };
-  if (!requests.length) return <p className={`${card} mt-4 text-[14px] text-ink-2`}>None waiting.</p>;
+  if (!requests.length) return <p className={`${CARD} text-[14px] text-ink-2`}>None waiting.</p>;
   return (
-    <ul className="mt-4 flex flex-col gap-3">
+    <ul className="flex flex-col gap-3">
       {requests.map((r) => (
-        <li key={r.id} className={card}>
+        <li key={r.id} className={CARD}>
           <div className="flex flex-wrap items-baseline gap-x-2 text-[14px] text-ink">
             <span className="font-medium">{money(r.amount, r.currency)}</span>
             <span className="text-ink-2">
@@ -67,7 +68,7 @@ export function PayoutRequests({ requests, card }: { requests: PayoutRequest[]; 
               <span className="text-ink-2">{done[r.id]}</span>
             ) : (
               <>
-                <button type="button" onClick={() => void answer(r.id, 'approve')} className="rounded-full bg-ink px-3 py-1 font-medium text-[var(--bg)]">
+                <button type="button" onClick={() => void answer(r.id, 'approve')} className="rounded-full bg-ink px-3 py-1 font-medium text-paper">
                   Approve and send
                 </button>
                 <button type="button" onClick={() => void answer(r.id, 'reject')} className="rounded-full px-3 py-1 text-ink-2 shadow-[inset_0_0_0_1px_var(--ink-5)]">

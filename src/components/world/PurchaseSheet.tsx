@@ -12,7 +12,7 @@ import { AccountCard, useMe } from '@/components/orb/AccountCard';
 import { Skeleton } from '@/components/orb/WorldCard';
 import { formatCredits, useBilling } from '@/state/billing';
 import { answerPurchase, useShop, type PurchaseAsk } from '@/state/shop';
-import { toast } from '@/state/toast';
+import { apiMessage, toast } from '@/state/toast';
 import { useUi } from '@/state/ui';
 
 export function PurchaseSheet() {
@@ -68,7 +68,7 @@ function PurchaseBody({ ask }: { ask: PurchaseAsk }) {
       else if (code === 'price_changed' || code === 'unknown_item') {
         setError(e instanceof ApiError ? e.message : 'That changed just now.');
         void load();
-      } else setError(e instanceof ApiError && e.status < 500 && e.message ? e.message : 'Couldn’t buy that. Try again in a moment.');
+      } else setError(apiMessage(e, 'Couldn’t buy that. Try again in a moment.'));
     } finally {
       setBusy(false);
     }

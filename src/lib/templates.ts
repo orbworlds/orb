@@ -88,8 +88,6 @@ export const TEMPLATES: TemplateInfo[] = [
 
 export const TEMPLATE_BY_ID: Record<string, TemplateInfo> = Object.fromEntries(TEMPLATES.map((t) => [t.id, t]));
 
-/** Small thumbnail for template cards (scripts/gen-template-cards.mjs); `thumb` is full size. */
-export const templateCard = (t: TemplateInfo): string => `/templates/cards/${t.id}.webp`;
 
 export async function fetchTemplate(id: string): Promise<string> {
   const t = TEMPLATE_BY_ID[id] ?? TEMPLATE_BY_ID.blank;

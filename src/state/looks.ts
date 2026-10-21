@@ -10,7 +10,7 @@ import { setPlayerColor } from '@/lib/local';
 import type { LookItem, LooksView } from '@/lib/types';
 import { useSession } from '@/components/orb/AccountCard';
 import { useBilling } from './billing';
-import { toast } from './toast';
+import { apiMessage, toast } from './toast';
 import { useWorld } from './world';
 
 interface LooksState {
@@ -67,7 +67,7 @@ export const useLooks = create<LooksState>((set, get) => ({
       set({ busy: null });
       const code = e instanceof ApiError ? e.code : 'failed';
       if (code === 'price_changed') void get().load(true);
-      return { ok: false, code, message: e instanceof ApiError && e.status < 500 && e.message ? e.message : 'Couldn’t get that just now. Try again in a moment.' };
+      return { ok: false, code, message: apiMessage(e, 'Couldn’t get that just now. Try again in a moment.') };
     }
   },
   async wear(wear) {
@@ -77,7 +77,7 @@ export const useLooks = create<LooksState>((set, get) => ({
       adopt(await api.setLook({ wear }));
       track('look_wear', { wear: wear.join(' ') || 'nothing' });
     } catch (e) {
-      toast(e instanceof ApiError && e.status < 500 ? e.message : 'Couldn’t change that just now.', 'error');
+      toast(apiMessage(e, 'Couldn’t change that just now.'), 'error');
     } finally {
       set({ busy: null });
     }

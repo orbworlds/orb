@@ -1,4 +1,4 @@
-// Cursor agents without GitHub (the free builder on Orb's own Cursor key, see ../ai.ts): the
+// Cursor agents (the free builder on Orb's own Cursor key, see ../ai.ts, or a person's own key): the
 // agent's workspace is the world. It downloads the world's files from Orb and saves its work back
 // over HTTPS, through a link that works for this one job only, and only while the job runs
 // (/api/agent/jobs/:id/files):
@@ -14,33 +14,21 @@
 //   them run in the person's browser without saving them (./look.ts). The answer — a report and
 //   the screenshots — lands in .orb/seen/.
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { createGunzip, createGzip, gzipSync } from 'node:zlib';
-import { secret } from '../auth';
 import { isJobId } from '../buildjobs';
 import type { Db } from '../db';
 import { cleanPath, FILE_LIMITS, FileError, getBlob, putBlob, putTree, type Tree } from '../files';
 import { SKIP_DIR, untar } from '../importer';
 import { ready } from '../schema';
 import { SEEN_DIR } from './look';
-
-export function filesToken(id: string): string {
-  return createHmac('sha256', secret()).update(`orb-agent-files:${id}`).digest('base64url');
-}
-
-export function checkFilesToken(id: string, token: string | null): boolean {
-  if (!token) return false;
-  const a = Buffer.from(filesToken(id));
-  const b = Buffer.from(token);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+import { checkJobToken, jobToken } from './secrets';
 
 /** The job's files link (saving adds the tree the download came from). */
-export const filesUrl = (origin: string, id: string): string => `${origin}/api/agent/jobs/${encodeURIComponent(id)}/files?t=${filesToken(id)}`;
+export const filesUrl = (origin: string, id: string): string => `${origin}/api/agent/jobs/${encodeURIComponent(id)}/files?t=${jobToken('files', id)}`;
 /** Where the job's agent looks at the world (with the tree the download came from, like a save). */
-export const lookUrl = (origin: string, id: string): string => `${origin}/api/agent/jobs/${encodeURIComponent(id)}/files/look?t=${filesToken(id)}`;
+export const lookUrl = (origin: string, id: string): string => `${origin}/api/agent/jobs/${encodeURIComponent(id)}/files/look?t=${jobToken('files', id)}`;
 
 /** Orb's answer for the agent's terminal, in plain words. */
 export const sayText = (status: number, text: string): Response =>
@@ -55,7 +43,7 @@ export interface LinkedJob {
 
 /** The running job a files link (`t`: its token) is for — or what to answer instead. */
 export async function linkedJob(req: Request, id: string): Promise<{ answer: Response } | { db: Db; job: LinkedJob }> {
-  if (!isJobId(id) || !checkFilesToken(id, new URL(req.url).searchParams.get('t'))) return { answer: sayText(404, 'No such build.') };
+  if (!isJobId(id) || !checkJobToken('files', id, new URL(req.url).searchParams.get('t'))) return { answer: sayText(404, 'No such build.') };
   const db = await ready();
   const job = (await db.query<LinkedJob>(`select status, mode, tree, inbox from orb_agent_jobs where id = $1`, [id]))[0];
   if (!job) return { answer: sayText(404, 'No such build.') };
@@ -230,7 +218,6 @@ export async function readSave(db: Db, body: ReadableStream<Uint8Array>, base: T
   let total = 0;
   try {
     for await (const e of untar(gz)) {
-      if (e.type !== '0' && e.type !== '\0' && e.type !== '7') continue; // files only
       const name = e.path.replace(/^(\.\/)+/, '');
       if (name === listName) {
         list = e.data.toString('utf8').split('\n');

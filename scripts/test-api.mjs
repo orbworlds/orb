@@ -18,45 +18,20 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { fileURLToPath } from 'node:url';
+import { startFake } from './fake-cursor-github.mjs';
+import { check, finish, root, section, skip, startNext, stopNext } from './harness.mjs';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASE = (process.env.ORB_TEST_BASE || 'http://localhost:3103').replace(/\/$/, '');
 const PORT = new URL(BASE).port || '3103';
 const PGLITE_DIR = process.env.ORB_PGLITE_DIR || '.data/pglite-server';
 const OUT_DIR = path.join(root, '.data', 'test-api');
 
 // ------------------------------------------------------------------------------------------
-// Tiny test framework
-
-const results = [];
-function check(name, ok, detail) {
-  results.push({ name, ok: !!ok });
-  const d = detail === undefined ? '' : ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`;
-  console.log(`  ${ok ? '✓' : '✗'} ${name}${ok ? '' : d}`);
-}
-function skip(name, why) {
-  console.log(`  - ${name} (skipped: ${why})`);
-}
-const ONLY = (process.env.ORB_TEST_ONLY || '').toLowerCase();
-async function section(title, fn) {
-  if (ONLY && !title.toLowerCase().includes(ONLY)) return;
-  console.log(`\n${title}`);
-  try {
-    await fn();
-  } catch (e) {
-    check(`${title}: unexpected exception`, false, e && e.stack ? e.stack.split('\n').slice(0, 4).join(' | ') : String(e));
-  }
-}
-
-// ------------------------------------------------------------------------------------------
 // Fixtures
 
 // Cursor builds and GitHub sync run against a fake of both APIs (when this script starts the
 // server itself).
-const { startFake } = await import('./fake-cursor-github.mjs');
 let FAKE = null;
-let FAKE_URL = '';
 
 const RUN = crypto.randomBytes(4).toString('hex');
 const TOKEN = `zq${RUN}`; // unique word in names/descriptions so list queries only see this run
@@ -159,6 +134,50 @@ const patch = (dev, id, input, cookie) => request('PATCH', `/api/worlds/${id}`, 
 const get = (dev, id, cookie) => request('GET', `/api/worlds/${id}`, { dev, cookie });
 const store = (dev, id, body) => request('POST', `/api/worlds/${id}/store`, { dev, body });
 const list = (dev, query) => request('GET', `/api/worlds?${new URLSearchParams(query)}`, { dev });
+const cookieOf = (r) => /orb_session=[^;]+/.exec(r.headers.get('set-cookie') || '')?.[0] ?? null;
+/** A new account on `dev`, signed in. */
+async function join(dev, username) {
+  const r = await request('POST', '/api/auth/signup', { dev, body: { username, password: 'friendly pass 1' } });
+  return { dev, cookie: cookieOf(r), id: r.json?.user?.id, handle: r.json?.user?.handle, name: r.json?.user?.name };
+}
+
+/** The whole trending feed, page by page (it can be longer than one page). */
+async function feed() {
+  const ids = [];
+  let next;
+  for (let i = 0; i < 20; i++) {
+    const r = await request('GET', `/api/worlds?sort=trending&limit=60${next ? `&cursor=${next}` : ''}`);
+    ids.push(...r.json.worlds.map((x) => x.id));
+    next = r.json.nextCursor;
+    if (!next) break;
+  }
+  return ids;
+}
+
+/** Run a build and answer its looks like a watching page would, with `answer(look)`. */
+async function watch(dev, world, text, answer, headers = {}) {
+  const res = await fetch(`${BASE}/api/agent/jobs`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-orb-device': dev, ...headers },
+    body: JSON.stringify({ worldId: world.id, messages: [{ role: 'user', content: text }], mode: 'build', code: '' }),
+    signal: AbortSignal.timeout(120_000),
+  });
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let out = '';
+  const looks = [];
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    out += dec.decode(value, { stream: true });
+    for (const m of out.matchAll(/\u001e(\{"t":"look"[^\n]*)\n/g)) {
+      const look = JSON.parse(m[1]);
+      if (looks.some((l) => l.look.id === look.id)) continue;
+      looks.push({ look, replies: await answer(look) });
+    }
+  }
+  return { status: res.status, text: out, looks };
+}
 
 function pngSize(buf) {
   if (buf.length < 24 || buf.readUInt32BE(0) !== 0x89504e47) return null;
@@ -168,34 +187,15 @@ function pngSize(buf) {
 // ------------------------------------------------------------------------------------------
 // Dev server
 
-async function reachable() {
-  try {
-    const res = await fetch(`${BASE}/api/config`, { signal: AbortSignal.timeout(90_000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
 /** Seed a test account into PGlite (only while no server holds the data dir open). */
 async function seedAccount() {
   const id = `testuser${RUN}`;
-  if (process.env.POSTGRES_URL) {
-    // Real Postgres (e.g. a local server): insert the account there instead of PGlite.
-    const { default: postgres } = await import('postgres');
-    const sql = postgres(process.env.POSTGRES_URL, { prepare: false, onnotice: () => {} });
-    await sql.unsafe(`create table if not exists orb_users (id text primary key, name text not null, created_at timestamptz not null default now())`);
-    await sql.unsafe(`insert into orb_users (id, name) values ($1, $2) on conflict (id) do nothing`, [id, `Tester ${RUN}`]);
-    await sql.unsafe(`delete from orb_rate where key = 'events:all' or key like '%:ip:%' or key like '%:ipday:%'`).catch(() => {});
-    await sql.end();
-    return id;
-  }
   const { PGlite } = await import('@electric-sql/pglite');
   const dir = path.resolve(root, PGLITE_DIR);
   fs.mkdirSync(dir, { recursive: true });
   const pg = new PGlite(dir);
   await pg.waitReady;
-  // Same definition as src/server/schema.ts (create-if-not-exists, so the server's DDL is a no-op).
+  // Same definition as src/server/ddl.mjs (create-if-not-exists, so the server's DDL is a no-op).
   await pg.exec(`create table if not exists orb_users (
     id text primary key,
     name text not null,
@@ -223,31 +223,24 @@ async function ensureServer() {
   LAB_KEY = 'test-lab-key';
   SHOP_DAILY = 100;
   FAKE = await startFake();
-  FAKE_URL = `http://localhost:${FAKE.port}`;
+  const url = `http://localhost:${FAKE.port}`;
   console.log(`Starting next dev on :${PORT} (PGlite: ${PGLITE_DIR}) …`);
-  const child = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'dev', '-p', PORT], {
-    cwd: root,
-    env: { ...process.env, ORB_MOCK_AI: '1', ORB_PGLITE_DIR: PGLITE_DIR, ORB_ADMIN_TOKEN: ADMIN_TOKEN, ORB_SECRET: SECRET, ORB_FREE_DAILY_PER_DEVICE: String(FREE_PER_DEVICE), ORB_LAB_KEY: LAB_KEY, ORB_SHOP_DAILY: String(SHOP_DAILY), NEXT_TELEMETRY_DISABLED: '1', ...(FAKE ? { ORB_CURSOR_API: FAKE_URL, ORB_GITHUB_API: FAKE_URL, ORB_GITHUB_CODELOAD: `${FAKE_URL}/codeload`, ORB_GITHUB_WEB: FAKE_URL } : {}) },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: true,
+  return startNext({
+    port: PORT,
+    env: {
+      ORB_MOCK_AI: '1',
+      ORB_PGLITE_DIR: PGLITE_DIR,
+      ORB_ADMIN_TOKEN: ADMIN_TOKEN,
+      ORB_SECRET: SECRET,
+      ORB_FREE_DAILY_PER_DEVICE: String(FREE_PER_DEVICE),
+      ORB_LAB_KEY: LAB_KEY,
+      ORB_SHOP_DAILY: String(SHOP_DAILY),
+      ORB_CURSOR_API: url,
+      ORB_GITHUB_API: url,
+      ORB_GITHUB_CODELOAD: `${url}/codeload`,
+      ORB_GITHUB_WEB: url,
+    },
   });
-  let log = '';
-  child.stdout.on('data', (d) => (log += d));
-  child.stderr.on('data', (d) => (log += d));
-  const deadline = Date.now() + 180_000;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`next dev exited early:\n${log.slice(-2000)}`);
-    if (await reachable()) return child;
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-  throw new Error(`next dev did not become ready:\n${log.slice(-2000)}`);
-}
-
-function stopServer(child) {
-  if (!child) return;
-  try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {}
 }
 
 // ------------------------------------------------------------------------------------------
@@ -663,6 +656,8 @@ async function run() {
     check('signed-in owner can make a world private', p.status === 200 && p.json.world.visibility === 'private', p.json);
     const hidden = await get(OTHER, w.id);
     check('private world is 404 for others', hidden.status === 404, hidden.status);
+    const pages = [await request('GET', `/w/${w.id}`), await request('GET', `/${p.json.world.path}`)];
+    check('…while its pages answer (the browser opens it for its maker)', pages.every((x) => x.status === 200), pages.map((x) => x.status));
     const ownerView = await get(undefined, w.id, cookie);
     check('owner (session only, other device) can open it', ownerView.status === 200 && ownerView.json.world.canEdit === true, ownerView.status);
     const pubList = await list(OTHER, { q: TOKEN, sort: 'new' });
@@ -687,7 +682,6 @@ async function run() {
   });
 
   await section('Accounts with a username and password', async () => {
-    const cookieOf = (r) => /orb_session=[^;]+/.exec(r.headers.get('set-cookie') || '')?.[0] ?? null;
     const signup = (dev, username, password) => request('POST', '/api/auth/signup', { dev, body: { username, password } });
     const signin = (dev, username, password) => request('POST', '/api/auth/signin', { dev, body: { username, password } });
     const pathOf = async (p) => (await request('GET', `/api/paths?handle=${p.split('/')[0]}&slug=${p.split('/')[1]}`)).json?.id;
@@ -761,11 +755,6 @@ async function run() {
   });
 
   await section('Friends', async () => {
-    const cookieOf = (r) => /orb_session=[^;]+/.exec(r.headers.get('set-cookie') || '')?.[0] ?? null;
-    const join = async (dev, username) => {
-      const r = await request('POST', '/api/auth/signup', { dev, body: { username, password: 'friendly pass 1' } });
-      return { dev, cookie: cookieOf(r), id: r.json?.user?.id, handle: r.json?.user?.handle, name: r.json?.user?.name };
-    };
     const as = (who) => ({ dev: who.dev, cookie: who.cookie });
     const friendsOf = async (who) => (await request('GET', '/api/friends', as(who))).json;
     const add = (who, username) => request('POST', '/api/friends', { ...as(who), body: { username } });
@@ -933,11 +922,6 @@ async function run() {
   });
 
   await section('Remix credit', async () => {
-    const cookieOf = (r) => /orb_session=[^;]+/.exec(r.headers.get('set-cookie') || '')?.[0] ?? null;
-    const join = async (dev, username) => {
-      const r = await request('POST', '/api/auth/signup', { dev, body: { username, password: 'friendly pass 1' } });
-      return { dev, cookie: cookieOf(r), id: r.json?.user?.id, name: r.json?.user?.name };
-    };
     const maker = await join(RX_MAKER_DEV, `Maker ${RUN}`);
     const fan = await join(RX_FAN_DEV, `Fan ${RUN}`);
     const asM = { dev: maker.dev, cookie: maker.cookie };
@@ -978,11 +962,6 @@ async function run() {
   });
 
   await section('Shops in worlds', async () => {
-    const cookieOf = (r) => /orb_session=[^;]+/.exec(r.headers.get('set-cookie') || '')?.[0] ?? null;
-    const join = async (dev, username) => {
-      const r = await request('POST', '/api/auth/signup', { dev, body: { username, password: 'friendly pass 1' } });
-      return { dev, cookie: cookieOf(r), id: r.json?.user?.id };
-    };
     const maker = await join(SHOP_MAKER_DEV, `Seller ${RUN}`);
     const buyer = await join(SHOP_BUYER_DEV, `Buyer ${RUN}`);
     const asM = { dev: maker.dev, cookie: maker.cookie };
@@ -1074,7 +1053,7 @@ async function run() {
     check('…buying needs an account → 401', (await request('POST', '/api/looks/buy', { ...anon, body: { item: 'crown', price: 80 } })).status === 401);
 
     const r = await request('POST', '/api/auth/signup', { dev: LOOKS_DEV, body: { username: `Blob ${RUN}`, password: 'friendly pass 1' } });
-    const as = { dev: LOOKS_DEV, cookie: /orb_session=[^;]+/.exec(r.headers.get('set-cookie') || '')?.[0] ?? null };
+    const as = { dev: LOOKS_DEV, cookie: cookieOf(r) };
     const fresh = (await request('GET', '/api/looks', as)).json;
     // The cheapest look: it fits a Free month and this test server's day of spending (ORB_SHOP_DAILY).
     const cheap = fresh.items?.reduce((a, b) => (b.price < a.price ? b : a));
@@ -1212,18 +1191,6 @@ async function run() {
   });
 
   await section('Trending', async () => {
-    /** The whole trending feed, page by page (it can be longer than one page). */
-    const feed = async () => {
-      const ids = [];
-      let next;
-      for (let i = 0; i < 20; i++) {
-        const r = await request('GET', `/api/worlds?sort=trending&limit=60${next ? `&cursor=${next}` : ''}`);
-        ids.push(...r.json.worlds.map((x) => x.id));
-        next = r.json.nextCursor;
-        if (!next) break;
-      }
-      return ids;
-    };
     // Paging through everything: no repeats, nothing skipped, stable while scores move.
     const seen = [];
     let cursor;
@@ -1241,7 +1208,9 @@ async function run() {
     const curation = fs.readFileSync(new URL('../src/lib/curation.ts', import.meta.url), 'utf8');
     const curated = [...curation.slice(curation.indexOf('CURATED_ORDER'), curation.indexOf('];')).matchAll(/'([\w-]+)'/g)].map((m) => m[1]);
     const present = curated.filter((id) => all.includes(id));
-    check('trending leads with the curated order', present.length > 0 && JSON.stringify(all.slice(0, present.length)) === JSON.stringify(present), all.slice(0, 8));
+    check('trending leads with the curated worlds', present.length > 0 && JSON.stringify([...all.slice(0, present.length)].sort()) === JSON.stringify([...present].sort()), all.slice(0, 8));
+    const top = (await request('GET', '/api/worlds?sort=trending&limit=16')).json.worlds.map((x) => x.authorName);
+    check('…with no maker twice among four neighbours', top.length >= 4 && top.every((a, i) => !top.slice(Math.max(0, i - 3), i).includes(a)), top);
     // Below the plays threshold, a few plays and likes don't reorder the feed.
     const w = (await create(OWNER, { name: `Trend ${TOKEN}` })).json.world;
     await patch(OWNER, w.id, { tags: ['game'] });
@@ -1275,6 +1244,20 @@ async function run() {
     const multi = (await request('GET', '/api/worlds?sort=trending&tag=art,game&limit=100')).json.worlds.map((x) => x.id);
     check('a topic can span several tags', multi.includes(w.id));
     check('a forged trending cursor → 400', (await request('GET', `/api/worlds?sort=trending&cursor=${Buffer.from(JSON.stringify({ s: 'trending', k: [1, 'x'] })).toString('base64url')}`)).status === 400);
+    await request('DELETE', `/api/worlds/${w.id}`, { dev: OWNER });
+  });
+
+  await section('Search', async () => {
+    const w = (await create(OWNER, { name: `Lanternfish ${TOKEN}`, description: 'A magic carpet over the dunes.' })).json.world;
+    await patch(OWNER, w.id, { tags: ['game', 'glimmerwing'] });
+    await request('PUT', `/api/worlds/${w.id}/thumb`, { dev: OWNER, raw: WEBP, type: 'image/webp' });
+    const finds = async (q, extra = '') => (await request('GET', `/api/worlds?q=${encodeURIComponent(q)}&limit=60${extra}`)).json.worlds.some((x) => x.id === w.id);
+    check('a search finds whole words of the description, and their plurals', (await finds('carpet')) && (await finds('dune')) && (await finds('magic carpet')));
+    check('…but not the middle or start of one there ("car" isn’t "carpet")', !(await finds('car')) && !(await finds('arpet')));
+    check('…names from the start of a word, as they’re typed', (await finds('lanternfish')) && (await finds('lanter')) && !(await finds('ternfish')));
+    check('…tags by whole words', (await finds('glimmerwing')) && !(await finds('glimmer')));
+    check('…within a filter, when one is given', (await finds('carpet', '&tag=game')) && !(await finds('carpet', '&tag=world')));
+    check('…and odd characters are just characters', (await request('GET', '/api/worlds?q=%28c%2B%2B%5B')).status === 200);
     await request('DELETE', `/api/worlds/${w.id}`, { dev: OWNER });
   });
 
@@ -1380,15 +1363,8 @@ async function run() {
     const seeds = JSON.parse(fs.readFileSync(path.join(root, 'src/data/seeds.json'), 'utf8'));
     const hidden = seeds.find((s) => s.hidden);
     const shown = seeds.find((s) => !s.hidden);
-    const feed = [];
-    let next;
-    for (let i = 0; i < 20; i++) {
-      const r = await request('GET', `/api/worlds?sort=trending&limit=60${next ? `&cursor=${next}` : ''}`);
-      feed.push(...r.json.worlds.map((w) => w.id));
-      next = r.json.nextCursor;
-      if (!next) break;
-    }
-    check('hidden worlds stay out of Explore', !feed.includes(hidden.id) && feed.includes(shown.id), { hidden: hidden.id });
+    const ids = await feed();
+    check('hidden worlds stay out of Explore', !ids.includes(hidden.id) && ids.includes(shown.id), { hidden: hidden.id });
     check('…and out of search', !(await request('GET', `/api/worlds?q=${encodeURIComponent(hidden.name)}`)).json.worlds.some((w) => w.id === hidden.id));
     check('…and the API can’t list them', !(await request('GET', '/api/worlds?hidden=1&limit=60')).json.worlds.some((w) => w.id === hidden.id));
     check('a hidden world still plays by link', (await request('GET', `/api/worlds/${hidden.id}`)).status === 200);
@@ -1505,35 +1481,13 @@ async function run() {
     const page = await request('GET', `/w/${shown.id}`);
     check('a world page names its readable URL as canonical', new RegExp(`<link rel="canonical" href="[^"]*/${shown.path}"`).test(page.text), shown.path);
     check('pages can’t be framed by other sites', page.headers.get('x-frame-options') === 'SAMEORIGIN' && page.headers.get('x-content-type-options') === 'nosniff');
+    const missing = [await request('GET', '/w/nonexistent'), await request('GET', `/${shown.path.split('/')[0]}/no-such-world-${RUN}`)];
+    check('an address no world has is a real 404', missing.every((x) => x.status === 404 && x.text.includes('Nothing out here')), missing.map((x) => x.status));
   });
 
   await section('Agent looks at the world it builds', async () => {
     const w = (await create(LOOKER, { name: `Look ${TOKEN}` })).json.world;
     const w2 = (await create(LOOKER2, { name: `Look2 ${TOKEN}` })).json.world;
-    /** Run a build and answer its looks like a watching page would, with `answer(look)`. */
-    const watch = async (text, answer, [dev, world] = [LOOKER, w]) => {
-      const res = await fetch(`${BASE}/api/agent/jobs`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-orb-device': dev },
-        body: JSON.stringify({ worldId: world.id, messages: [{ role: 'user', content: text }], mode: 'build', code: '' }),
-        signal: AbortSignal.timeout(120_000),
-      });
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let out = '';
-      const looks = [];
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        out += dec.decode(value, { stream: true });
-        for (const m of out.matchAll(/\u001e(\{"t":"look"[^\n]*)\n/g)) {
-          const look = JSON.parse(m[1]);
-          if (looks.some((l) => l.look.id === look.id)) continue;
-          looks.push({ look, replies: await answer(look) });
-        }
-      }
-      return { status: res.status, text: out, looks };
-    };
     const shot = `data:image/webp;base64,${WEBP.toString('base64')}`;
     const RESULT = {
       size: { w: 1280, h: 720, dpr: 1 },
@@ -1553,7 +1507,7 @@ async function run() {
     };
     const post = (look, body, dev = LOOKER) => request('POST', `/api/agent/jobs/${look.job}/look`, { dev, body: { id: look.id, ...body } });
 
-    const r = await watch('a glowing garden mocklook', async (look) => [await post(look, { result: { nope: 1 } }).then((x) => x.status), await post(look, {}).then((x) => x.status), await post(look, { result: RESULT }).then((x) => x.status), await post(look, { result: RESULT }).then((x) => x.status)]);
+    const r = await watch(LOOKER, w, 'a glowing garden mocklook', async (look) => [await post(look, { result: { nope: 1 } }).then((x) => x.status), await post(look, {}).then((x) => x.status), await post(look, { result: RESULT }).then((x) => x.status), await post(look, { result: RESULT }).then((x) => x.status)]);
     check('the look build streams', r.status === 200, r.status);
     const l = r.looks[0]?.look;
     check('the agent asks the watching page to look, once', r.looks.length === 1 && /^[a-f0-9]{64}$/.test(l?.tree ?? '') && l.size === 1024 && l.shots >= 1, r.looks.map((x) => x.look));
@@ -1565,14 +1519,14 @@ async function run() {
     check('the look is closed in the output (a replaying page skips it)', r.text.includes(`"t":"looked","id":"${l?.id}"`));
     check('a junk answer reaches the agent as an empty look', /I played it: 0 fps, no errors, title unknown\./.test(r.text), r.text.match(/I played it[^<]*/)?.[0] ?? r.text.slice(-300));
 
-    const r2 = await watch('again mocklook', async (look) => [await post(look, { result: RESULT }).then((x) => x.status)]);
+    const r2 = await watch(LOOKER, w, 'again mocklook', async (look) => [await post(look, { result: RESULT }).then((x) => x.status)]);
     check('with a real answer, the agent sees fps, errors, eval results and the screenshot', /I played it: 58 fps, no errors, title Mock Garden, screenshot seen\./.test(r2.text), r2.text.match(/I played it[^<]*/)?.[0] ?? r2.text.slice(-300));
 
-    const r3 = await watch('once more mocklook', async (look) => [await post(look, { unavailable: 'The world is not on screen in the page that watches the build.' }, LOOKER2).then((x) => x.status)], [LOOKER2, w2]);
+    const r3 = await watch(LOOKER2, w2, 'once more mocklook', async (look) => [await post(look, { unavailable: 'The world is not on screen in the page that watches the build.' }, LOOKER2).then((x) => x.status)]);
     check("a page that can't look says so, and the agent hears why", r3.looks[0]?.replies[0] === 200 && /I couldn.t look: Couldn.t look: The world is not on screen/.test(r3.text), r3.text.match(/I couldn[^<]*/)?.[0] ?? r3.text.slice(-300));
 
     check('answering for a build that isn’t there → 404', (await request('POST', `/api/agent/jobs/${'A'.repeat(22)}/look`, { dev: OWNER, body: { id: 'abcdefgh', result: RESULT } })).status === 404);
-    const r4 = await watch('one more mocklook', async (look) => [await post(look, { result: RESULT }, OWNER).then((x) => x.status), await post(look, { result: RESULT }).then((x) => x.status)]);
+    const r4 = await watch(LOOKER, w, 'one more mocklook', async (look) => [await post(look, { result: RESULT }, OWNER).then((x) => x.status), await post(look, { result: RESULT }).then((x) => x.status)]);
     check('only the page of whoever started a build answers its looks (another device → 404)', JSON.stringify(r4.looks[0]?.replies) === JSON.stringify([404, 200]), r4.looks[0]?.replies);
     check('…and only they follow or stop it', r4.looks[0] && (await request('GET', `/api/agent/jobs/${r4.looks[0].look.job}?from=0`, { dev: OWNER })).status === 404 && (await request('POST', `/api/agent/jobs/${r4.looks[0].look.job}/cancel`, { dev: OWNER })).status === 404);
     check('answering with a bad job id → 400', (await request('POST', '/api/agent/jobs/x/look', { dev: OWNER, body: { id: 'abcdefgh', result: RESULT } })).status === 400);
@@ -1632,29 +1586,9 @@ async function run() {
     const shot = `data:image/webp;base64,${WEBP.toString('base64')}`;
     const sha = crypto.createHash('sha256').update(WEBP).digest('hex');
     const seen = { size: { w: 1280, h: 720, dpr: 1 }, title: 'Traced Garden', uptime: 2400, fps: 60, errors: [], logs: [{ level: 'log', text: 'hello from the world', t: 10 }], dropped: 0, ui: [], canvas: null, focus: 'page', locked: false, shots: [{ label: 'end', t: 2300, dataUrl: shot }], evals: [], notes: [] };
-    const res = await fetch(`${BASE}/api/agent/jobs`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-orb-device': TRACER, ...H },
-      body: JSON.stringify({ worldId: w.id, messages: [{ role: 'user', content: `a traced garden ${TOKEN} mocklook` }], mode: 'build', code: '' }),
-      signal: AbortSignal.timeout(120_000),
-    });
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
-    const answered = new Set();
-    let out = '';
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      out += dec.decode(value, { stream: true });
-      for (const m of out.matchAll(/\u001e(\{"t":"look"[^\n]*)\n/g)) {
-        const look = JSON.parse(m[1]);
-        if (answered.has(look.id)) continue;
-        answered.add(look.id);
-        await request('POST', `/api/agent/jobs/${look.job}/look`, { dev: TRACER, body: { id: look.id, result: seen } });
-      }
-    }
-    const jobId = /"kind":"agent","id":"([^"]+)"/.exec(out)?.[1];
-    check('a traced agent build runs and looks once', res.status === 200 && answered.size === 1 && Boolean(jobId), { status: res.status, looks: answered.size });
+    const traced = await watch(TRACER, w, `a traced garden ${TOKEN} mocklook`, (look) => request('POST', `/api/agent/jobs/${look.job}/look`, { dev: TRACER, body: { id: look.id, result: seen } }), H);
+    const jobId = /"kind":"agent","id":"([^"]+)"/.exec(traced.text)?.[1];
+    check('a traced agent build runs and looks once', traced.status === 200 && traced.looks.length === 1 && Boolean(jobId), { status: traced.status, looks: traced.looks.length });
     const t = jobId ? await traceOf({ id: jobId }) : null;
     check('its trace ends done', t?.status === 'done', t && { status: t.status, error: t.error });
     if (t) {
@@ -1742,7 +1676,7 @@ async function run() {
     const bad = await request('POST', '/api/worlds/import', { dev: OWNER, body: { url: 'https://example.com/x' } });
     check('non-GitHub link → 400', bad.status === 400 && bad.json?.error === 'bad_request', bad.status);
 
-    // A fork of an open-source game's repository (scripts/publish-games.mjs) comes in as a remix of the game.
+    // A fork of an Orb Original's repository (src/data/originals.json) comes in as a remix of the game.
     if (FAKE) {
       const original = (await request('GET', '/api/worlds/orb-bedwars')).json?.world;
       check('an Original’s files are its repository’s', original?.code === '<!doctype html><title>Bed Wars</title><p>beds</p>' && !!original?.tree, original?.code?.slice(0, 80));
@@ -1858,7 +1792,6 @@ async function run() {
   await section('orb push (the kit)', async () => {
     const KITTER = device('kitter');
     const FRIEND = device('kitfriend');
-    const root = fileURLToPath(new URL('..', import.meta.url));
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'orb-push-'));
     const cfg = (who) => path.join(dir, `.cfg-${who}`);
     const run = (folder, who, args = []) =>
@@ -1951,13 +1884,10 @@ async function run() {
 // ------------------------------------------------------------------------------------------
 
 const server = await ensureServer();
-let failed = 0;
 try {
   await run();
 } finally {
-  stopServer(server);
+  await stopNext(server);
   FAKE?.close();
-  failed = results.filter((r) => !r.ok).length;
-  console.log(`\n${results.length - failed}/${results.length} checks passed${failed ? ` — ${failed} FAILED` : ''}`);
 }
-process.exit(failed ? 1 : 0);
+finish();

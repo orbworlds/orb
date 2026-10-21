@@ -3,12 +3,12 @@
 
 import { getViewer } from '@/server/auth';
 import { after } from 'next/server';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, handle, json, readJson } from '@/server/http';
 import { pushRepo } from '@/server/reposync';
 import { ready } from '@/server/schema';
-import { actorKey, forkWorld, limitOrThrow, route, worldIdParam, type IdContext } from '@/server/worlds';
+import { actorKey, forkWorld, limitOrThrow, worldIdParam, type IdContext } from '@/server/worlds';
 
-export const POST = route(async (req: Request, ctx: IdContext) => {
+export const POST = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const viewer = getViewer(req);
   // The body is optional; a missing/invalid one just means "no author name given".

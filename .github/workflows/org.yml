@@ -1,7 +1,7 @@
 # The orbworlds org on GitHub, as src/data/originals.json says (scripts/sync-org.mjs): each world's
 # repository's description, link, topics and visibility, the org's profile and the test the worlds
-# share. It runs as the org's GitHub App (the variable ORB_APP_ID and the secret ORB_APP_KEY, set by
-# scripts/setup-org.mjs), so no person appears there; without them, nothing runs.
+# share. It runs in orbworlds/orb as the org's GitHub App (that repository's own variable ORB_APP_ID
+# and secret ORB_APP_KEY), so no person appears there; without them, nothing runs.
 name: Org
 
 on:

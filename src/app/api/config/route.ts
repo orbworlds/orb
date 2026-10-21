@@ -3,8 +3,7 @@
 
 import type { ApiConfig } from '@/lib/types';
 import { aiConfigured, modelLabel } from '@/server/ai';
-import { json } from '@/server/http';
-import { route } from '@/server/worlds';
+import { handle, json } from '@/server/http';
 
 const env = (k: string): string => (process.env[k] ?? '').trim();
 
@@ -14,7 +13,7 @@ function realtime(): ApiConfig['realtime'] {
   return url && key ? { url, key } : null;
 }
 
-export const GET = route(async () => {
+export const GET = handle(async () => {
   const config: ApiConfig = {
     ai: aiConfigured(),
     model: modelLabel(),

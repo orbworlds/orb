@@ -30,6 +30,7 @@ interface ModuleInfo {
 
 const MAX_PROBLEMS = 8;
 const JS = /\.m?js$/i;
+const PAGE = /\.html?$/i;
 const cache = new Map<string, ModuleInfo>();
 
 type AnyNode = Node & Record<string, unknown>;
@@ -199,7 +200,6 @@ const isBare = (spec: string) => !/^(\.{0,2}\/|[a-z][a-z\d+.-]*:)/i.test(spec.tr
 
 /** The names index.html's import map defines; null when there's no page to tell. */
 async function importMapKeys(w: CheckFiles): Promise<string[] | null> {
-  if (!w.files['index.html']) return null;
   const html = await w.read('index.html').catch(() => null);
   if (html === null) return null;
   const keys: string[] = [];
@@ -220,14 +220,14 @@ const mapped = (spec: string, keys: string[]) => keys.some((k) => k === spec || 
 // -- the checks -------------------------------------------------------------------------------------
 
 /** The modules of a file: a JS file is one; a page has its inline scripts. */
-async function modulesOf(w: CheckFiles, path: string): Promise<Array<{ info: ModuleInfo; kind: 'module' | 'classic' }>> {
+async function modulesOf(w: CheckFiles, path: string): Promise<ModuleInfo[]> {
   const text = await w.read(path).catch(() => null);
   if (text === null) return [];
-  if (JS.test(path)) return [{ info: moduleInfo(text), kind: 'module' }];
-  if (!/\.html?$/i.test(path)) return [];
+  if (JS.test(path)) return [moduleInfo(text)];
+  if (!PAGE.test(path)) return [];
   return pageParts(text)
     .scripts.filter((s) => (s.kind === 'module' || s.kind === 'classic') && s.src === null && s.code.trim())
-    .map((s) => ({ info: moduleInfo(s.code, s.kind === 'module' ? 'module' : 'script', s.lineOffset), kind: s.kind as 'module' | 'classic' }));
+    .map((s) => moduleInfo(s.code, s.kind === 'module' ? 'module' : 'script', s.lineOffset));
 }
 
 /** Problems with one import of `from`. */
@@ -245,7 +245,7 @@ async function importProblems(w: CheckFiles, from: string, imp: Import): Promise
     return [`${from}:${imp.line} imports "${imp.spec}", but there's no file ${r.path} (yet).`];
   }
   if (!JS.test(r.path) || !imp.names.length) return [];
-  const target = (await modulesOf(w, r.path))[0]?.info;
+  const target = (await modulesOf(w, r.path))[0];
   if (!target || target.error || target.star) return [];
   const missing = imp.names.filter((n) => !target.exports.has(n));
   if (!missing.length) return [];
@@ -268,7 +268,7 @@ async function fileProblems(w: CheckFiles, path: string): Promise<string[]> {
     }
     return out;
   }
-  const isPage = /\.html?$/i.test(path);
+  const isPage = PAGE.test(path);
   if (!JS.test(path) && !isPage) return out;
   if (isPage) {
     const { scripts, refs } = pageParts(text);
@@ -288,7 +288,7 @@ async function fileProblems(w: CheckFiles, path: string): Promise<string[]> {
       else if (r.kind === 'file' && !w.files[r.path]) out.push(`${path}:${ref.line} loads ${ref.what} "${ref.url}", but there's no file ${r.path} (yet).`);
     }
   }
-  for (const { info } of await modulesOf(w, path)) {
+  for (const info of await modulesOf(w, path)) {
     if (info.error) {
       out.push(`${path}:${info.error.line}:${info.error.col} SyntaxError: ${info.error.message}`);
       continue;
@@ -302,8 +302,8 @@ async function fileProblems(w: CheckFiles, path: string): Promise<string[]> {
 async function importerProblems(w: CheckFiles, path: string): Promise<string[]> {
   const out: string[] = [];
   for (const from of Object.keys(w.files).sort()) {
-    if (from === path || !(JS.test(from) || /\.html?$/i.test(from))) continue;
-    for (const { info } of await modulesOf(w, from)) {
+    if (from === path || !(JS.test(from) || PAGE.test(from))) continue;
+    for (const info of await modulesOf(w, from)) {
       for (const imp of info.imports) {
         const r = isBare(imp.spec) ? null : resolveSpec(from, imp.spec);
         if (r?.kind === 'file' && r.path === path) out.push(...(await importProblems(w, from, imp)));

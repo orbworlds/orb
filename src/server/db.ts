@@ -9,8 +9,10 @@ import { inlineParams, storableParams } from './literals';
 export type Row = Record<string, unknown>;
 export interface Db {
   query<T = Row>(text: string, params?: unknown[]): Promise<T[]>;
-  kind: 'postgres' | 'pglite';
 }
+
+/** A unique constraint said no (Postgres 23505). */
+export const isUniqueViolation = (e: unknown): boolean => !!e && typeof e === 'object' && (e as { code?: unknown }).code === '23505';
 
 // Pages and API routes are bundled separately, each with its own copy of this module: keep one
 // database per process (one PGlite on its directory, one Postgres pool).
@@ -67,7 +69,6 @@ async function connect(): Promise<Db> {
     };
     const sql = postgres(cleanUrl(url), options);
     return {
-      kind: 'postgres',
       async query<T>(text: string, params: unknown[] = []) {
         // One message per query, which the transaction pooler can't split (see ./literals).
         const message = params.length ? inlineParams(text, storableParams(text, params)) : text;
@@ -97,7 +98,6 @@ async function connect(): Promise<Db> {
   const pg = new PGlite(dir);
   await pg.waitReady;
   return {
-    kind: 'pglite',
     async query<T>(text: string, params: unknown[] = []) {
       // PGlite only supports multiple statements without params via exec()
       if (!params.length && text.includes(';') && text.trim().split(';').filter((s) => s.trim()).length > 1) {

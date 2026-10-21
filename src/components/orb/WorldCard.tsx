@@ -1,14 +1,13 @@
 'use client';
-// World cards for Explore / lists, plus the small presentational kit shared by the
-// Explore, You, Share, History and Code panels (thumbnails, skeletons, section headers,
-// field styling, number/time formatting). Kept in this module so the panels stay
-// dependency-free of each other.
+// World cards for Explore / lists, plus the small presentational kit shared by the Orb's panels
+// and sheets (thumbnails, skeletons, section headers, field styling, number/time formatting). Kept
+// in this module so the panels stay dependency-free of each other.
 
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
-import { needsKeyboard } from '@/lib/keyboard';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactNode } from 'react';
+import { worldHref } from '@/lib/api';
 import { previewVideo, type PreviewVideo } from '@/lib/previews';
 import type { WorldCard as WorldCardData } from '@/lib/types';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 
 // ---------------------------------------------------------------------------------------------
 // Formatting
@@ -32,22 +31,25 @@ export function formatCount(n: number): string {
   return String(n);
 }
 
-const rtf = typeof Intl !== 'undefined' && 'RelativeTimeFormat' in Intl ? new Intl.RelativeTimeFormat('en', { numeric: 'auto' }) : null;
+/** "1 play", "950 plays", "1.2k plays". */
+export const playsLabel = (n: number) => `${formatCount(n)} ${n === 1 ? 'play' : 'plays'}`;
+
+const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 
 /** "just now", "5 minutes ago", "yesterday", "3 days ago", then "Mar 4" / "Mar 4, 2024". */
-export function timeAgo(iso: string | number | Date, now: number = Date.now()): string {
+export function timeAgo(iso: string | number | Date): string {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return '';
-  const s = Math.round((now - t) / 1000);
+  const s = Math.round((Date.now() - t) / 1000);
   if (s < 45) return 'just now';
   const m = Math.round(s / 60);
-  if (m < 60) return rtf ? rtf.format(-m, 'minute') : `${m} min ago`;
+  if (m < 60) return rtf.format(-m, 'minute');
   const h = Math.round(m / 60);
-  if (h < 24) return rtf ? rtf.format(-h, 'hour') : `${h} h ago`;
+  if (h < 24) return rtf.format(-h, 'hour');
   const d = Math.round(h / 24);
-  if (d < 7) return rtf ? rtf.format(-d, 'day') : `${d} d ago`;
+  if (d < 7) return rtf.format(-d, 'day');
   const date = new Date(t);
-  const sameYear = date.getFullYear() === new Date(now).getFullYear();
+  const sameYear = date.getFullYear() === new Date().getFullYear();
   return date.toLocaleDateString('en', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
 }
 
@@ -62,6 +64,18 @@ export function useHydrated(): boolean {
     () => true,
     () => false,
   );
+}
+
+/**
+ * A link's click handler: a plain click opens it here, in place (`open`); with a modifier key or
+ * another button the browser does what it does with links (a new tab, a new window…).
+ */
+export function onPlainClick(open: () => void) {
+  return (e: MouseEvent) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    open();
+  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -88,13 +102,26 @@ export function SectionHeader({ title, hint, accessory, id }: { title: ReactNode
   );
 }
 
+/** A quiet note where a list has nothing in it yet. */
+export function EmptyNote({ icon, title, text, children }: { icon: IconName; title: string; text: string; children?: ReactNode }) {
+  return (
+    <div className="rounded-[18px] px-5 py-6 text-center shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--ink)_10%,transparent)] [background:color-mix(in_oklab,var(--ink)_2%,transparent)]">
+      <span className="mx-auto mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--field-bg)] text-ink-2">
+        <Icon name={icon} size={18} />
+      </span>
+      <p className="text-[14px] font-medium text-ink">{title}</p>
+      <p className="mx-auto mt-1 max-w-[280px] text-[13px] leading-snug text-ink-2">{text}</p>
+      {children}
+    </div>
+  );
+}
+
 /** Shimmering placeholder block. */
-export function Skeleton({ className = '', style }: { className?: string; style?: CSSProperties }) {
+export function Skeleton({ className = '' }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
       className={`block animate-[orb-shimmer_1.8s_linear_infinite] bg-[length:200%_100%] bg-[linear-gradient(100deg,color-mix(in_oklab,var(--ink)_6%,transparent)_20%,color-mix(in_oklab,var(--ink)_11%,transparent)_40%,color-mix(in_oklab,var(--ink)_6%,transparent)_60%)] ${className}`}
-      style={style}
     />
   );
 }
@@ -102,7 +129,7 @@ export function Skeleton({ className = '', style }: { className?: string; style?
 // ---------------------------------------------------------------------------------------------
 // Thumbnails
 
-// Soft, slightly desaturated palettes for worlds without a thumbnail yet.
+// Soft, slightly desaturated palettes for worlds without a picture.
 const PLACEHOLDER_PALETTES: [string, string, string][] = [
   ['#b7a8ff', '#7fd3ff', '#ffd2b8'],
   ['#ffb7d5', '#ffd9a8', '#b9b0ff'],
@@ -112,14 +139,15 @@ const PLACEHOLDER_PALETTES: [string, string, string][] = [
   ['#8fd8ff', '#b5f0d9', '#fff4c9'],
 ];
 
-function hash(s: string): number {
+/** FNV-1a: the same number for the same string, everywhere (colors and gradients by id). */
+export function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
 }
 
 /** Deterministic gradient for a world id (same world → same colors everywhere). */
-export function placeholderBackground(seed: string): string {
+function placeholderBackground(seed: string): string {
   const h = hash(seed || 'orb');
   const [a, b, c] = PLACEHOLDER_PALETTES[h % PLACEHOLDER_PALETTES.length];
   const x = 15 + (h % 50);
@@ -127,7 +155,7 @@ export function placeholderBackground(seed: string): string {
   return `radial-gradient(120% 90% at ${x}% ${y}%, ${a} 0%, transparent 60%), radial-gradient(90% 90% at ${100 - x}% 100%, ${b} 0%, transparent 65%), linear-gradient(160deg, ${c}, ${b})`;
 }
 
-function ThumbImage({ src, onError }: { src: string; onError(): void }) {
+function ThumbImage({ src, priority, onError }: { src: string; priority: boolean; onError(): void }) {
   const [loaded, setLoaded] = useState(false);
   // Images served from cache can finish before React attaches onLoad; check on attach.
   const ref = useCallback((img: HTMLImageElement | null) => {
@@ -139,7 +167,8 @@ function ThumbImage({ src, onError }: { src: string; onError(): void }) {
       ref={ref}
       src={src}
       alt=""
-      loading="lazy"
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : undefined}
       decoding="async"
       draggable={false}
       onLoad={() => setLoaded(true)}
@@ -151,9 +180,7 @@ function ThumbImage({ src, onError }: { src: string; onError(): void }) {
 
 /** Whether looping previews may play: not when the person asked for less motion or to save data. */
 function previewsAllowed(): boolean {
-  if (typeof window === 'undefined') return false;
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return false;
-  return !(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+  return !matchMedia('(prefers-reduced-motion: reduce)').matches && !(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
 }
 
 /**
@@ -168,7 +195,7 @@ function ThumbVideo({ video }: { video: PreviewVideo }) {
   const [playing, setPlaying] = useState(false);
   useEffect(() => {
     const el = ref.current;
-    if (!el || !previewsAllowed() || typeof IntersectionObserver === 'undefined') return;
+    if (!el || !previewsAllowed()) return;
     const io = new IntersectionObserver(
       ([e]) => {
         if (e.isIntersecting) setNear(true);
@@ -208,20 +235,42 @@ function ThumbVideo({ video }: { video: PreviewVideo }) {
 }
 
 /**
- * World thumbnail: lazy image fading in over a deterministic gradient placeholder (with the
- * world's initial), plus a subtle inner border. Size it with `className` (e.g. aspect-[16/10]).
- * `video`: a looping preview played over the image while the thumbnail is on screen.
+ * World thumbnail: a lazy image fading in over a quiet tint, plus a subtle inner border. A world
+ * without a picture (or whose picture fails) shows a gradient of its own with its initial instead.
+ * Size it with `className` (e.g. aspect-[16/10]). `video`: a looping preview played over the image
+ * while the thumbnail is on screen. `priority`: on the first screen, so it loads first.
  */
-export function Thumb({ src, seed, name, className = '', initialSize = 44, video = null }: { src: string | null; seed: string; name: string; className?: string; initialSize?: number; video?: PreviewVideo | null }) {
+export function Thumb({
+  src,
+  seed,
+  name,
+  className,
+  initialSize,
+  video = null,
+  priority = false,
+}: {
+  src: string | null;
+  seed: string;
+  name: string;
+  className: string;
+  initialSize: number;
+  video?: PreviewVideo | null;
+  priority?: boolean;
+}) {
   const [failed, setFailed] = useState<string | null>(null);
   const showImage = !!src && failed !== src;
-  const initial = (name.trim()[0] || '◦').toUpperCase();
   return (
-    <div className={`relative isolate overflow-hidden ${className}`} style={{ background: placeholderBackground(seed) }}>
-      <span aria-hidden="true" className="font-display absolute inset-0 flex items-center justify-center text-white/70 select-none" style={{ fontSize: initialSize }}>
-        {initial}
-      </span>
-      {showImage && <ThumbImage key={src} src={src} onError={() => setFailed(src)} />}
+    <div
+      className={`relative isolate overflow-hidden ${showImage ? 'bg-[color-mix(in_oklab,var(--ink)_6%,transparent)]' : ''} ${className}`}
+      style={showImage ? undefined : { background: placeholderBackground(seed) }}
+    >
+      {showImage ? (
+        <ThumbImage key={src} src={src} priority={priority} onError={() => setFailed(src)} />
+      ) : (
+        <span aria-hidden="true" className="font-display absolute inset-0 flex items-center justify-center text-white/70 select-none" style={{ fontSize: initialSize }}>
+          {(name.trim()[0] || '◦').toUpperCase()}
+        </span>
+      )}
       {video && <ThumbVideo key={video.webm} video={video} />}
       <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0_0_0_1px_rgba(255,255,255,.16),inset_0_0_0_1px_rgba(12,12,20,.07)]" />
     </div>
@@ -232,26 +281,10 @@ export function Thumb({ src, seed, name, className = '', initialSize = 44, video
 // World card
 
 /**
- * Explore card: 16:10 thumbnail, name, author and plays/likes — the same for every world, wherever
- * its code lives.
- * The whole card is one button (stretched over the card); "Remix" is a separate quick action.
+ * The card for profile and remix lists: 16:10 thumbnail, name, author and plays/likes — the same
+ * for every world, wherever its code lives. The whole card is a link to the world.
  */
-export function WorldCard({
-  world,
-  onOpen,
-  onRemix,
-  size = 'md',
-}: {
-  world: WorldCardData;
-  onOpen(id: string): void;
-  onRemix?(world: WorldCardData): void;
-  /** 'lg' = featured row card (bigger title, shows the description). */
-  size?: 'md' | 'lg';
-}) {
-  const canRemix = !!onRemix && world.kind === 'native' && world.forkable;
-  const lg = size === 'lg';
-  const keyboard = needsKeyboard(world);
-  const keyboardId = useId();
+export function WorldCard({ world, onOpen }: { world: WorldCardData; onOpen(id: string): void }) {
   return (
     <article className="group relative min-w-0">
       <div className="relative transition-transform duration-300 ease-[var(--ease)] group-hover:-translate-y-1 group-has-[:focus-visible]:-translate-y-1">
@@ -259,7 +292,7 @@ export function WorldCard({
           src={world.thumbUrl}
           seed={world.id}
           name={world.name}
-          initialSize={lg ? 64 : 48}
+          initialSize={48}
           video={previewVideo(world.id)}
           className="aspect-[16/10] rounded-[var(--r-card)] shadow-[0_1px_2px_rgba(16,16,40,.06),0_8px_24px_-12px_rgba(16,16,40,.28)] transition-shadow duration-300 ease-[var(--ease)] group-hover:shadow-[var(--shadow-lift)]"
         />
@@ -269,23 +302,14 @@ export function WorldCard({
             <Icon name="play" size={18} className="translate-x-[1px]" fill="currentColor" />
           </span>
         </span>
-        {keyboard && (
-          <span id={keyboardId} className="glass pointer-events-none absolute bottom-2.5 left-2.5 hidden h-8 items-center gap-1.5 rounded-full pr-3 pl-2.5 text-[12.5px] font-medium text-ink phone:flex">
-            <Icon name="keyboard" size={15} />
-            Needs a keyboard
-          </span>
-        )}
       </div>
 
-      <div className={`px-0.5 ${lg ? 'mt-3.5' : 'mt-3'}`}>
-        <h3 className={`truncate font-medium tracking-[-0.01em] text-ink ${lg ? 'text-[16px]' : 'text-[15px]'}`}>{world.name}</h3>
-        {lg && world.description && <p className="mt-0.5 truncate text-[13.5px] text-ink-2">{world.description}</p>}
+      <div className="mt-3 px-0.5">
+        <h3 className="truncate text-[15px] font-medium tracking-[-0.01em] text-ink">{world.name}</h3>
         <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-ink-2">
           <span className="truncate">{world.authorName || 'Someone'}</span>
           <span className="ml-auto flex shrink-0 items-center gap-2.5 pl-2 text-[12.5px] text-ink-3 tabular-nums">
-            <span>
-              {formatCount(world.plays)} {world.plays === 1 ? 'play' : 'plays'}
-            </span>
+            <span>{playsLabel(world.plays)}</span>
             <span className="flex items-center gap-1" aria-label={`${world.likes} likes`}>
               <Icon name="heart" size={12} strokeWidth={2} />
               {formatCount(world.likes)}
@@ -294,35 +318,22 @@ export function WorldCard({
         </div>
       </div>
 
-      {/* Stretched primary action: the whole card opens the world. */}
-      <button
-        type="button"
-        onClick={() => onOpen(world.id)}
+      {/* Stretched over the card: the whole card opens the world. */}
+      <a
+        href={worldHref(world)}
+        onClick={onPlainClick(() => onOpen(world.id))}
         aria-label={`Open ${world.name}`}
-        aria-describedby={keyboard ? keyboardId : undefined}
-        className="absolute -inset-1.5 z-[1] cursor-pointer rounded-[20px] focus-visible:rounded-[20px] focus-visible:outline-offset-0"
+        className="absolute -inset-1.5 z-[1] rounded-[20px] focus-visible:rounded-[20px] focus-visible:outline-offset-0"
       />
-
-      {canRemix && (
-        <button
-          type="button"
-          onClick={() => onRemix!(world)}
-          aria-label={`Remix ${world.name}`}
-          className="glass absolute top-2.5 right-2.5 z-[2] flex h-8 items-center gap-1.5 rounded-full pr-3 pl-2.5 text-[12.5px] font-medium text-ink opacity-0 transition-[opacity,transform] duration-200 ease-[var(--ease)] group-hover:opacity-100 hover:scale-[1.03] focus-visible:rounded-full focus-visible:opacity-100 active:scale-[.97] [@media(hover:none)]:opacity-100"
-        >
-          <Icon name="remix" size={14} />
-          Remix
-        </button>
-      )}
     </article>
   );
 }
 
-export function WorldCardSkeleton({ size = 'md' }: { size?: 'md' | 'lg' }) {
+export function WorldCardSkeleton() {
   return (
     <div aria-hidden="true" className="min-w-0">
       <Skeleton className="aspect-[16/10] rounded-[var(--r-card)]" />
-      <Skeleton className={`mt-3.5 h-3.5 rounded-full ${size === 'lg' ? 'w-1/2' : 'w-3/5'}`} />
+      <Skeleton className="mt-3.5 h-3.5 w-3/5 rounded-full" />
       <Skeleton className="mt-2 h-3 w-2/5 rounded-full" />
     </div>
   );
@@ -340,90 +351,51 @@ export function platformName(platform: string | null | undefined): string | null
 }
 
 /**
- * Explore's tile: the world edge to edge, playing its preview when it has one. Its name, maker and
- * numbers (plays, likes, and the views of its maker's post) show on hover or keyboard focus; on
- * touch screens, which can't hover, the name and maker stay on the picture. `big` is the feed's lead
- * tile (two columns by two rows on wide screens), which also quotes the prompt it was made with.
+ * Explore's tile: the world edge to edge, playing its preview when it has one, its name and maker
+ * on it. Hovered (or focused), it also says what the world is and how many played it. The tile is a
+ * link to the world. `big`: the feed's lead tile, two columns wide (and two rows tall from md).
  */
 export function ExploreTile({
   world,
   onOpen,
   onRemix,
   big = false,
+  priority = false,
   className = '',
 }: {
   world: WorldCardData;
   onOpen(id: string): void;
   onRemix?(world: WorldCardData): void;
   big?: boolean;
+  /** On the first screen: its picture loads first. */
+  priority?: boolean;
   className?: string;
 }) {
   const canRemix = !!onRemix && world.kind === 'native' && world.forkable;
-  const keyboard = needsKeyboard(world);
-  const keyboardId = useId();
-  const origin = world.origin ?? null;
-  const views = origin?.views ?? null;
-  const prompt = origin?.prompt ?? null;
   const author = world.authorName || 'Someone';
+  const about = [world.plays > 0 && playsLabel(world.plays), world.description].filter(Boolean).join(' · ');
   return (
     <article
-      className={`group/tile relative isolate min-w-0 overflow-hidden rounded-[18px] bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] shadow-[0_1px_2px_rgba(16,16,40,.08),0_10px_30px_-14px_rgba(16,16,40,.35)] transition-[transform,box-shadow] duration-300 ease-[var(--ease)] hover:shadow-[var(--shadow-lift)] has-[:focus-visible]:shadow-[var(--shadow-lift)] ${big ? 'aspect-[16/10] xl:aspect-auto' : 'aspect-[16/10]'} ${className}`}
+      className={`group/tile relative isolate aspect-[16/10] min-w-0 overflow-hidden rounded-[18px] bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] shadow-[0_1px_2px_rgba(16,16,40,.08),0_10px_30px_-14px_rgba(16,16,40,.35)] transition-[transform,box-shadow] duration-300 ease-[var(--ease)] hover:shadow-[var(--shadow-lift)] has-[a:focus-visible]:shadow-[var(--shadow-lift)] has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-[var(--ink)] ${big ? 'col-span-2 md:row-span-2 md:aspect-auto' : ''} ${className}`}
     >
       <div className="absolute inset-0 transition-transform duration-[900ms] ease-[var(--ease)] group-hover/tile:scale-[1.035]">
-        <Thumb src={world.thumbUrl} seed={world.id} name={world.name} initialSize={big ? 96 : 56} video={previewVideo(world.id)} className="h-full w-full" />
+        <Thumb src={world.thumbUrl} seed={world.id} name={world.name} initialSize={big ? 96 : 56} video={previewVideo(world.id)} priority={priority} className="h-full w-full" />
       </div>
 
-      {/* Hover: the world's card. Touch: its name and maker only. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[75%] bg-[linear-gradient(to_top,rgba(8,8,16,.82),rgba(8,8,16,.38)_45%,transparent)] opacity-0 transition-opacity duration-300 ease-[var(--ease)] group-hover/tile:opacity-100 group-has-[:focus-visible]/tile:opacity-100 phone:h-[50%] phone:opacity-100 phone:bg-[linear-gradient(to_top,rgba(8,8,16,.66),transparent)]"
-      />
-      <div
-        className={`pointer-events-none absolute inset-x-0 bottom-0 text-white transition-[opacity,transform] duration-300 ease-[var(--ease)] ${big ? 'p-5 sm:p-7' : 'p-4'} translate-y-2 opacity-0 group-hover/tile:translate-y-0 group-hover/tile:opacity-100 group-has-[:focus-visible]/tile:translate-y-0 group-has-[:focus-visible]/tile:opacity-100 phone:translate-y-0 phone:opacity-100`}
-      >
-        <h3 className={`truncate font-semibold tracking-[-0.015em] [text-shadow:0_1px_12px_rgba(0,0,0,.35)] ${big ? 'font-display text-[34px] leading-[1.05] font-normal sm:text-[46px]' : 'text-[16px] leading-tight'}`}>{world.name}</h3>
-        <p className={`mt-1 truncate text-white/80 ${big ? 'text-[15px]' : 'text-[13px]'}`}>
-          by <span className="text-white">{author}</span>
-          {origin?.handle && origin.handle.replace(/^@/, '').toLowerCase() !== author.toLowerCase() && <span className="text-white/60"> · {origin.handle}</span>}
-        </p>
-        {big && prompt && <p className="mt-3 line-clamp-2 max-w-[60ch] text-[14px] leading-snug text-white/85 italic phone:hidden">“{prompt}”</p>}
-        {big && !prompt && world.description && <p className="mt-3 line-clamp-2 max-w-[60ch] text-[14px] leading-snug text-white/85 phone:hidden">{world.description}</p>}
-        {!big && <p className="mt-1.5 line-clamp-2 text-[12.5px] leading-snug text-white/75 phone:hidden">{prompt ? <span className="italic">“{prompt}”</span> : world.description}</p>}
-        <div className={`mt-2.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-white/85 tabular-nums phone:hidden ${big ? 'text-[13.5px]' : 'text-[12.5px]'}`}>
-          {world.plays > 0 && (
-            <span className="flex items-center gap-1" title="Plays on Orb">
-              <Icon name="play" size={11} fill="currentColor" strokeWidth={0} />
-              {formatCount(world.plays)} {world.plays === 1 ? 'play' : 'plays'}
-            </span>
-          )}
-          {world.likes > 0 && (
-            <span className="flex items-center gap-1" title="Likes on Orb">
-              <Icon name="heart" size={12} strokeWidth={2.2} />
-              {formatCount(world.likes)}
-            </span>
-          )}
-          {views != null && views > 0 && (
-            <span className="flex items-center gap-1" title={`Views of the maker’s post${platformName(origin?.platform) ? ` on ${platformName(origin?.platform)}` : ''}`}>
-              <Icon name="eye" size={13} strokeWidth={2} />
-              {formatCount(views)} views
-              {origin?.platform && <span className="text-white/60">on {platformName(origin.platform)}</span>}
-            </span>
-          )}
-          {world.forks > 0 && (
-            <span className="flex items-center gap-1" title="Remixes">
-              <Icon name="remix" size={12} strokeWidth={2} />
-              {formatCount(world.forks)}
-            </span>
-          )}
-        </div>
+      {/* Its name and maker, always; hovered, what it is. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[60%] bg-[linear-gradient(to_top,rgba(8,8,16,.72),rgba(8,8,16,.3)_50%,transparent)]" />
+      <div className={`pointer-events-none absolute inset-x-0 bottom-0 text-white [text-shadow:0_1px_10px_rgba(0,0,0,.3)] ${big ? 'p-3.5 sm:p-4 md:p-6' : 'p-3 sm:p-4'}`}>
+        <h3 className={`truncate leading-tight font-semibold tracking-[-0.01em] ${big ? 'text-[15px] md:text-[24px]' : 'text-[14px] sm:text-[15px]'}`}>
+          {world.name} <span className={`font-normal text-white/75 ${big ? 'text-[12.5px] sm:text-[13px] md:text-[15px]' : 'text-[12px] sm:text-[13px]'}`}>by {author}</span>
+        </h3>
+        {about && (
+          <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-[var(--ease)] group-hover/tile:grid-rows-[1fr] group-has-[:focus-visible]/tile:grid-rows-[1fr] phone:hidden">
+            <p className="min-h-0 overflow-hidden">
+              <span className={`block truncate pt-1 text-white/80 ${big ? 'text-[13px] md:text-[14px]' : 'text-[12.5px]'}`}>{about}</span>
+            </p>
+          </div>
+        )}
       </div>
-
-      {keyboard && (
-        <span id={keyboardId} className="glass pointer-events-none absolute top-2.5 left-2.5 hidden h-8 items-center gap-1.5 rounded-full pr-3 pl-2.5 text-[12.5px] font-medium text-ink phone:flex">
-          <Icon name="keyboard" size={15} />
-          Needs a keyboard
-        </span>
-      )}
 
       {/* People in it right now: always shown (it's an invitation), out of Remix's way on hover. */}
       {!!world.live && (
@@ -443,14 +415,8 @@ export function ExploreTile({
         </span>
       )}
 
-      {/* The whole tile opens the world. */}
-      <button
-        type="button"
-        onClick={() => onOpen(world.id)}
-        aria-label={`Play ${world.name}, by ${author}`}
-        aria-describedby={keyboard ? keyboardId : undefined}
-        className="absolute inset-0 z-[1] cursor-pointer rounded-[18px] focus-visible:rounded-[18px] focus-visible:outline-offset-[-3px]"
-      />
+      {/* The whole tile is a link to the world (focused, the tile wears the ring: it clips the link's). */}
+      <a href={worldHref(world)} onClick={onPlainClick(() => onOpen(world.id))} aria-label={`Play ${world.name}, by ${author}`} className="absolute inset-0 z-[1] rounded-[18px]" />
 
       {canRemix && (
         <button
@@ -468,5 +434,5 @@ export function ExploreTile({
 }
 
 export function ExploreTileSkeleton({ big = false }: { big?: boolean }) {
-  return <Skeleton className={`rounded-[18px] ${big ? 'aspect-[16/10] xl:col-span-2 xl:row-span-2 xl:aspect-auto' : 'aspect-[16/10]'}`} />;
+  return <Skeleton className={`aspect-[16/10] rounded-[18px] ${big ? 'col-span-2 md:row-span-2 md:aspect-auto' : ''}`} />;
 }

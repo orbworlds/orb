@@ -20,10 +20,8 @@ import { createMockApi, sampleWorld, sceneDataUrl } from './fixtures';
 type Panel = 'explore' | 'you' | 'share' | 'history' | null;
 
 // Install the /api mock before any component effect can fetch (module evaluation order).
-let mockInstalled = false;
 function installMock(params: URLSearchParams) {
-  if (mockInstalled || typeof window === 'undefined' || params.get('mock') === '0') return;
-  mockInstalled = true;
+  if (params.get('mock') === '0') return;
   const handle = createMockApi({
     latency: params.get('slow') ? 2500 : 450,
     signedIn: params.get('signed') === '1',
@@ -64,7 +62,8 @@ export default function Preview({ params }: { params: Record<string, string> }) 
 
       <ExploreSheet
         open={panel === 'explore'}
-        onClose={close}
+        intro={null}
+        building={false}
         onOpenWorld={(id) => toast(`Open ${id}`)}
         onRemix={(w) => toast(`Remix ${w.name}`)}
       />

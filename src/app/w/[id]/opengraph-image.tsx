@@ -12,63 +12,14 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { headers } from 'next/headers';
 import { getPublicThumb, getPublicWorld, sniffImage } from '@/server/worlds';
+import { blob, GLOSS, INK, loadFonts } from '../../og';
 
 export const alt = 'A world made with Orb';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-const INK = '#0c0c14';
 const IRIDESCENT = 'linear-gradient(135deg, #8b7bff 0%, #5ec8ff 36%, #ffb38a 70%, #ff8fc8 100%)';
 const FETCH_TIMEOUT_MS = 2500;
-
-// --- fonts -------------------------------------------------------------------------------------
-
-type OgFont = { name: string; data: ArrayBuffer; weight: 400 | 500; style: 'normal' | 'italic' };
-
-const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500&display=swap';
-const FONT_RETRY_MS = 5 * 60_000;
-let fontsPromise: Promise<OgFont[]> | null = null;
-let fontsFailedAt = 0;
-
-/** Fetch Instrument Serif + Geist as TTF (Google serves TTF to clients without a modern UA). */
-async function fetchFonts(): Promise<OgFont[]> {
-  const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
-  const css = await (await fetch(FONT_CSS, { signal })).text();
-  const faces = [...css.matchAll(/@font-face\s*{([^}]*)}/g)].map((m) => m[1]);
-  const fonts = await Promise.all(
-    faces.map(async (face): Promise<OgFont | null> => {
-      const family = /font-family:\s*'([^']+)'/.exec(face)?.[1];
-      const url = /src:\s*url\(([^)]+)\)\s*format\('(?:truetype|opentype)'\)/.exec(face)?.[1];
-      if (!family || !url) return null;
-      const res = await fetch(url, { signal });
-      if (!res.ok) return null;
-      return {
-        name: family,
-        data: await res.arrayBuffer(),
-        weight: /font-weight:\s*500/.test(face) ? 500 : 400,
-        style: /font-style:\s*italic/.test(face) ? 'italic' : 'normal',
-      };
-    }),
-  );
-  const ok = fonts.filter((f): f is OgFont => !!f);
-  if (!ok.some((f) => f.name === 'Instrument Serif')) throw new Error('serif font missing');
-  return ok;
-}
-
-/** Fonts for ImageResponse, or undefined to use next/og's built-in sans (Geist). */
-async function loadFonts(): Promise<OgFont[] | undefined> {
-  if (!fontsPromise) {
-    if (Date.now() - fontsFailedAt < FONT_RETRY_MS) return undefined;
-    fontsPromise = fetchFonts().catch((e) => {
-      console.warn('[orb] OG fonts unavailable, using the built-in font:', (e as Error).message);
-      fontsFailedAt = Date.now();
-      fontsPromise = null;
-      return [];
-    });
-  }
-  const fonts = await fontsPromise;
-  return fonts.length ? fonts : undefined;
-}
 
 // --- thumbnail -----------------------------------------------------------------------------------
 
@@ -156,19 +107,6 @@ function Wordmark({ light }: { light: boolean }) {
 
 /** Soft pastel blobs + a glossy orb: the "no thumbnail" backdrop. */
 function PastelBackdrop() {
-  const blob = (color: string, left: number, top: number, d: number) => (
-    <div
-      style={{
-        position: 'absolute',
-        left,
-        top,
-        width: d,
-        height: d,
-        borderRadius: 999,
-        backgroundImage: `radial-gradient(circle at center, ${color} 0%, rgba(255,255,255,0) 68%)`,
-      }}
-    />
-  );
   return (
     <div style={{ position: 'absolute', left: 0, top: 0, width: 1200, height: 630, display: 'flex', backgroundColor: '#f6f5fb' }}>
       {blob('rgba(139,123,255,0.55)', -260, -320, 900)}
@@ -183,8 +121,7 @@ function PastelBackdrop() {
           width: 250,
           height: 250,
           borderRadius: 999,
-          backgroundImage:
-            'radial-gradient(circle at 32% 28%, #ffffff 0%, #fbf8ff 14%, #cbbcff 38%, #93d6ff 62%, #ffc3a8 82%, #ff9fd2 100%)',
+          backgroundImage: GLOSS,
           boxShadow: '0 40px 90px rgba(139,123,255,0.35), 0 10px 30px rgba(255,143,200,0.25)',
         }}
       />
@@ -195,7 +132,7 @@ function PastelBackdrop() {
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [world, fonts] = await Promise.all([getPublicWorld(id).catch(() => null), loadFonts()]);
-  const thumb = world && world.thumbUrl ? await thumbnailFor(id) : null;
+  const thumb = world?.thumbUrl ? await thumbnailFor(id) : null;
 
   const name = world?.name || 'A world on Orb';
   const author = world?.authorName;
@@ -207,24 +144,23 @@ export default async function Image({ params }: { params: Promise<{ id: string }
     (
       <div style={{ position: 'relative', width: 1200, height: 630, display: 'flex', backgroundColor: '#0d0d14', fontFamily: 'Geist' }}>
         {thumb ? (
-          // eslint-disable-next-line @next/next/no-img-element -- next/og renders plain <img>
-          <img src={thumb} alt="" width={1200} height={630} style={{ position: 'absolute', left: 0, top: 0, width: 1200, height: 630, objectFit: 'cover' }} />
+          <>
+            <img src={thumb} alt="" width={1200} height={630} style={{ position: 'absolute', left: 0, top: 0, width: 1200, height: 630, objectFit: 'cover' }} />
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: 1200,
+                height: 630,
+                backgroundImage:
+                  'linear-gradient(180deg, rgba(8,8,14,0.28) 0%, rgba(8,8,14,0) 22%, rgba(8,8,14,0) 42%, rgba(8,8,14,0.5) 70%, rgba(8,8,14,0.86) 100%)',
+              }}
+            />
+          </>
         ) : (
           <PastelBackdrop />
         )}
-        {thumb ? (
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              width: 1200,
-              height: 630,
-              backgroundImage:
-                'linear-gradient(180deg, rgba(8,8,14,0.28) 0%, rgba(8,8,14,0) 22%, rgba(8,8,14,0) 42%, rgba(8,8,14,0.5) 70%, rgba(8,8,14,0.86) 100%)',
-            }}
-          />
-        ) : null}
 
         <div style={{ position: 'absolute', left: 64, top: 56, display: 'flex' }}>
           <Wordmark light={onPhoto} />

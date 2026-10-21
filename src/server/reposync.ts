@@ -22,23 +22,22 @@
 
 import type { Viewer } from './auth';
 import type { Db } from './db';
-import { getBlob, getTree, mergeTrees, putTree, type Tree } from './files';
-import { importRepo } from './importer';
+import { entryOf, getBlob, getTree, mergeTrees, putTree, type Tree } from './files';
+import { importRepo, LICENSE_FILE } from './importer';
 import { createSign } from 'node:crypto';
 import { openKey, sealKey } from './agent/secrets';
 import { ORG } from './originals';
-import { ensureRepo, pushTree } from './github';
+import { BRANCH, ensureRepo, gh, pushTree } from './github';
 import { commitTree, worldTree } from './worlds';
 import { SITE } from '../lib/site';
 
-const API = process.env.ORB_GITHUB_API || 'https://api.github.com'; // overridable for tests
 const WEB = process.env.ORB_GITHUB_WEB || 'https://github.com';
 const CHECK_EVERY_S = 60;
 const SWEEP_EVERY_S = 600;
 const REPO_RE = /^[\w.-]{1,100}\/[\w.-]{1,100}$/;
 const BRANCH_RE = /^[\w./-]{1,200}$/;
 
-export interface RepoLink {
+interface RepoLink {
   world_id: string;
   repo: string;
   branch: string;
@@ -54,34 +53,12 @@ export interface RepoLink {
 
 export class SyncError extends Error {}
 
-async function gh<T>(token: string | null, method: string, path: string, body?: unknown): Promise<{ status: number; data: T }> {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: {
-      accept: 'application/vnd.github+json',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      'x-github-api-version': '2022-11-28',
-      'user-agent': `Orb (+${SITE})`,
-      ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(30_000),
-  });
-  let data: unknown = null;
-  try {
-    data = res.status === 204 ? null : await res.json();
-  } catch {
-    /* not JSON */
-  }
-  return { status: res.status, data: data as T };
-}
-
 // ---------------------------------------------------------------------------------------------
 // Tokens
 
 const keyOf = (userId: string | null, deviceHash: string | null): string[] => [...(userId ? [`u:${userId}`] : []), ...(deviceHash ? [`d:${deviceHash}`] : [])];
 
-export interface GitHubConnection {
+interface GitHubConnection {
   login: string;
   /** Every world of theirs is kept on GitHub (a new private repository at its next save). */
   auto: boolean;
@@ -246,9 +223,9 @@ export async function linkRepo(db: Db, worldId: string, l: { repo: string; branc
 export async function keepOnGitHub(db: Db, worldId: string, token: string): Promise<string> {
   const now = await worldTree(db, worldId);
   if (!now) throw new SyncError('This world does not exist.');
-  const repo = await ensureRepo(token, { id: worldId, name: now.name }, null, SITE);
-  const sha = await pushTree(db, token, repo, (await getTree(db, now.tree)) ?? {}, `${now.name}, from Orb\n\nVersion ${now.version} on Orb: ${SITE}/w/${worldId}`);
-  await linkRepo(db, worldId, { repo, branch: 'main', root: '', sha, tree: now.tree });
+  const repo = await ensureRepo(token, { id: worldId, name: now.name });
+  const sha = await pushTree(db, token, repo, now.files, `${now.name}, from Orb\n\nVersion ${now.version} on Orb: ${SITE}/w/${worldId}`);
+  await linkRepo(db, worldId, { repo, branch: BRANCH, root: '', sha, tree: now.tree });
   return repo;
 }
 
@@ -323,12 +300,13 @@ async function pullLinked(db: Db, link: RepoLink): Promise<number | null> {
   }
   const [owner, repo] = link.repo.split('/');
   const imp = await importRepo(db, { owner, repo, ref: head.sha, dir: link.root }, { token });
+  /** Both sides agree on the head commit and the files now. */
+  const markPulled = () => db.query(`update orb_world_repos set synced_sha = $2, synced_tree = $3, pulled_at = now(), state = 'ok', note = null where world_id = $1`, [link.world_id, head.sha, imp.tree]);
   if (orbs) {
     // an Original is its repository: its files, in place (it has one version, kept in step)
     const [world] = await db.query<{ tree: string | null }>(`select tree from orb_worlds where id = $1`, [link.world_id]);
     if (world?.tree !== imp.tree) {
-      const files = (await getTree(db, imp.tree)) ?? {};
-      const code = files['index.html'] ? new TextDecoder().decode((await getBlob(db, files['index.html'])) ?? new Uint8Array()) : '';
+      const code = await entryOf(db, (await getTree(db, imp.tree)) ?? {});
       await db.query(`update orb_worlds set tree = $2, code = $3, updated_at = now() where id = $1`, [link.world_id, imp.tree, code]);
       await db.query(
         `insert into orb_world_versions (world_id, version, code, tree, prompt) values ($1, 1, $2, $3, 'Orb Original')
@@ -336,7 +314,7 @@ async function pullLinked(db: Db, link: RepoLink): Promise<number | null> {
         [link.world_id, code, imp.tree],
       );
     }
-    await db.query(`update orb_world_repos set synced_sha = $2, synced_tree = $3, pulled_at = now(), state = 'ok', note = null where world_id = $1`, [link.world_id, head.sha, imp.tree]);
+    await markPulled();
     return null;
   }
   const theirs = (await getTree(db, imp.tree)) ?? {};
@@ -347,7 +325,7 @@ async function pullLinked(db: Db, link: RepoLink): Promise<number | null> {
     if (!now) return null;
     // GitHub's changes since the last agreement, on top of the world as it is now (GitHub's file wins when both changed one)
     const target = now.tree === link.synced_tree || !link.synced_tree ? imp.tree : await putTree(db, mergeTrees(base, theirs, now.files));
-    await db.query(`update orb_world_repos set synced_sha = $2, synced_tree = $3, pulled_at = now(), state = 'ok', note = null where world_id = $1`, [link.world_id, head.sha, imp.tree]);
+    await markPulled();
     if (target === now.tree) break;
     const prompt = `From GitHub (${link.repo}@${head.sha.slice(0, 7)})${head.message ? `: ${head.message}` : ''}`;
     const res = await commitTree(db, ownerViewer(w), link.world_id, target, { prompt, expect: { tree: now.stored } });
@@ -408,7 +386,7 @@ async function pushLinked(db: Db, link: RepoLink, token: string): Promise<void> 
   for (const p of new Set([...Object.keys(base), ...Object.keys(now.files)])) {
     if (base[p] === now.files[p]) continue;
     // a license imported from the repository's top while the world lives in a subfolder stays where it is
-    if (link.root && /^(license|licence|copying)(\.\w+)?$/i.test(p)) continue;
+    if (link.root && LICENSE_FILE.test(p)) continue;
     changes.set(p, now.files[p] ?? null);
   }
   const [v] = await db.query<{ prompt: string | null }>(`select prompt from orb_world_versions where world_id = $1 and version = $2`, [link.world_id, now.version]);

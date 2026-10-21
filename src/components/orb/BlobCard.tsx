@@ -62,7 +62,7 @@ export function BlobCard() {
       {header}
       <div className={`${groupClass} p-4`}>
         <div className="flex items-center gap-4">
-          <div className="grid h-[118px] w-[96px] shrink-0 place-items-center rounded-[16px] bg-[var(--field-bg)]" data-orb-blob={shown.join(' ')}>
+          <div className="grid h-[118px] w-[96px] shrink-0 place-items-center rounded-[16px] bg-[var(--field-bg)]">
             <Blob color={color} wear={shown} size={74} label={`Your blob${shown.length ? ` wearing ${shown.map((id) => lookItem(id)?.name).join(' and ')}` : ''}`} />
           </div>
           <div className="min-w-0 flex-1">

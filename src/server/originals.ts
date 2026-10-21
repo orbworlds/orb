@@ -30,11 +30,10 @@ export interface Original {
   public: boolean;
 }
 
+/** Orb's GitHub org, and the maker of Orb's own worlds (their author and the handle of their page). */
 export const ORG: string = catalog.org;
 export const ORIGINALS = catalog.worlds as Original[];
-export const repoOf = (o: Original) => `${ORG}/${o.repo}`;
-/** The maker of Orb's own worlds (their author and the handle of their page). */
-export const ORB_MAKER: string = catalog.org;
+const repoOf = (o: Original) => `${ORG}/${o.repo}`;
 
 /** Originals that were replaced: hidden (not deleted, so remixes keep their history). */
 const RETIRED = ['orb-aurora'];
@@ -45,7 +44,7 @@ export async function applyOriginals(db: Db): Promise<void> {
   const rows = ORIGINALS.map((o) => {
     const b = params.length;
     params.push(o.id, o.name, o.description, o.template, o.tags, o.featured, o.thumb, o.preview ? 'private' : 'public', !!o.hidden, o.public ? `https://github.com/${repoOf(o)}` : null, o.public ? catalog.license : null);
-    return `($${b + 1}, $${b + 2}, $${b + 3}, 'native', '${ORB_MAKER}', $${b + 8}, true, $${b + 4}, $${b + 5}::text[], $${b + 6}, $${b + 7}, 1, $${b + 9}::boolean, $${b + 10}, $${b + 11})`;
+    return `($${b + 1}, $${b + 2}, $${b + 3}, 'native', '${ORG}', $${b + 8}, true, $${b + 4}, $${b + 5}::text[], $${b + 6}, $${b + 7}, 1, $${b + 9}::boolean, $${b + 10}, $${b + 11})`;
   });
   await db.query(
     `insert into orb_worlds (id, name, description, kind, author_name, visibility, forkable, template, tags, featured, thumb_url, version, hidden, source_url, license)
@@ -74,6 +73,6 @@ export async function applyOriginals(db: Db): Promise<void> {
   );
   await db.query(
     `update orb_worlds set visibility = 'private' where id = any($1::text[]) and owner_user is null and owner_device is null and author_name in ('Orb', $2)`,
-    [RETIRED, ORB_MAKER],
+    [RETIRED, ORG],
   );
 }

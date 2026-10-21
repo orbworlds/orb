@@ -12,6 +12,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import readline from 'node:readline';
+import { Readable } from 'node:stream';
 
 const [dirArg, labArg] = process.argv.slice(2);
 const out = path.resolve(dirArg || 'backup');
@@ -42,18 +44,7 @@ async function get(p) {
 }
 
 async function* jsonLines(res) {
-  const dec = new TextDecoder();
-  let buf = '';
-  for await (const chunk of res.body) {
-    buf += dec.decode(chunk, { stream: true });
-    let nl;
-    while ((nl = buf.indexOf('\n')) >= 0) {
-      const line = buf.slice(0, nl).trim();
-      buf = buf.slice(nl + 1);
-      if (line) yield JSON.parse(line);
-    }
-  }
-  if (buf.trim()) yield JSON.parse(buf);
+  for await (const line of readline.createInterface({ input: Readable.fromWeb(res.body), crlfDelay: Infinity })) if (line.trim()) yield JSON.parse(line);
 }
 
 const count = { traces: 0, blobs: 0, events: 0, days: 0 };

@@ -17,7 +17,6 @@
     "test:saves": "node scripts/test-saves.mjs",
     "test:e2e": "node scripts/e2e.mjs",
     "test:kit": "node scripts/test-kit.mjs",
-    "publish:games": "node scripts/publish-games.mjs",
     "deploy": "NODE_USE_ENV_PROXY=1 node scripts/deploy.mjs --prod"
   },
   "dependencies": {

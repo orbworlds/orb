@@ -1,7 +1,6 @@
 'use client';
 // Account status + sign-up / sign-in with a username and password (and passkeys, for the accounts
-// made with one), and the small shared session store (`useSession`) that YouView and ShareSheet
-// read so signing in anywhere updates both.
+// made with one), and the session store (`useSession`) the whole app reads.
 
 import { setChatSync } from '@/lib/chatsync';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -10,6 +9,7 @@ import { track } from '@/lib/analytics';
 import { api, ApiError } from '@/lib/api';
 import { getDisplayName, newDisplayName, setDisplayName, setPlayerColor } from '@/lib/local';
 import { passkeysSupported, signIn as passkeySignIn } from '@/lib/passkey';
+import { slugify } from '@/lib/slug';
 import type { ApiConfig, MeResponse } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
@@ -125,7 +125,7 @@ export function useConfig() {
  * Whether passkey accounts can be offered here: the browser supports WebAuthn and the server
  * hasn't disabled them (an unreachable /api/config doesn't hide them).
  */
-export function usePasskeysAvailable(): boolean {
+function usePasskeysAvailable(): boolean {
   const hydrated = useHydrated();
   const { config } = useConfig();
   return hydrated && passkeysSupported() && config?.passkeys !== false;
@@ -149,19 +149,6 @@ function accountErrorMessage(e: unknown, action: 'signup' | 'signin' | 'password
   return 'Couldn’t create your account. Please try again.';
 }
 
-/** The handle a username becomes in world URLs ("Max Builds" → "max-builds", as the server makes it). */
-function handleFor(username: string): string {
-  return username
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/['’]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48)
-    .replace(/-+$/g, '');
-}
-
 // ---------------------------------------------------------------------------------------------
 // AccountCard
 
@@ -178,7 +165,7 @@ const hintClass = 'mt-1.5 px-0.5 text-[12px] leading-snug text-ink-3';
  * Account status with sign-up and sign-in by username and password. Passkeys still sign in the
  * accounts made with one, and such an account can add a password here to sign in anywhere.
  * - `variant="panel"` (You tab): status card; "Create account" / "Sign in" expand a small form.
- * - `variant="inline"` (Share sheet, the save nudge): starts at the sign-up form with a `reason`
+ * - `variant="inline"` (the Share and shop sheets, a profile): starts at the sign-up form with a `reason`
  *   headline, for flows that need an account (e.g. making a world private). `onCancel` shows a
  *   "Not now" button. `where` names the place in analytics.
  */
@@ -381,7 +368,7 @@ export function AccountCard({
   // Sign up / sign in ---------------------------------------------------------------------------
   if (step !== 'status') {
     const signup = step === 'signup';
-    const handle = handleFor(username);
+    const handle = slugify(username, ''); // the handle a username becomes in world URLs
     return (
       <form
         className={`${shell} ${variant === 'panel' ? 'animate-fade-up' : ''}`}
@@ -471,7 +458,7 @@ export function AccountCard({
     );
   }
 
-  // Signed out ----------------------------------------------------------------------------------
+  // Signed out: the one place that asks for an account ----------------------------------------------
   return (
     <div className={shell}>
       <div className="flex gap-3">
@@ -479,8 +466,8 @@ export function AccountCard({
           <Icon name="user" size={17} />
         </span>
         <div className="min-w-0">
-          <div className="text-[14px] font-medium text-ink">Not signed in</div>
-          <p className="text-[13px] leading-snug text-ink-2">Your worlds are saved to this device.</p>
+          <div className="text-[14px] font-medium text-ink">Keep your worlds on every device</div>
+          <p className="text-[13px] leading-snug text-ink-2">Free, with a username and a password.</p>
         </div>
       </div>
       <div className="mt-3.5 flex flex-wrap gap-2 pl-12">

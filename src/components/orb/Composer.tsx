@@ -1,19 +1,19 @@
 'use client';
 // The message box. Auto-grows, Enter sends (Shift+Enter = newline, IME-safe), the send button
-// turns into stop while building. Two looks: 'hero' (big, frosted, typing placeholder ideas)
-// and 'panel' (compact, with a code-peek button).
+// turns into stop while building. Two looks: 'hero' (big, frosted, ideas typed out in the
+// placeholder's color, as a hint) and 'panel' (compact).
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { useReducedMotion } from '@/state/ui';
 
-export interface ComposerProps {
+interface ComposerProps {
   value: string;
   onChange(v: string): void;
   onSend(text: string): void;
   onStop?(): void;
   building?: boolean;
   placeholder: string;
-  /** Rotating ideas typed out as the placeholder (hero). */
+  /** Rotating ideas typed out as the placeholder (hero): a hint, never mistaken for typed text. */
   ideas?: string[];
   /** Disables sending and explains why (e.g. "Free building resumes in 0:42"). */
   blocked?: string | null;
@@ -87,7 +87,6 @@ export function Composer({ value, onChange, onSend, onStop, building = false, pl
         {showIdeas && (
           <div aria-hidden="true" className={`pointer-events-none absolute inset-x-0 top-0 truncate text-ink-3 ${hero ? 'py-[7px] text-[17px] leading-[26px]' : 'py-[6px] text-[14.5px] leading-[22px]'}`}>
             {typed}
-            {focused || hero ? <span className="caret opacity-70" /> : null}
           </div>
         )}
         <textarea
@@ -124,7 +123,7 @@ export function Composer({ value, onChange, onSend, onStop, building = false, pl
   );
 }
 
-/** Iridescent round send button with a soft glow. */
+/** Iridescent round send button with a soft glow; with nothing to send, a faded disc in either scheme. */
 function SendButton({ size, disabled }: { size: number; disabled: boolean }) {
   return (
     <button
@@ -132,12 +131,13 @@ function SendButton({ size, disabled }: { size: number; disabled: boolean }) {
       disabled={disabled}
       aria-label="Send"
       title="Send  ·  Enter"
-      className="group relative flex shrink-0 items-center justify-center rounded-full text-white transition-[transform,opacity,filter] duration-300 ease-[var(--ease)] enabled:hover:scale-105 enabled:active:scale-95 disabled:opacity-100"
+      className="group relative flex shrink-0 items-center justify-center rounded-full text-white transition-[transform,color] duration-300 ease-[var(--ease)] enabled:hover:scale-105 enabled:active:scale-95 disabled:text-ink-3"
       style={{ width: size, height: size }}
     >
+      <span aria-hidden="true" className="absolute inset-0 rounded-full bg-[var(--ink-5)] shadow-[inset_0_0_0_1px_var(--ink-5)]" />
       <span
         aria-hidden="true"
-        className="absolute inset-0 rounded-full transition-[opacity,filter] duration-300 group-disabled:opacity-[.38] group-disabled:saturate-50"
+        className="absolute inset-0 rounded-full transition-opacity duration-300 group-disabled:opacity-0"
         style={{ background: 'var(--iris)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 6px rgba(80,60,200,.25)' }}
       />
       <span
@@ -145,7 +145,7 @@ function SendButton({ size, disabled }: { size: number; disabled: boolean }) {
         className="absolute -inset-1 -z-10 rounded-full opacity-70 blur-[10px] transition-opacity duration-300 group-disabled:opacity-0"
         style={{ background: 'var(--iris)' }}
       />
-      <Icon name="arrow-up" size={Math.round(size * 0.45)} strokeWidth={2.2} className="relative drop-shadow-[0_1px_1px_rgba(60,40,140,.35)]" />
+      <Icon name="arrow-up" size={Math.round(size * 0.45)} strokeWidth={2.2} className="relative group-enabled:drop-shadow-[0_1px_1px_rgba(60,40,140,.35)]" />
     </button>
   );
 }

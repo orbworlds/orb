@@ -6,17 +6,17 @@
 // DELETE /api/me/github → { login: null }
 
 import { getViewer } from '@/server/auth';
-import { clientIp, json, readJson } from '@/server/http';
+import { clientIp, fail, handle, json, readJson } from '@/server/http';
 import { connection, dropToken, saveToken, setAuto, SyncError } from '@/server/reposync';
 import { ready } from '@/server/schema';
-import { actorKey, fail, limitOrThrow, route } from '@/server/worlds';
+import { actorKey, limitOrThrow } from '@/server/worlds';
 
-export const GET = route(async (req: Request) => {
+export const GET = handle(async (req: Request) => {
   const db = await ready();
   return json((await connection(db, getViewer(req))) ?? { login: null });
 });
 
-export const POST = route(async (req: Request) => {
+export const POST = handle(async (req: Request) => {
   const viewer = getViewer(req);
   if (!viewer.deviceHash && !viewer.userId) fail(400, 'device_required', 'Missing device key.');
   const body = await readJson<{ token?: unknown; auto?: unknown }>(req, 4000);
@@ -36,7 +36,7 @@ export const POST = route(async (req: Request) => {
   }
 });
 
-export const DELETE = route(async (req: Request) => {
+export const DELETE = handle(async (req: Request) => {
   const db = await ready();
   await dropToken(db, getViewer(req));
   return json({ login: null });

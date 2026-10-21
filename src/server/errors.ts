@@ -39,7 +39,7 @@ const ALERT_BUDGET: Record<ErrorKind, [key: string, perHour: number]> = {
 const clip = (s: string | null | undefined, n: number) => (s ?? '').trim().slice(0, n);
 
 /** One row per problem: its kind and message, digits blanked (ids, sizes and counts vary). */
-export function errorKey(kind: ErrorKind, message: string): string {
+function errorKey(kind: ErrorKind, message: string): string {
   return createHash('sha1').update(`${kind}\n${message.replace(/\d+/g, '#')}`).digest('hex').slice(0, 32);
 }
 

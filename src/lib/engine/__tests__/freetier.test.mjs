@@ -9,7 +9,7 @@ import { DDL } from '../../../server/ddl.mjs';
 
 register('./resolve-hooks.mjs', import.meta.url);
 
-const { FREE_TIER_DEFAULTS, CURSOR_FREE_TIER_DEFAULTS, freeTierConfig, freeTierChecks, longBuildChecks, secondsUntilUtcMidnight, describeProviderFailure } = await import('../../../server/freetier.ts');
+const { FREE_TIER_DEFAULTS, CURSOR_FREE_TIER_DEFAULTS, freeTierConfig, freeTierChecks, longBuildChecks, secondsUntilUtcMidnight } = await import('../../../server/freetier.ts');
 const { rateLimit, refundRate, underLimit } = await import('../../../server/ratelimit.ts');
 const { clientIp, ipBlock } = await import('../../../server/http.ts');
 
@@ -108,50 +108,6 @@ describe('freeTierChecks', () => {
     assert.notEqual(late[1].key, early[1].key);
     assert.equal(secondsUntilUtcMidnight(new Date('2026-10-07T23:59:30Z')), 30);
     assert.equal(secondsUntilUtcMidnight(new Date('2026-10-08T00:00:00Z')), 86400);
-  });
-});
-
-describe('describeProviderFailure', () => {
-  test('a used-up AI Gateway budget (402)', () => {
-    // As AI SDK 7 surfaces it: a GatewayInternalServerError carrying the gateway's 402.
-    const raw = 'Quota limit exceeded for "project_prj_123". Current spend: $10.00, limit: $10.00. Please contact your administrator to increase the quota.';
-    for (const e of [{ name: 'GatewayInternalServerError', statusCode: 402, message: raw }, new Error(raw)]) {
-      const f = describeProviderFailure(e);
-      assert.equal(f.kind, 'budget');
-      assert.equal(f.status, 503);
-      assert.equal(f.code, 'ai_unavailable');
-      assert.match(f.message, /You → Model/);
-      assert.doesNotMatch(f.message, /prj_123/, "the provider's wording stays in the log");
-      assert.match(f.detail, /prj_123/);
-    }
-  });
-
-  test('a gateway without a card on file (what production returned)', () => {
-    const raw = 'AI Gateway requires a valid credit card on file to service requests. Please visit https://vercel.com/d?to=%2F%5Bteam%5D to add a card and unlock your free credits.';
-    for (const e of [{ statusCode: 403, message: raw }, new Error(raw)]) {
-      const f = describeProviderFailure(e);
-      assert.equal(f.kind, 'setup');
-      assert.equal(f.status, 503);
-      assert.doesNotMatch(f.message, /vercel\.com/);
-    }
-  });
-
-  test('provider rate limits and overload ask to retry in a minute', () => {
-    const retried = describeProviderFailure({ name: 'AI_RetryError', message: 'Failed after 2 attempts', lastError: { statusCode: 429, message: 'Too many requests' } });
-    assert.equal(retried.kind, 'busy');
-    assert.equal(retried.status, 429);
-    assert.equal(retried.code, 'rate_limited');
-    assert.equal(retried.retryAfter, 60);
-    assert.equal(describeProviderFailure(new Error('Overloaded')).kind, 'busy');
-  });
-
-  test('anything else is a generic hiccup', () => {
-    const f = describeProviderFailure(new Error('socket hang up'));
-    assert.equal(f.kind, 'other');
-    assert.equal(f.status, 503);
-    assert.equal(f.detail, 'socket hang up');
-    assert.equal(describeProviderFailure(undefined).kind, 'other');
-    assert.equal(describeProviderFailure('boom').detail, 'boom');
   });
 });
 
