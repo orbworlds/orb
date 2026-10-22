@@ -13,7 +13,7 @@ import { setRoomIdentity } from '@/lib/runtime/realtime';
 import { ROOM_NAME_RE } from '@/lib/runtime/sdk';
 import type { RuntimeContext, WorldFull, WorldRuntimeError } from '@/lib/types';
 import { needsKeyboard, onPhone } from '@/lib/keyboard';
-import { PANEL_INSET, PANEL_W } from '@/components/orb/OrbPanel';
+import { PANEL_REACH } from '@/components/orb/OrbPanel';
 import { Button } from '@/components/ui/Button';
 import { previewVideo } from '@/lib/previews';
 import { toast } from '@/state/toast';
@@ -158,7 +158,7 @@ export function WorldStage({ home, onReady, onError }: { home: boolean; onReady(
           key={world.id}
           world={world}
           // Centred on what the panel leaves of the world.
-          inset={!mobile && docked ? { [docked === 'right' ? 'paddingRight' : 'paddingLeft']: PANEL_W + PANEL_INSET } : undefined}
+          inset={!mobile && docked ? { [docked === 'right' ? 'paddingRight' : 'paddingLeft']: PANEL_REACH } : undefined}
           onPlay={
             gated
               ? () => {

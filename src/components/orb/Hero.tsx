@@ -22,8 +22,9 @@ const IDEAS = [
 const HERO_COMPOSER_ID = 'orb-hero-composer';
 
 /**
- * The Orb, docked in the home page's header (it floats only inside worlds): it opens its panel on
- * the You tab, or on the chat when a build there has news. It swirls while a build runs.
+ * The Orb, docked in the home page's header (it floats only inside worlds): it opens its panel (under
+ * it) on the You tab, or on the chat when a build there has news, and closes it again. It swirls
+ * while a build runs.
  */
 export function OrbButton({ building, className = '' }: { building: boolean; className?: string }) {
   const news = useUi((s) => s.unread);
@@ -32,9 +33,9 @@ export function OrbButton({ building, className = '' }: { building: boolean; cla
   return (
     <button
       type="button"
-      aria-label={news || friendNews ? 'Open Orb (new message)' : 'Open Orb'}
+      aria-label={open ? 'Close Orb' : news || friendNews ? 'Open Orb (new message)' : 'Open Orb'}
       aria-expanded={open}
-      onClick={() => useUi.getState().openPanel(news ? 'chat' : 'you')}
+      onClick={() => (open ? useUi.getState().closePanel() : useUi.getState().openPanel(news ? 'chat' : 'you'))}
       className={`group relative h-10 w-10 shrink-0 rounded-full focus-visible:rounded-full ${className}`}
     >
       <span className="block transition-transform duration-300 ease-[var(--ease-spring)] group-hover:scale-[1.06] group-active:scale-95">

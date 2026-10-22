@@ -19,7 +19,9 @@ If you change a contract, update this file in the same change.
 2. **Calm, luminous, minimal.** One always-present element: the **Orb** (a floating, draggable,
    iridescent sphere; on phones, past the start screen, it tucks half behind the screen's edge,
    clear of a world's own controls; home has it in its header instead). Everything else (chat,
-   settings, account) lives inside it, in a panel only as tall as what it holds. The one exception: as
+   settings, account) lives inside it, in a panel only as tall as what it holds. The Orb is a toggle
+   and stays where it was: a tap opens its panel beside it (under it on home; a bottom sheet on
+   phones) and another tap closes it (it shows an × meanwhile). The one exception: as
    a world opens, "Explore" top-left goes back to Explore in one click; a few seconds after the world
    is ready it fades away, leaving the world the whole screen, and the pointer reaching the top-left
    corner (a tap there on a phone) brings it back (the world bar's "← Explore" and the browser's back
@@ -79,8 +81,8 @@ If you change a contract, update this file in the same change.
   the Orb at its end.
   There is one Explore, and it is this page: a world's way back, "See all", `/explore` and a missing
   world's Explore button all go home, down at its worlds.
-  The Orb there opens its You tab (the page's composer is the chat), or the chat when a build there
-  has news; it swirls while a build runs.
+  The Orb there opens its You tab under it (the page's composer is the chat), or the chat when a
+  build there has news, and closes it again; it swirls while a build runs.
 - **Opening a world** (a tile, a link, back/forward) shows one calm cover until the world has drawn
   (its ready signal; 20 s at most): its preview (or picture) under a soft scrim and its name, never
   another world in between. On a phone, a visitor's world that needs a keyboard (the `keyboard` tag)

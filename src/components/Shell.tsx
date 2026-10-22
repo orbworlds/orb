@@ -11,7 +11,7 @@ import { ChatView } from '@/components/orb/ChatView';
 import { ExploreSheet } from '@/components/orb/ExploreSheet';
 import { HomeIntro } from '@/components/orb/Hero';
 import { Orb, ORB_MARGIN, ORB_SIZE, OrbSphere } from '@/components/orb/Orb';
-import { OrbPanel, PANEL_INSET, PANEL_W } from '@/components/orb/OrbPanel';
+import { OrbPanel, PANEL_REACH } from '@/components/orb/OrbPanel';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Toaster } from '@/components/ui/Toaster';
@@ -489,21 +489,21 @@ export default function Shell({
       {!ui.panelOpen && <BuildingPill isBuilding={build.isBuilding} progress={build.progress} messages={build.messages} top={mobile && world ? 'calc(var(--safe-t) + 74px)' : 'calc(var(--safe-t) + 18px)'} />}
 
       {!heroVisible && status !== 'not-found' && status !== 'error' && (
-        <ExploreBack ready={ws.drawn} inset={panelDocked && ui.orb.side === 'left' ? PANEL_W + PANEL_INSET : 0} onClick={backToExplore} />
+        <ExploreBack ready={ws.drawn} inset={panelDocked && ui.orb.side === 'left' ? PANEL_REACH : 0} onClick={backToExplore} />
       )}
 
       {/* Home has the Orb in its header (it opens the You tab: the page's own composer is the chat). */}
       <Orb
         building={build.isBuilding || build.background.length > 0}
         unread={ui.unread || friendUnread > 0}
-        hidden={ui.panelOpen || heroVisible}
+        hidden={heroVisible || (mobile && ui.panelOpen)}
         // Phones: half behind its edge, off a world's touch controls
         tucked={phone}
-        onOpen={() => (!ui.unread && friendUnread > 0 ? ui.openPanel('you') : ui.openPanel())}
+        onToggle={() => (ui.panelOpen ? ui.closePanel() : !ui.unread && friendUnread > 0 ? ui.openPanel('you') : ui.openPanel())}
       />
 
       <OrbPanel
-        building={build.isBuilding}
+        home={heroVisible}
         header={
           <>
             <BackgroundBuilds builds={build.background} />
@@ -591,7 +591,7 @@ export default function Shell({
             ? 'sheet'
             : heroVisible && !panelDocked
               ? null
-              : { side: ui.orb.side, y: ui.orb.y, narrow: mobile, clear: panelDocked ? PANEL_INSET + PANEL_W : ORB_MARGIN + ORB_SIZE }
+              : { side: ui.orb.side, y: ui.orb.y, narrow: mobile, clear: panelDocked ? PANEL_REACH : ORB_MARGIN + ORB_SIZE }
         }
       />
     </main>

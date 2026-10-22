@@ -5,6 +5,7 @@
 // the panel, which grows out of the Orb's position. On phones, past the start screen, it tucks half
 // behind its edge so it never sits on a world's own buttons or Explore's tiles.
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
+import { Icon } from '@/components/ui/Icon';
 import { useUi, type OrbSide } from '@/state/ui';
 
 export const ORB_SIZE = 56;
@@ -50,15 +51,16 @@ export function Orb({
   unread,
   hidden,
   tucked = false,
-  onOpen,
+  onToggle,
 }: {
   building: boolean;
   unread: boolean;
-  /** Out of sight: the panel is open (the Orb lives in its header meanwhile), or home has it in its own. */
+  /** Out of sight: home has it in its header, or a phone's sheet is open. */
   hidden: boolean;
   /** Half behind its edge (phones, while a world plays or Explore is open). */
   tucked?: boolean;
-  onOpen(): void;
+  /** Open its panel, or close it when it's open. */
+  onToggle(): void;
 }) {
   const { orb, orbLoaded, panelOpen, loadOrb, moveOrb } = useUi();
   const ref = useRef<HTMLButtonElement>(null);
@@ -124,7 +126,7 @@ export function Orb({
       suppressClick.current = false;
       return;
     }
-    onOpen();
+    onToggle();
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
@@ -164,7 +166,7 @@ export function Orb({
       <button
         ref={ref}
         type="button"
-        aria-label={unread ? 'Open Orb (new message)' : 'Open Orb'}
+        aria-label={panelOpen ? 'Close Orb' : unread ? 'Open Orb (new message)' : 'Open Orb'}
         aria-expanded={panelOpen}
         title="Orb  ·  ⌘K"
         className="group fixed z-40 rounded-full outline-none select-none data-[dragging]:!transition-none data-[dragging]:cursor-grabbing"
@@ -178,6 +180,13 @@ export function Orb({
       >
         <span className="block transition-transform duration-300 ease-[var(--ease-spring)] group-hover:scale-[1.06] group-active:scale-95 group-data-[dragging]:scale-110">
           <OrbSphere size={ORB_SIZE} building={building} />
+        </span>
+        {/* Open, it says what a tap does now. */}
+        <span
+          aria-hidden="true"
+          className={`absolute inset-0 flex items-center justify-center text-white drop-shadow-[0_1px_3px_rgba(20,10,60,.55)] transition-[opacity,transform] duration-300 ease-[var(--ease)] ${panelOpen ? 'opacity-100' : 'scale-75 opacity-0'}`}
+        >
+          <Icon name="x" size={22} strokeWidth={2.4} />
         </span>
         {unread && (
           <span className="animate-pop absolute top-0.5 right-0.5 h-3 w-3 rounded-full bg-[var(--iris-4)] shadow-[0_0_0_2.5px_white,0_2px_6px_rgba(255,80,160,.5)]" aria-hidden="true" />

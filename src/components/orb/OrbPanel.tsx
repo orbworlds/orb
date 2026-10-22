@@ -1,19 +1,25 @@
 'use client';
-// The Orb expanded: a 400px glass panel on the Orb's side, anchored at the bottom and only as tall
-// as what it holds (desktop), or a bottom sheet with a grab handle (phones). It grows out of the
-// Orb's position and collapses back into it.
-// Header: tabs Chat · You, with the mini orb and the one close ("—") on desktop; on phones the
-// handle (tap: taller or smaller) and a swipe down. The world's row shows above the chat only
-// (on phones at the full height).
+// The Orb expanded: a 400px glass panel beside the Orb, anchored at the bottom and only as tall as
+// what it holds (desktop; on home, under the header's Orb), or a bottom sheet with a grab handle
+// (phones). It grows out of the Orb and collapses back into it; the Orb stays where it was, and a
+// tap on it closes the panel again.
+// Header: tabs Chat · You and a close ("—") on desktop; on phones the handle (tap: taller or
+// smaller) and a swipe down. The world's row shows above the chat only (on phones at full height).
 // Chat stays mounted while You shows, so scroll position and the draft survive.
 import { useEffect, useLayoutEffect, useRef, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/Button';
 import { useIsMobile, useUi, type PanelTab } from '@/state/ui';
-import { ORB_MARGIN, ORB_SIZE, OrbSphere } from './Orb';
+import { ORB_MARGIN, ORB_SIZE } from './Orb';
 
-export const PANEL_W = 400;
-export const PANEL_INSET = 16;
+const PANEL_W = 400;
+const PANEL_INSET = 16;
+/** Between the Orb and its panel. */
+const ORB_GAP = 12;
+/** On home: under the header's row. */
+const HOME_TOP = 64;
+/** How far into the screen the open panel reaches from its edge in a world (with the Orb beside it). */
+export const PANEL_REACH = ORB_MARGIN + ORB_SIZE + ORB_GAP + PANEL_W;
 /** A move this long is a drag of the sheet, not a tap. */
 const DRAG_THRESHOLD = 6;
 
@@ -23,13 +29,14 @@ const TABS: { id: PanelTab; label: string; icon: string }[] = [
 ];
 
 export function OrbPanel({
-  building,
+  home,
   chat,
   you,
   header,
   youBadge = 0,
 }: {
-  building: boolean;
+  /** On home, where the Orb sits in the page's header (top right): the panel opens under it. */
+  home: boolean;
   chat: ReactNode;
   you: ReactNode;
   /** World info + actions, shown above the chat. */
@@ -125,18 +132,22 @@ export function OrbPanel({
   };
 
   // --- geometry ------------------------------------------------------------------------------
-  const right = orb.side === 'right';
-  // The panel grows out of the Orb: transform-origin = the Orb's center in panel coordinates.
-  const orbX = ORB_MARGIN - PANEL_INSET + ORB_SIZE / 2;
+  // Beside the Orb (which stays, to close it again), or on home under the header's Orb. The panel
+  // grows out of the Orb: transform-origin = the Orb's center in panel coordinates.
+  const right = home || orb.side === 'right';
+  const side = home ? PANEL_INSET : ORB_MARGIN + ORB_SIZE + ORB_GAP;
   const orbY = `(var(--safe-t) + ${ORB_MARGIN + ORB_SIZE / 2}px + (100vh - var(--safe-t) - var(--safe-b) - ${ORB_MARGIN * 2 + ORB_SIZE}px) * ${orb.y.toFixed(4)})`;
-  const origin = `${right ? `calc(100% - ${orbX}px)` : `${orbX}px`} calc(100% - (100vh - var(--safe-b) - ${PANEL_INSET}px - ${orbY}))`;
+  const origin = home
+    ? 'calc(100% - 28px) -32px'
+    : `${right ? `calc(100% + ${ORB_GAP + ORB_SIZE / 2}px)` : `${-(ORB_GAP + ORB_SIZE / 2)}px`} calc(100% - (100vh - var(--safe-b) - ${PANEL_INSET}px - ${orbY}))`;
+  const top = `calc(var(--safe-t) + ${HOME_TOP}px)`;
 
   const desktopStyle: CSSProperties = {
-    bottom: `calc(var(--safe-b) + ${PANEL_INSET}px)`,
-    [right ? 'right' : 'left']: `calc(${right ? 'var(--safe-r)' : 'var(--safe-l)'} + ${PANEL_INSET}px)`,
+    ...(home ? { top } : { bottom: `calc(var(--safe-b) + ${PANEL_INSET}px)` }),
+    [right ? 'right' : 'left']: `calc(${right ? 'var(--safe-r)' : 'var(--safe-l)'} + ${side}px)`,
     width: PANEL_W,
-    maxWidth: `calc(100vw - ${PANEL_INSET * 2}px)`,
-    maxHeight: `calc(100dvh - var(--safe-t) - var(--safe-b) - ${PANEL_INSET * 2}px)`,
+    maxWidth: `calc(100vw - ${side + PANEL_INSET}px)`,
+    maxHeight: home ? `calc(100dvh - ${top} - var(--safe-b) - ${PANEL_INSET}px)` : `calc(100dvh - var(--safe-t) - var(--safe-b) - ${PANEL_INSET * 2}px)`,
     borderRadius: 'var(--r-panel)',
     transformOrigin: origin,
     transform: open ? 'none' : 'scale(.14)',
@@ -194,12 +205,6 @@ export function OrbPanel({
           </button>
         )}
         <div className="flex items-center gap-2">
-          {!mobile && (
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center">
-              <OrbSphere size={30} building={building} glow={false} />
-            </span>
-          )}
-
           <div role="tablist" aria-label="Orb sections" className="relative grid flex-1 grid-cols-2 rounded-full bg-[var(--field-bg)] p-[3px]">
             <span
               aria-hidden="true"
