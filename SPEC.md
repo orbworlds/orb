@@ -75,7 +75,7 @@ If you change a contract, update this file in the same change.
   worlds (Orbcraft, Glow Paint, Star Runner: each remixes as a tile's Remix does, into the copy with
   its chat open), (for people who have some) one row of their own worlds or their friends' (**Your
   worlds**, with **See all**; read again each time home shows), then Explore's header and a few of
-  its worlds (the lead and four rows, at every width), **See all worlds** (`/explore`: all of them,
+  its worlds (the lead and four rows, at every width), **More** (`/explore`: all of them,
   in place, as a page of its own: the browser's back returns home) and a footer (orbworlds, Plans,
   the Orb kit on npm, `/llms.txt` (how to make worlds, for AI agents), GitHub (the org:
   `GITHUB_URL`) and Back to top). Sending from the composer hands over to the chat on the canvas;
@@ -472,7 +472,7 @@ in search and on their maker's page. Trending leads with Orb's own order of the 
 (`src/lib/curation.ts`), each maker's spread out so none shows twice among four neighbours. Curated
 worlds that don't hold up are `hidden` in `src/data/seeds.json` (playable by link). On touch
 screens, worlds that need a keyboard (tagged `keyboard`) come after the others in each page (not in
-a search). At home, Trending under All fills four rows under the lead, then **See all worlds** (when
+a search). At home, Trending under All fills four rows under the lead, then **More** (when
 there are more); a filter, New or a search shows all its worlds (more load as you scroll). A search
 looks through every listed world (not only the ranked ones; no filter shows as picked, and picking
 one ends the search): names and makers from the start of a word (found as they're typed),

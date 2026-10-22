@@ -3,7 +3,7 @@
 // Explore, the worlds edge to edge, trending first unless sorted otherwise (Orb's picks, what people
 // play right now, and a nudge for brand-new worlds — see trendExpr in src/server/worlds.ts).
 // Explore's header (filters, sort, search) sticks at the top once the worlds reach it. At / the
-// trending worlds fill a few rows, then "See all worlds" goes on to /explore; a filter, New or a
+// trending worlds fill a few rows, then "More" goes on to /explore; a filter, New or a
 // search goes on as far as there are worlds. Once opened, it stays mounted while a world plays, so
 // coming back finds it as it was left: the same filter, sort, search and scroll position.
 
@@ -267,7 +267,7 @@ function ExploreOverlay({ open, hidden, intro, building, start, onOpenWorld, onR
         })}
         className="glass-soft group inline-flex h-11 items-center gap-1 rounded-full pr-4 pl-5 text-[14.5px] font-medium text-ink transition-[background,transform] duration-200 ease-[var(--ease)] hover:bg-[var(--glass-bg)] focus-visible:rounded-full active:scale-[.97]"
       >
-        See all worlds
+        More
         <Icon name="chevron-right" size={16} className="text-ink-2 transition-transform duration-300 ease-[var(--ease)] group-hover:translate-x-0.5" />
       </a>
     </div>
