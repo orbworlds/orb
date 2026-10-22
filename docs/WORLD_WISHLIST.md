@@ -70,6 +70,27 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   app), Regolith (its maker ties it to a token), Off Road Earth (bare terrain where it starts) and
   fan games built on someone else's characters (Storm Race, Soccar, Natsu by Spectromachina, The
   Simpsons Hit & Run, Battle of Hoth).
+- **Architecture worlds** (buildings, towns, gardens; scouted in late October 2026). To check again:
+  **Kigumi Architecture** and **Sannenzaka** (re-presentation.jp: Japanese timber joinery, and a
+  Kyoto street with the Yasaka pagoda) answered 502 all through the check, so nobody has seen them
+  in a frame; neither has a licence. Left out: **Alexandria** (alexandria-mouseion.netlify.app, MIT
+  but refuses a frame; about 120 MB with a Vite build, so it could be hosted), **Concordia**
+  (refuses a frame, its simulation's code is private, and it needs a keyboard), **Model Museum: AI**
+  (sael.net: more a leaderboard of company logos than a place, and its maker wants to be asked
+  before anyone frames it), **Kage** (mengto.github.io: a scroll-driven essay page, not a place to
+  explore), **Jastrzębia Góra** (splatter.app: a 2 GB drone scan of a lighthouse in forest under a
+  black sky) and **The Silo** (a fan model of someone else's TV show). Neon Zenith and Three.js
+  Punk Drive are listed elsewhere here. Checked and fine in a frame, but left for a later batch:
+  Open House (Scenario's living room in seven styles), Qingming Bianjing (no licence yet), Warszawa
+  Voxel, Villa Savoye, NAVIS (opens under a large settings panel; touch can't walk), Seijaku (ends
+  in a property sales page with an inquiry form), Basilica of Celestial Light, BRUT, A Home Among
+  the Bamboo, Towers, Ocean Drive (minutes to load on a weak GPU), Chinese Autumn Temple (about
+  255 MB of assets), Morning Diner, Interwar Thessaloniki, WITHIN, Hush, CyArk's Civita di
+  Bagnoregio and the Sainte-Thérèse chapel at Labenne. **Utsuroi** (a Kyoto house from
+  dawn to night; billpwchan.github.io/utsuroi, since its own domain refuses a frame) loads in Orb's
+  frame, but software WebGL never got past its loader: add it once someone sees it draw on a real
+  GPU. Orb could host it (MIT, a Vite build of about 160 MB) once its one CC BY-NC-SA lantern is
+  swapped out.
 
 ## Embeds we would add if their sites allowed it
 
@@ -88,10 +109,3 @@ walking a WebGPU planet of a million grass blades and flowers, the most beautifu
 neon Kowloon to drive and fly; 181 MB built) and **Halcyon** (billpwchan/halcyon: a tropical atoll
 with an FFT ocean, scanned reef and whales; about 560 MB, with scanned assets under their own
 licences). Hosting them needs worlds that can be bigger, or their large files served from a CDN.
-
-## Hosting fixes that would unlock more open-source worlds
-
-- Imported worlds that load files by root-absolute paths (`/vendor/three.module.js`) break,
-  because the page's `<base>` points at its files but `/…` still means Orb's own site. Rewriting
-  those paths to relative ones on import would let Gogh Strike (embedded today) and similar
-  projects be hosted on Orb.

@@ -467,6 +467,12 @@ async function fromTypeScript(raw: Map<string, Buffer>): Promise<void> {
  * own), through GitHub's API. `page`: an index.html to run the repository's code with (a curated
  * world whose repository has none, src/data/seed-pages.ts).
  */
+/** A Vite project (a vite.config, or Vite in package.json) run from its source serves public/ at the top: so does its world. */
+export function servePublicAtTop(raw: Map<string, Buffer>): void {
+  const vite = [...raw.keys()].some((k) => /^vite\.config\.[cm]?[jt]s$/.test(k)) || /"vite"\s*:/.test(raw.get('package.json')?.toString('utf8') ?? '');
+  if (vite) for (const [p, data] of [...raw]) if (p.startsWith('public/') && !raw.has(p.slice(7))) raw.set(p.slice(7), data);
+}
+
 export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | null; page?: string } = {}): Promise<Imported> {
   const at = ref.ref ? encodeURIComponent(ref.ref) : 'HEAD';
   const url = opts.token ? `${GITHUB_API}/repos/${ref.owner}/${ref.repo}/tarball/${at}` : `${CODELOAD}/${ref.owner}/${ref.repo}/tar.gz/${at}`;
@@ -479,10 +485,7 @@ export async function importRepo(db: Db, ref: RepoRef, opts: { token?: string | 
   // The page to run: index.html at the top, else in a usual web folder (which becomes the root).
   const root = ENTRY_DIRS.find((d) => raw.has(d ? `${d}/${ENTRY}` : ENTRY));
   if (root === undefined) throw new FileError("That repository has no index.html, so there's no page to run.");
-  // A Vite project run from its source serves public/ at the top: so does its world.
-  if (root === '' && [...raw.keys()].some((k) => /^vite\.config\.[cm]?[jt]s$/.test(k))) {
-    for (const [p, data] of [...raw]) if (p.startsWith('public/') && !raw.has(p.slice(7))) raw.set(p.slice(7), data);
-  }
+  if (root === '') servePublicAtTop(raw);
   const tree: Tree = {};
   const rootPath = (f: string) => (root ? `${root}/${f}` : f);
   const relOf = (p: string) => (root ? p.slice(root.length + 1) : p);

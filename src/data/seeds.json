@@ -2444,5 +2444,279 @@
       "author_url": "https://x.com/hasibdreamer35",
       "made_with": "Claude Opus, three.js"
     }
+  },
+  {
+    "id": "ext-stones-remember",
+    "name": "The Stones Remember",
+    "description": "Pick a site on a map of the Nile and walk Karnak's painted Hypostyle Hall or the Great Pyramid as they once stood, with a guide narrating.",
+    "kind": "external",
+    "external_url": "https://www.scenario.com/explorations/the-stones-remember/",
+    "source_url": null,
+    "author_name": "Scenario",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 64,
+    "thumb_url": "/seeds/ext-stones-remember.webp",
+    "origin": {
+      "author_url": "https://www.scenario.com/",
+      "made_with": "Scenario (generated panoramas and 3D on published surveys), Blender, three.js"
+    }
+  },
+  {
+    "id": "aw-sakuragaoka-station",
+    "name": "Sakuragaoka Station",
+    "description": "Walk a cel-shaded Japanese station town in cherry-blossom season, with trains on a timetable, a working level crossing and shops you can step into.",
+    "kind": "external",
+    "external_url": "https://sakuragaoka-station.vercel.app/",
+    "source_url": "https://github.com/Kenton-GMI/sakuragaoka-station",
+    "author_name": "Kenton-GMI",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 64,
+    "thumb_url": "/seeds/aw-sakuragaoka-station.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://github.com/Kenton-GMI/sakuragaoka-station",
+      "platform": "github",
+      "stars": 107,
+      "posted_at": "2026-09-25",
+      "handle": "Kenton-GMI",
+      "author_url": "https://github.com/Kenton-GMI",
+      "made_with": "three.js, everything procedural"
+    }
+  },
+  {
+    "id": "ext-grace-cathedral",
+    "name": "Grace Cathedral",
+    "description": "Circle San Francisco's Grace Cathedral in a photoreal scan, then step inside and walk the nave under its stained glass.",
+    "kind": "external",
+    "external_url": "https://vincentwoo.com/3d/grace_cathedral/",
+    "source_url": null,
+    "author_name": "Vincent Woo",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-grace-cathedral.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=48984254",
+      "platform": "hn",
+      "likes": 263,
+      "posted_at": "2026-07-20",
+      "handle": "akanet",
+      "author_url": "https://vincentwoo.com/",
+      "made_with": "Gaussian splats (drone and ground capture), PlayCanvas"
+    }
+  },
+  {
+    "id": "ext-impossible-spaces",
+    "name": "Impossible Spaces",
+    "description": "Step through one of seven doors into an impossible building, like an upside-down train hall or a town square hung from cranes above the clouds.",
+    "kind": "external",
+    "external_url": "https://www.incredible-space.com/",
+    "source_url": null,
+    "author_name": "Vince Lee",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-impossible-spaces.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/impossible-spaces-procedural-architecture-moving-mechanisms-and-surreal-worlds/95501",
+      "platform": "three.js forum",
+      "views": 94,
+      "likes": 6,
+      "posted_at": "2026-10-18",
+      "handle": "@VinceLee766945",
+      "author_url": "https://x.com/VinceLee766945",
+      "made_with": "Codex, three.js, WebGL"
+    }
+  },
+  {
+    "id": "ext-parthenon",
+    "name": "The Parthenon, Restored",
+    "description": "Fly through the Parthenon as it stood around 440 BCE, with its painted ceiling and gold-and-ivory Athena restored in a photoreal reconstruction.",
+    "kind": "external",
+    "external_url": "https://superspl.at/s?id=6c73f114",
+    "source_url": null,
+    "author_name": "Flyover Zone",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-parthenon.webp",
+    "origin": {
+      "post_url": "https://superspl.at/scene/6c73f114",
+      "platform": "SuperSplat",
+      "views": 35000,
+      "likes": 7,
+      "posted_at": "2026-01-13",
+      "handle": "flyoverzone",
+      "author_url": "https://www.flyoverzone.com/",
+      "made_with": "Gaussian splats from CG renders and photogrammetry, SuperSplat (PlayCanvas)"
+    }
+  },
+  {
+    "id": "ext-hauz-casa",
+    "name": "HAUZ Casa 1",
+    "description": "Walk through a photoreal scan of a modern Brazilian house, from its double-height living room and floating stair to the kitchen, cinema and hot tub.",
+    "kind": "external",
+    "external_url": "https://superspl.at/s?id=7df22856",
+    "source_url": null,
+    "author_name": "Plankus",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-hauz-casa.webp",
+    "origin": {
+      "post_url": "https://x.com/willeastcott/status/2036771871572525151",
+      "platform": "x",
+      "views": 570810,
+      "likes": 4329,
+      "posted_at": "2026-03-25",
+      "handle": "@willeastcott",
+      "author_url": "https://x.com/willeastcott",
+      "made_with": "Gaussian splats (XGRIDS Lixel L2 Pro scan), SuperSplat Walk Mode (PlayCanvas)"
+    }
+  },
+  {
+    "id": "aw-invisible-cities",
+    "name": "Invisible Cities",
+    "description": "Browse the 55 cities of Calvino's Invisible Cities as lit miniature dioramas on the Khan's chessboard, or let Marco take you on a tour.",
+    "kind": "external",
+    "external_url": "https://p.migdal.pl/invisible-cities-opus-5.5/",
+    "source_url": "https://github.com/stared/invisible-cities-opus-5.5",
+    "author_name": "Piotr Migdał",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/aw-invisible-cities.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=50004790",
+      "platform": "hn",
+      "likes": 418,
+      "posted_at": "2026-10-08",
+      "handle": "stared",
+      "author_url": "https://p.migdal.pl/",
+      "made_with": "Claude Opus 5.5 (Claude Code, six subagents), three.js"
+    }
+  },
+  {
+    "id": "aw-procedural-buildings",
+    "name": "Procedural Building Configurator",
+    "description": "Shape a Paris Haussmann block, a New York corner building or a Chinese corner apartment floor by floor, in a clay city under changing light.",
+    "kind": "external",
+    "external_url": "https://proceduralbuildings.chirostudio.xyz/",
+    "source_url": "https://github.com/achrefelouafi/ProceduralBuildingsThreeJS",
+    "author_name": "Achref Elouafi",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 55,
+    "thumb_url": "/seeds/aw-procedural-buildings.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://x.com/chirovisuals/status/2104548658171834749",
+      "platform": "x",
+      "views": 60914,
+      "likes": 932,
+      "posted_at": "2026-09-28",
+      "handle": "@chirovisuals",
+      "author_url": "https://x.com/chirovisuals",
+      "made_with": "Claude Opus 5.5, three.js, Blender geometry nodes"
+    }
+  },
+  {
+    "id": "ext-koyo-en",
+    "name": "Kōyō-en",
+    "description": "Walk a Japanese garden in autumn, past a timber gate, red maples, a pavilion and lantern-lit paths, and find six quiet places.",
+    "kind": "external",
+    "external_url": "https://modelzengarden.com/gardens/opus-5-5-claude-code/index.html",
+    "source_url": null,
+    "author_name": "JP Schroeder",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-koyo-en.webp",
+    "origin": {
+      "post_url": "https://x.com/jpschroeder/status/2102517099323416630",
+      "platform": "x",
+      "views": 3901,
+      "likes": 86,
+      "posted_at": "2026-09-22",
+      "handle": "@jpschroeder",
+      "author_url": "https://x.com/jpschroeder",
+      "made_with": "Claude Opus 5.5 (Claude Code), three.js"
+    }
+  },
+  {
+    "id": "ext-provence-garden",
+    "name": "A Garden House in Provence",
+    "description": "Fly around a photoreal scan of a Provençal garden: a long stone pool, olive trees, cypresses and a stone farmhouse among them.",
+    "kind": "external",
+    "external_url": "https://superspl.at/s?id=ec388ae7",
+    "source_url": null,
+    "author_name": "Splatmotion3dgs",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 56,
+    "thumb_url": "/seeds/ext-provence-garden.webp",
+    "origin": {
+      "post_url": "https://x.com/yak32/status/2054161911327948830",
+      "platform": "x",
+      "views": 57104,
+      "likes": 690,
+      "posted_at": "2026-05-12",
+      "handle": "@yak32",
+      "author_url": "https://x.com/yak32",
+      "made_with": "Gaussian splats (XGRIDS PortalCam scan), SuperSplat (PlayCanvas)"
+    }
+  },
+  {
+    "id": "ext-lourmarin",
+    "name": "Village de Lourmarin",
+    "description": "Walk the café square and cobbled lanes of Lourmarin, a hill village in Provence, in a photoreal scan made early one morning.",
+    "kind": "external",
+    "external_url": "https://superspl.at/s?id=15d5fbcf",
+    "source_url": null,
+    "author_name": "Splatmotion3dgs",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-lourmarin.webp",
+    "origin": {
+      "post_url": "https://x.com/AurelienCa80656/status/2054257788612747366",
+      "platform": "x",
+      "views": 127,
+      "likes": 7,
+      "posted_at": "2026-05-12",
+      "handle": "@AurelienCa80656",
+      "author_url": "https://x.com/AurelienCa80656",
+      "made_with": "Gaussian splats (XGRIDS PortalCam scan), SuperSplat (PlayCanvas)"
+    }
   }
 ]

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 
 register('./resolve-hooks.mjs', import.meta.url);
 
-const { rewritePageForOrb, rewriteModuleForOrb, rewriteCssForOrb, bareImports, stripTrackers } = await import('../../../server/importer.ts');
+const { rewritePageForOrb, rewriteModuleForOrb, rewriteCssForOrb, bareImports, stripTrackers, servePublicAtTop } = await import('../../../server/importer.ts');
 
 const PAGE = `<!doctype html>
 <html><head>
@@ -129,4 +129,18 @@ test('a Vite worker import', () => {
 test('a stylesheet’s files from the site’s top', () => {
   const css = rewriteCssForOrb(`@font-face { src: url('/fonts/a.woff2') format('woff2'), url(/fonts/b.woff?v=2); } x { background: url(/nope.png); }`, 'src/styles/main.css', new Set(['fonts/a.woff2', 'fonts/b.woff']));
   assert.equal(css, `@font-face { src: url('../../fonts/a.woff2') format('woff2'), url(../../fonts/b.woff?v=2); } x { background: url(/nope.png); }`);
+});
+
+test('a Vite project serves public/ at the top, with or without a vite.config', () => {
+  const repo = (...more) => new Map([['index.html', Buffer.from('<!doctype html>')], ['public/models/a.glb', Buffer.from('a')], ['public/index.html', Buffer.from('not this')], ...more.map(([p, s]) => [p, Buffer.from(s)])]);
+  const noConfig = repo(['package.json', '{"devDependencies":{"vite":"^6.0.0"}}']);
+  servePublicAtTop(noConfig);
+  assert.equal(noConfig.get('models/a.glb')?.toString(), 'a');
+  assert.equal(noConfig.get('index.html')?.toString(), '<!doctype html>');
+  const config = repo(['vite.config.ts', 'export default {}']);
+  servePublicAtTop(config);
+  assert.equal(config.get('models/a.glb')?.toString(), 'a');
+  const notVite = repo(['package.json', '{"dependencies":{"three":"^0.180.0"}}']);
+  servePublicAtTop(notVite);
+  assert.equal(notVite.has('models/a.glb'), false);
 });
