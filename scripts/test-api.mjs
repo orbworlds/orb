@@ -1253,12 +1253,31 @@ async function run() {
     await request('PUT', `/api/worlds/${w.id}/thumb`, { dev: OWNER, raw: WEBP, type: 'image/webp' });
     const finds = async (q, extra = '') => (await request('GET', `/api/worlds?q=${encodeURIComponent(q)}&limit=60${extra}`)).json.worlds.some((x) => x.id === w.id);
     check('a search finds whole words of the description, and their plurals', (await finds('carpet')) && (await finds('dune')) && (await finds('magic carpet')));
-    check('…but not the middle or start of one there ("car" isn’t "carpet")', !(await finds('car')) && !(await finds('arpet')));
+    check('…the start of one from 4 letters ("carp" is "carpet")', (await finds('carp')) && (await finds('magic carp')));
+    check('…but not below that, or the middle of one ("car" isn’t "carpet")', !(await finds('car')) && !(await finds('arpet')));
     check('…names from the start of a word, as they’re typed', (await finds('lanternfish')) && (await finds('lanter')) && !(await finds('ternfish')));
-    check('…tags by whole words', (await finds('glimmerwing')) && !(await finds('glimmer')));
+    check('…tags the same way as descriptions', (await finds('glimmerwing')) && (await finds('glimmer')) && !(await finds('gli')));
     check('…within a filter, when one is given', (await finds('carpet', '&tag=game')) && !(await finds('carpet', '&tag=world')));
     check('…and odd characters are just characters', (await request('GET', '/api/worlds?q=%28c%2B%2B%5B')).status === 200);
-    await request('DELETE', `/api/worlds/${w.id}`, { dev: OWNER });
+    // Names first, then descriptions and tags, then makers (in any sort, across pages).
+    const word = `fin${RUN}`;
+    const ranked = [];
+    for (const input of [{ name: `Quiet bay ${TOKEN}`, authorName: `${word} Maker` }, { name: `Deep sea ${TOKEN}`, description: `A ${word} swims here.` }, { name: `${word} Harbor` }]) {
+      const x = (await create(OWNER, input)).json.world;
+      await request('PUT', `/api/worlds/${x.id}/thumb`, { dev: OWNER, raw: WEBP, type: 'image/webp' });
+      ranked.unshift(x.id);
+    }
+    for (const sort of ['trending', 'new']) {
+      const seen = [];
+      let cursor = '';
+      do {
+        const r = (await request('GET', `/api/worlds?q=${word}&sort=${sort}&limit=1${cursor && `&cursor=${cursor}`}`)).json;
+        seen.push(...r.worlds.map((x) => x.id));
+        cursor = r.nextCursor ?? '';
+      } while (cursor && seen.length < 10);
+      check(`…names first, then descriptions, then makers (${sort})`, JSON.stringify(seen) === JSON.stringify(ranked), seen);
+    }
+    for (const id of [w.id, ...ranked]) await request('DELETE', `/api/worlds/${id}`, { dev: OWNER });
   });
 
   await section('Agent builds & multi-file worlds', async () => {

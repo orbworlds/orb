@@ -42,7 +42,6 @@ export function useGitHubLinks(): void {
     a.remix = false;
     if (isExternal || canEdit || !world.forkable) return;
     track('remix_link', { world_id: world.id });
-    // Full height: on a phone the world bar, and its Remix, shows only there.
-    useUi.getState().openPanel('chat', 'full');
+    useUi.getState().openPanel('chat');
   }, [status, world, canEdit, isExternal]);
 }

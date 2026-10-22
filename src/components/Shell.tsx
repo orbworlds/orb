@@ -4,7 +4,7 @@
 // (start canvas, a world, or Explore); navigation afterwards happens in place without remounts.
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSession } from '@/components/orb/AccountCard';
 import { BuildingPill } from '@/components/orb/BuildingPill';
 import { ChatView } from '@/components/orb/ChatView';
@@ -127,8 +127,10 @@ function onPop(): void {
 
 // ---- actions shared by home, the world bar and the chat (they read the stores, nothing of a render) ----
 
+/** Open a world (with its chat on the Orb's next open: a world opened from the You tab shows it). */
 function openWorld(id: string): void {
   useUi.getState().setHeroDone(true);
+  useUi.getState().setTab('chat');
   void useWorld.getState().openWorld(id);
 }
 
@@ -345,8 +347,9 @@ export default function Shell({
   }, []);
 
   // ---- the tab's title follows what's on screen (page metadata only titles the first page) --------
+  // Your own world goes by its name alone (a remix's copied maker would say someone else made it).
   const worldName = world?.name;
-  const maker = world?.authorName;
+  const maker = canEdit ? null : world?.authorName;
   useEffect(() => {
     if (status === 'loading' || status === 'idle') return; // keep the last title until the next world is in
     if (ui.profile) return; // the profile sheet names its maker
@@ -528,7 +531,7 @@ export default function Shell({
       {exploreUsed && (
         <ExploreSheet
           open={heroVisible}
-          intro={<HomeIntro onSend={sendFromHero} onOpenWorld={openWorld} onOpenMine={() => ui.openPanel('you')} />}
+          intro={<HomeIntro onSend={sendFromHero} onRemix={remixWorld} onOpenWorld={openWorld} onOpenMine={() => ui.openPanel('you')} />}
           building={build.isBuilding || build.background.length > 0}
           start={explore}
           onOpenWorld={openWorld}
@@ -651,8 +654,11 @@ function BackgroundBuilds({ builds }: { builds: BackgroundBuild[] }) {
   );
 }
 
-/** Where the top-left corner brings the way back again (a pointer reaching it, a tap near it). */
-const CORNER = { width: 'calc(var(--safe-l) + 56px)', height: 'calc(var(--safe-t) + 20px)' };
+/**
+ * Where the top-left corner brings the way back again (a pointer reaching it, a tap near it): the
+ * corner itself and where the pill sits, so reaching for it where it was brings it back.
+ */
+const CORNER = { width: 'calc(var(--safe-l) + 128px)', height: 'calc(var(--safe-t) + 60px)' };
 
 /**
  * Top-left while a world opens: "Explore", back to it in one click. A few seconds after the world is
@@ -668,30 +674,33 @@ function ExploreBack({ ready, inset, onClick }: { ready: boolean; inset: number;
     setWasReady(ready);
     if (!ready) setWake(wake + 1);
   }
-  const held = useRef(false); // the pointer is on it
   useEffect(() => {
     if (!ready) return;
-    const t = setTimeout(() => !held.current && setGoneAt(wake), 4000);
+    const t = setTimeout(() => setGoneAt(wake), 4000);
     return () => clearTimeout(t);
   }, [ready, wake]);
   const gone = goneAt === wake;
-  const again = () => setWake((n) => n + 1);
+  // A tap that brings it back ends in a click where it now is: that one isn't a click on it.
+  const tapped = useRef(-1e9);
+  const again = (e?: ReactPointerEvent) => {
+    if (e?.type === 'pointerdown' && e.pointerType !== 'mouse') tapped.current = performance.now();
+    setWake((n) => n + 1);
+  };
+  // Moves, not enters: a pointer that went on into the world's frame may still be here for the page,
+  // whose own changes (the pill fading) then "enter" the corner without anyone reaching for it.
   return (
     <>
-      {gone && <div aria-hidden="true" className="fixed top-0 left-0 z-30" style={CORNER} onPointerEnter={again} onPointerDown={again} />}
+      {gone && <div aria-hidden="true" className="fixed top-0 z-30" style={{ ...CORNER, left: inset }} onPointerMove={again} onPointerDown={again} />}
       <div
         className={`fixed z-30 transition-[opacity,transform] duration-500 ease-[var(--ease)] ${gone ? 'pointer-events-none -translate-y-1 opacity-0' : ''}`}
         style={{ top: 'calc(var(--safe-t) + 12px)', left: `calc(var(--safe-l) + ${12 + inset}px)` }}
         aria-hidden={gone}
-        onPointerEnter={() => (held.current = true)}
-        onPointerLeave={() => {
-          held.current = false;
-          if (!gone) again();
-        }}
+        // The pointer moving on it keeps it (its leave into the world's frame may never reach the page).
+        onPointerMove={() => again()}
       >
         <button
           type="button"
-          onClick={onClick}
+          onClick={() => performance.now() - tapped.current > 700 && onClick()}
           aria-label="Back to Explore"
           title="Back to Explore"
           tabIndex={gone ? -1 : 0}

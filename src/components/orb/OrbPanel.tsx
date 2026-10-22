@@ -4,7 +4,8 @@
 // (phones). It grows out of the Orb and collapses back into it; the Orb stays where it was, and a
 // tap on it closes the panel again.
 // Header: tabs Chat · You and a close ("—") on desktop; on phones the handle (tap: taller or
-// smaller) and a swipe down. The world's row shows above the chat only (on phones at full height).
+// smaller) and a swipe down. Esc closes it wherever focus is on the page (a world's frame keeps its
+// own keys); on home, so does a click outside it. The world's row shows above the chat only.
 // Chat stays mounted while You shows, so scroll position and the draft survive.
 import { useEffect, useLayoutEffect, useRef, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { Icon } from '@/components/ui/Icon';
@@ -50,19 +51,41 @@ export function OrbPanel({
   const sheetDrag = useRef<{ id: number; y0: number; t0: number; dy: number; moved: boolean } | null>(null);
   const dragged = useRef(false);
 
-  // Esc collapses the panel when focus is inside it (sheets and menus handle their own Esc first).
+  // Esc closes the panel wherever focus is on the page (keys inside a world's frame stay there; a
+  // dialog over it, a menu or an edit takes its own Esc first). On home, so does a click outside it,
+  // once the page has handled it, unless that click asked something of the Orb (its toggle, Sign in,
+  // a world opening) or was in a dialog or menu. In a world, clicking the world leaves it open, as
+  // people try the world while they chat.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return;
-      if (ref.current?.contains(document.activeElement)) {
-        e.preventDefault();
-        closePanel();
-      }
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || document.querySelector('[aria-modal="true"]')) return;
+      e.preventDefault();
+      closePanel();
     };
+    // (Where it was is read before the page handles it: that may take the clicked element away. A
+    // press that began in the panel, like a text selection dragged out of it, isn't a click outside.)
+    let before: unknown = null;
+    let pressedIn = false;
+    const onPress = (e: Event) => (pressedIn = !!ref.current?.contains(e.target as Node));
+    const onClickStart = (e: Event) => {
+      const t = e.target as Element | null;
+      const outside = home && !pressedIn && !!t?.closest && !ref.current?.contains(t) && !t.closest('[role="dialog"], [role="menu"]');
+      pressedIn = false;
+      before = outside ? useUi.getState() : null;
+    };
+    const onClick = () => before && useUi.getState() === before && closePanel();
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, closePanel]);
+    window.addEventListener('pointerdown', onPress, true);
+    window.addEventListener('click', onClickStart, true);
+    window.addEventListener('click', onClick);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onPress, true);
+      window.removeEventListener('click', onClickStart, true);
+      window.removeEventListener('click', onClick);
+    };
+  }, [open, home, closePanel]);
 
   // Collapsing with focus inside would strand keyboard focus on a hidden element.
   useEffect(() => {
@@ -117,8 +140,9 @@ export function OrbPanel({
     delete el.dataset.dragging;
     el.style.transform = '';
     const v = d.dy / Math.max(1, performance.now() - d.t0); // px per ms
+    // From full height, a drag down settles at half unless it goes most of the way (or flicks).
     if (d.dy < -40 || v < -0.5) setDetent('full');
-    else if (d.dy > (detent === 'full' ? 220 : 90) || v > 0.7) closePanel();
+    else if (detent === 'full' ? d.dy > el.offsetHeight * 0.6 || v > 1.2 : d.dy > 90 || v > 0.7) closePanel();
     else if (detent === 'full' && (d.dy > 60 || v > 0.35)) setDetent('half');
   };
   // The height changes on the click, once the finger is up, so nothing under it gets the tap.
@@ -160,8 +184,8 @@ export function OrbPanel({
       : 'transform 380ms var(--ease-soft), opacity 300ms var(--ease-soft) 40ms, filter 300ms var(--ease-soft), visibility 0s linear 400ms',
   };
   // Above the on-screen keyboard (src/lib/viewport.ts), never taller than what's visible, and as tall
-  // as what it holds: up to about three quarters of the screen (half), or nearly all of it (full,
-  // which adds the world's row).
+  // as what it holds: up to about three quarters of the screen (half, the world's row and the chat),
+  // or nearly all of it (full, which adds the way back to Explore).
   const visible = 'calc(var(--vvh, 100dvh) - var(--safe-t) - 12px)';
   const mobileStyle: CSSProperties = {
     left: 0,
@@ -240,7 +264,7 @@ export function OrbPanel({
         </div>
       </header>
 
-      {tab === 'chat' && (!mobile || detent === 'full') && header}
+      {tab === 'chat' && header}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         <section

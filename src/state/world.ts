@@ -2,8 +2,9 @@
 // The world currently on screen and everything that persists it.
 //
 // - The start canvas is a template (no server record, chatKey 'new'); when the first build starts
-//   it becomes a world (createForBuild) and the address its readable one (/<owner>/<world>) via
-//   history.replaceState, so the stage never remounts. Builds save on the server (adoptVersion).
+//   it becomes a world (createForBuild) and the address its readable one (/<owner>/<world>), a new
+//   history entry (Back returns to where it was started), without remounting the stage. Builds save
+//   on the server (adoptVersion).
 // - A visitor asks in place; to change a forkable world they make their own copy (remix).
 // - After each new version a thumbnail is captured once the world settles.
 //
@@ -108,6 +109,8 @@ export const CHANGE_CHIPS = ['Make it nighttime', 'Add gentle music', 'Add a lit
 
 /** Guards async loads: a newer load (or navigation) invalidates older responses. */
 let loadToken = 0;
+/** A remix is on its way: another one meanwhile (a second click on Remix, a card's) is ignored, so it makes one copy. */
+let remixing = false;
 
 /** Move the chat thread a build ran in from one world key to another (before the store switches). */
 function carryThread(from: string, to: string, threadId: string): void {
@@ -115,7 +118,8 @@ function carryThread(from: string, to: string, threadId: string): void {
   if (thread && thread.worldId === from) saveChatThread({ ...thread, worldId: to, updatedAt: Date.now() });
 }
 
-function navigate(path: string, mode: 'push' | 'replace'): void {
+/** Go to `path` in place: a new history entry (`push`, a page view) or the same one (`replace`). */
+export function navigate(path: string, mode: 'push' | 'replace'): void {
   if (window.location.pathname + window.location.search === path) return;
   try {
     // From inside the sheet or a profile, the page takes their entry: Back returns to where they opened.
@@ -375,10 +379,10 @@ export const useWorld = create<WorldState>((set, get) => {
         carryThread('new', world.id, threadId);
         rememberWorldName(world.id, world.name);
         if (token === loadToken && !get().world && get().status !== 'loading') {
+          navigate(worldHref(world), 'push');
           // Same code as on screen: keep the frame as it is (no reload), just give it its identity
           // (and no opening cover: this world is the canvas that's already there, being built).
           set({ status: 'ready', world: { ...world, canEdit: true }, chatKey: world.id, canEdit: true, baseCode: s.baseCode ?? '', verified: true, drawn: true });
-          navigate(worldHref(world), 'replace');
         }
         return { worldId: world.id, version: world.version };
       } catch (e) {
@@ -475,7 +479,8 @@ export const useWorld = create<WorldState>((set, get) => {
 
     async remix(sourceId) {
       const id = sourceId ?? get().world?.id;
-      if (!id) return null;
+      if (!id || remixing) return null;
+      remixing = true;
       const token = ++loadToken;
       try {
         const { world } = await api.fork(id, getDisplayName());
@@ -493,6 +498,8 @@ export const useWorld = create<WorldState>((set, get) => {
       } catch (e) {
         toast(friendly(e, "Couldn't make a copy right now. Try again in a moment."), 'error');
         return null;
+      } finally {
+        remixing = false;
       }
     },
 

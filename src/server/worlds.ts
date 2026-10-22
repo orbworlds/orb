@@ -554,14 +554,15 @@ function encodeCursor(sort: ListSort, keys: unknown[], t?: number): string {
   return Buffer.from(JSON.stringify({ s: sort, k: keys, ...(t ? { t } : {}) })).toString('base64url');
 }
 
-function decodeCursor(sort: ListSort, cursor: string): { keys: Array<string | number>; t?: number } {
+/** `types`: the Postgres types of the listing's sort keys (a search's relevance, then the sort's). */
+function decodeCursor(sort: ListSort, cursor: string, types: string[]): { keys: Array<string | number>; t?: number } {
   try {
     const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as { s?: unknown; k?: unknown; t?: unknown };
     const keys = parsed.k;
-    if (parsed.s === sort && Array.isArray(keys) && keys.length === SORT_KEYS[sort].length) {
+    if (parsed.s === sort && Array.isArray(keys) && keys.length === types.length) {
       // Validate here so a forged cursor is a 400, not a Postgres cast error (500).
       const ok = keys.every((k, i) => {
-        const type = SORT_KEYS[sort][i][1];
+        const type = types[i];
         if (type === 'int') return Number.isInteger(k) && Math.abs(k as number) <= 2_147_483_647;
         if (type === 'float8') return typeof k === 'number' && Number.isFinite(k);
         return typeof k === 'string' && k.length <= 128 && (type !== 'timestamptz' || TIMESTAMP_RE.test(k));
@@ -672,23 +673,29 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
     // Newest is what people just made on Orb: curated worlds come in batches and would bury them.
     if (!p.q) where.push(p.sort === 'new' ? `(w.owner_user is not null or w.owner_device is not null)` : EARNED);
   }
+  // A search's relevance, before the sort: its name, then its description or tags, then its maker.
+  let rank = '';
   if (p.q) {
     // A search looks through every listed world (not only the ranked ones): names and makers from the
-    // start of a word, as they're typed; descriptions and tags by whole words ("car" isn't "carpet").
+    // start of a word, as they're typed; descriptions and tags too once the last word has 4 letters
+    // ("snow" finds snowy), by whole words below that ("car" isn't "carpet").
     const start = $(searchPattern(p.q, false));
-    const whole = $(searchPattern(p.q, true));
-    where.push(`(w.name ~* ${start} or w.author_name ~* ${start} or w.description ~* ${whole} or exists (select 1 from unnest(w.tags) as t(tag) where t.tag ~* ${whole}))`);
+    const text = $(searchPattern(p.q, p.q.split(/\s+/).at(-1)!.length < 4));
+    const inText = `(w.description ~* ${text} or exists (select 1 from unnest(w.tags) as t(tag) where t.tag ~* ${text}))`;
+    where.push(`(w.name ~* ${start} or w.author_name ~* ${start} or ${inText})`);
+    rank = `(case when w.name ~* ${start} then 2 when ${inText} then 1 else 0 end)`;
   }
   const tag = p.tag ?? '';
   if (tag) where.push(inTags(tag, $));
   if (p.verified) where.push(`w.verified`);
   if (p.remixable) where.push(`w.forkable and w.kind = 'native'`);
 
-  const cursor = p.cursor ? decodeCursor(p.sort, p.cursor) : null;
+  const keyDefs: Array<[string, string]> = rank ? [[rank, 'int'], ...SORT_KEYS[p.sort]] : SORT_KEYS[p.sort];
+  const cursor = p.cursor ? decodeCursor(p.sort, p.cursor, keyDefs.map(([, type]) => type)) : null;
   // Trending is scored as of one moment for a whole browsing session (carried in the cursor).
   const snapshot = cursor?.t ?? Math.floor(Date.now() / 1000);
   const trend = p.sort === 'trending' ? trendExpr(`${$(snapshot)}::float8`, $(await curatedOrder(db, tag))) : '';
-  const keys = SORT_KEYS[p.sort].map(([expr, type]) => [expr === 'TREND' ? trend : expr, type] as [string, string]);
+  const keys = keyDefs.map(([expr, type]) => [expr === 'TREND' ? trend : expr, type] as [string, string]);
   if (cursor) {
     const values = cursor.keys;
     // Row-value comparison = "strictly after the cursor row" since every key sorts descending.
@@ -699,8 +706,8 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
   }
 
   const rows = await db
-    .query<CardRow & { k_score: number; k_views: number; k_created: string; k_trend?: number }>(
-      `select ${CARD_COLS}, ${SCORE}::int as k_score, ${VIEWS} as k_views, w.created_at::text as k_created${trend ? `, ${trend}::float8 as k_trend` : ''}
+    .query<CardRow & { k_score: number; k_views: number; k_created: string; k_trend?: number; k_rank?: number }>(
+      `select ${CARD_COLS}, ${SCORE}::int as k_score, ${VIEWS} as k_views, w.created_at::text as k_created${trend ? `, ${trend}::float8 as k_trend` : ''}${rank ? `, ${rank}::int as k_rank` : ''}
        from ${CARD_FROM}
        where ${where.join(' and ')}
        order by ${keys.map(([expr]) => `${expr} desc`).join(', ')}
@@ -727,6 +734,7 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
       'w.created_at': last.k_created,
       'w.id': last.id,
       [trend || 'TREND']: Number(last.k_trend),
+      [rank || 'RANK']: Number(last.k_rank),
     };
     nextCursor = encodeCursor(p.sort, keys.map(([expr]) => keyOf[expr]), p.sort === 'trending' ? snapshot : undefined);
   }

@@ -3,9 +3,9 @@
 // Explore, the worlds edge to edge, trending first unless sorted otherwise (Orb's picks, what people
 // play right now, and a nudge for brand-new worlds — see trendExpr in src/server/worlds.ts).
 // Explore's header (filters, sort, search) sticks at the top once the worlds reach it. At / the
-// worlds fill a few rows, then "See all worlds" goes on to /explore, where they go on as far as
-// there are worlds. Once opened, it stays mounted while a world plays, so coming back finds it as it
-// was left: the same filter, sort, search and scroll position.
+// trending worlds fill a few rows, then "See all worlds" goes on to /explore; a filter, New or a
+// search goes on as far as there are worlds. Once opened, it stays mounted while a world plays, so
+// coming back finds it as it was left: the same filter, sort, search and scroll position.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { track } from '@/lib/analytics';
@@ -17,7 +17,8 @@ import { Button, IconButton } from '@/components/ui/Button';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
 import { useUi } from '@/state/ui';
-import { HomeHeader, OrbButton } from './Hero';
+import { navigate } from '@/state/world';
+import { HERO_COMPOSER_ID, HomeHeader, OrbButton } from './Hero';
 import { ExploreTile, ExploreTileSkeleton, onPlainClick } from './WorldCard';
 
 type ListParams = NonNullable<Parameters<typeof api.listWorlds>[0]>;
@@ -219,6 +220,16 @@ function ExploreOverlay({ open, hidden, intro, building, start, onOpenWorld, onR
     el.scrollTo({ top });
   }, [q, filter, sort]);
 
+  // Back from /explore to / shows a few rows again (forward, all of them).
+  useEffect(() => {
+    const onPop = () => {
+      const p = location.pathname;
+      if (p === '/' || p.startsWith('/explore')) setAll(p !== '/');
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   // The address follows what's shown, while it's /explore's.
   useEffect(() => {
     const next = exploreAddress(sort, filter, q);
@@ -238,14 +249,21 @@ function ExploreOverlay({ open, hidden, intro, building, start, onOpenWorld, onR
     searchRef.current?.focus({ preventScroll: true });
   };
 
+  // A search that found nothing: its words in the composer at the top, ready to make.
+  const makeIt = (text: string) => {
+    useUi.getState().setDraft(text);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById(HERO_COMPOSER_ID)?.focus({ preventScroll: true });
+  };
+
   const seeAll = (
     <div className="mt-6 flex justify-center sm:mt-8">
       <a
         href={exploreAddress(sort, filter, q)}
-        // In place: the address says so, but the browser's back doesn't step through it.
+        // In place, as a page of its own: the browser's back returns to the home page.
         onClick={onPlainClick(() => {
           setAll(true);
-          history.replaceState(history.state, '', exploreAddress(sort, filter, q));
+          navigate(exploreAddress(sort, filter, q), 'push');
         })}
         className="glass-soft group inline-flex h-11 items-center gap-1 rounded-full pr-4 pl-5 text-[14.5px] font-medium text-ink transition-[background,transform] duration-200 ease-[var(--ease)] hover:bg-[var(--glass-bg)] focus-visible:rounded-full active:scale-[.97]"
       >
@@ -341,9 +359,10 @@ function ExploreOverlay({ open, hidden, intro, building, start, onOpenWorld, onR
               sort={sort}
               q={q}
               lead={!q && sort === 'trending'}
-              all={all}
+              all={all || filter !== 'all' || sort !== 'trending'}
               seeAll={seeAll}
               scrollRef={scrollRef}
+              onMake={makeIt}
               onOpen={(id) => {
                 track('world_open', { world_id: id, source: 'home', filter: q ? 'all' : filter, sort, q: q || undefined });
                 onOpenWorld(id);
@@ -495,7 +514,7 @@ function SortToggle({ value, onChange, className }: { value: SortId; onChange(v:
 // Results
 
 /**
- * At /, the worlds fill four rows (under the lead, which is two rows tall from md) at every width:
+ * At /, trending under All fills four rows (under the lead, two rows tall from md) at every width:
  * 2 columns, 3 from md, 4 from xl, 5 from 1800px. The class that shows tile `i` only where it is in
  * those rows, or null where it never is.
  */
@@ -526,6 +545,7 @@ function ResultsGrid({
   all,
   seeAll,
   scrollRef,
+  onMake,
   onOpen,
   onRemix,
 }: {
@@ -538,6 +558,8 @@ function ResultsGrid({
   all: boolean;
   seeAll: ReactNode;
   scrollRef: RefObject<HTMLDivElement | null>;
+  /** Make what a search didn't find (its words go to the composer). */
+  onMake(text: string): void;
   onOpen(id: string): void;
   onRemix?(w: WorldCardData): void;
 }) {
@@ -565,12 +587,18 @@ function ResultsGrid({
 
   if (!feed.loading && feed.items.length === 0)
     return q ? (
-      // Nothing found: one line, then what's trending.
+      // Nothing found: an offer to make it, then what's trending.
       <>
-        <p className="px-1 pt-1 pb-4 text-[15px] text-ink-2">
-          Nothing called <span className="text-ink">“{q}”</span> yet. Here’s what’s trending.
-        </p>
-        <ResultsGrid filter="all" sort="trending" q="" lead={false} all={all} seeAll={seeAll} scrollRef={scrollRef} onOpen={onOpen} onRemix={onRemix} />
+        <div className="animate-fade-up flex flex-col items-center px-4 pt-8 pb-12 text-center sm:pt-12 sm:pb-16">
+          <h3 className="font-display max-w-full text-[28px] leading-tight tracking-[-0.01em] break-words text-ink sm:text-[34px]">
+            Nothing called <span className="pr-[.12em] italic">“{q}”</span> yet
+          </h3>
+          <Button variant="primary" icon="sparkle" className="mt-5" onClick={() => onMake(q)}>
+            Make it
+          </Button>
+        </div>
+        <h3 className="mb-3 px-1 text-[15px] font-semibold tracking-[-0.01em] text-ink">Trending</h3>
+        <ResultsGrid filter="all" sort="trending" q="" lead={false} all seeAll={null} scrollRef={scrollRef} onMake={onMake} onOpen={onOpen} onRemix={onRemix} />
       </>
     ) : (
       <EmptyState icon="sparkle" title="Nothing here yet" body="Be the first to make one." />

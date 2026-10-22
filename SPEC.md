@@ -24,8 +24,8 @@ If you change a contract, update this file in the same change.
    phones) and another tap closes it (it shows an × meanwhile). The one exception: as
    a world opens, "Explore" top-left goes back to Explore in one click; a few seconds after the world
    is ready it fades away, leaving the world the whole screen, and the pointer reaching the top-left
-   corner (a tap there on a phone) brings it back (the world bar's "← Explore" and the browser's back
-   go back too). Toasts never print over the world: there they're a small bubble beside the Orb.
+   corner, where it sat (a tap there on a phone), brings it back (the world bar's "← Explore" and the
+   browser's back go back too). Toasts never print over the world: there they're a small bubble beside the Orb.
    No clutter, no chrome, no ads, no badges-everywhere. The world is the hero.
 3. **Live.** Users see their instructions executed (a request that fails can be tried again, in its place): narration streams, each build step lands in
    the world as it completes (cross-faded, no flashes).
@@ -71,28 +71,35 @@ If you change a contract, update this file in the same change.
   (no world behind it: light, the sky with a soft iris glow, fading into paper under the worlds;
   dark, one deep dark with the same glow, low). A header row: Orb's name on the left; on the right
   the Orb itself, docked (it floats only inside worlds), and before it, signed out, a quiet
-  **Sign in** (the You tab). Then the headline ("Step into a world": describe a world, and Orb's AI
-  builds it), the big composer, (for people who have some) one row of their own worlds or their
-  friends' (**Your worlds**, with **See all**), then Explore's header and a few of its worlds (the
-  lead and four rows, at every width), **See all worlds** (`/explore`: all of them, in place) and a
-  footer (orbworlds, Plans, the Orb kit on npm, `/llms.txt` (how to make worlds, for AI agents),
-  GitHub (the org: `GITHUB_URL`) and Back to top). Sending from the composer hands over to the chat
-  on the canvas. Once Explore's header reaches the top it stays there, opaque over a hairline, with
-  the Orb at its end.
+  **Sign in** (the You tab, at its sign-in form). Then the headline ("Step into a world": describe a
+  world, and Orb's AI builds it), the big composer, under it **Or remix** and three of Orb's own
+  worlds (Orbcraft, Glow Paint, Star Runner: each remixes as a tile's Remix does, into the copy with
+  its chat open), (for people who have some) one row of their own worlds or their friends' (**Your
+  worlds**, with **See all**; read again each time home shows), then Explore's header and a few of
+  its worlds (the lead and four rows, at every width), **See all worlds** (`/explore`: all of them,
+  in place, as a page of its own: the browser's back returns home) and a footer (orbworlds, Plans,
+  the Orb kit on npm, `/llms.txt` (how to make worlds, for AI agents), GitHub (the org:
+  `GITHUB_URL`) and Back to top). Sending from the composer hands over to the chat on the canvas;
+  the world it makes gets its own address as a new page (the browser's back returns home). Once
+  Explore's header reaches the top it stays there, opaque over a hairline, with the Orb at its end.
   There is one Explore, and it is this page: a world's way back, "See all", `/explore` and a missing
   world's Explore button all go home, down at its worlds.
-  The Orb there opens its You tab under it (the page's composer is the chat), or the chat when a
-  build there has news, and closes it again; it swirls while a build runs.
+  The Orb there opens its chat under it ("What should we make?" with a few ideas; its You tab when
+  the only news is a friend's, as in a world), and closes it again; it swirls while a build runs.
 - **Opening a world** (a tile, a link, back/forward) shows one calm cover until the world has drawn
   (its ready signal; 20 s at most): its preview (or picture) under a soft scrim and its name, never
   another world in between. On a phone, a visitor's world that needs a keyboard (the `keyboard` tag)
   stops there first: "Best on a computer" and **Play anyway**, which loads it (once a session).
-- **The world bar** (the top of the Orb's panel, above the chat): "← Explore"; the world's name, and
-  under it only its maker ("by you" on your own) and who's here (a green dot and how many, friends'
-  faces); then like · **Remix** · share · ⋯. Remix is the one name for making your own copy: it opens
-  the copy with its chat ("Your copy of Orbcraft. What should we change?" and a few ideas); a world
-  running on its maker's site has none. On your own world the ⋯ menu's copy is **Duplicate**, and
-  Download .zip is in its Share sheet.
+- **The world bar** (the top of the Orb's panel, above the chat; on a phone one row from the
+  sheet's first height, "← Explore" joining it at full height): "← Explore"; the world's name, and
+  under it its maker ("by you" on your own), for a remix what it came from ("by you · remixed from
+  Glow Paint", a link that gives way first when room is short), and who's here (a green dot and how
+  many, friends' faces); then like · **Remix** · share · ⋯. Remix is the one name for making your
+  own copy: it opens the copy with its chat ("Your copy of Orbcraft. What should we change?" and a
+  few ideas), once however often it's pressed while the copy is on its way; a world running on its
+  maker's site has none. On your own world the ⋯ menu has **Rename** (or click the name) and its copy
+  is **Duplicate**, and Download .zip is in its Share sheet. Share on a phone opens its share sheet,
+  or copies the link and says so.
 - **New world** (Explore, You, a missing world's page) opens the start canvas with the Orb's chat
   open and its composer focused, not the start screen. The Orb's first line there ("What should we
   make?") also offers "Or start from an existing world": three popular remixable worlds
@@ -121,8 +128,8 @@ If you change a contract, update this file in the same change.
 - **Asking in someone else's world**: the chat is a guide there. Questions are answered in place
   (charged like any build on Orb's AI) and never copy the world. A change request gets **Remix**
   under the answer (the world bar's word): it remixes the world and builds the request in the copy.
-  The welcome line ("Ask me anything about Glow Paint.") offers two questions, and the composer
-  says "Ask about Glow Paint…".
+  The welcome line says where they are ("You’re in Glow Paint by orbworlds. Ask me anything about
+  it.") and offers two questions, and the composer says "Ask about Glow Paint…".
 - **Remix credit**: when someone makes a remix of a public world their own (its first change), the
   world's maker (with an account) hears who did. A world's ⋯ menu counts its changed public remixes
   and lists them; each remix says what it came from ("Remixed from …" there too), so the remix tree
@@ -449,13 +456,14 @@ Explore lists `visibility='public'` worlds that have a thumbnail and a name othe
 "Untitled world", as tiles that fill the screen edge to edge (2 columns on phones, 3 from 768px, 4
 from 1280px, 5 from 1800px; while trending without a search the first tile leads, two columns wide,
 and two rows tall from 768px). A tile is the world's picture (or preview; a quiet tint while it
-loads) with its name and maker on it; hovered or focused, it also says what the world is (its
-description, never the prompt it was made with: that's in the world's "How it was made") and how
-many played it (not when none). A world with people in it right now always says so ("● 3 playing":
-`WorldCard.live`, from `orb_here`). A tile is a link to the world: a click plays it in place, a
-click with a modifier key (or the middle button) opens it in a new tab. The header (filters,
-always-visible sort, search) stays at the top while scrolling the worlds. Sorts: Trending (default)
-and New (people's worlds only, newest first: curated worlds arrive in batches and would bury them).
+loads) with its name and maker on it (in two columns, the name in up to two lines and the maker on
+its own); hovered or focused, it also says what the world is (its description, never the prompt
+it was made with: that's in the world's "How it was made") and how many played it (not when none).
+A world with people in it right now always says so ("● 3 playing": `WorldCard.live`, from
+`orb_here`). A tile is a link to the world: a click plays it in place, a click with a modifier key
+(or the middle button) opens it in a new tab. The header (filters, always-visible sort, search)
+stays at the top while scrolling the worlds. Sorts: Trending (default) and New (people's worlds
+only, newest first: curated worlds arrive in batches and would bury them).
 People's own worlds join Trending once they've earned it: a like, 10 plays (`EARNED_PLAYS`) or Orb's
 pick (`featured`, `verified`). A world just built (changed since it began: version 2 on) gets its first 2 days there
 (`FRESH_DAYS`), wearing a "New" badge, so its first players can find it; Trending's fading boost for
@@ -464,12 +472,15 @@ in search and on their maker's page. Trending leads with Orb's own order of the 
 (`src/lib/curation.ts`), each maker's spread out so none shows twice among four neighbours. Curated
 worlds that don't hold up are `hidden` in `src/data/seeds.json` (playable by link). On touch
 screens, worlds that need a keyboard (tagged `keyboard`) come after the others in each page (not in
-a search). At home the worlds fill four rows under the lead, then **See all worlds** (when there
-are more). A search looks through every listed world (not only the ranked ones; no filter shows as
-picked, and picking one ends the search): names and makers from the start of a word (found as
-they're typed), descriptions and tags by whole words or their plurals ("car" finds cars, not a
-carpet). It shows all it finds, and one that finds nothing says so in a line and shows what's
-trending instead.
+a search). At home, Trending under All fills four rows under the lead, then **See all worlds** (when
+there are more); a filter, New or a search shows all its worlds (more load as you scroll). A search
+looks through every listed world (not only the ranked ones; no filter shows as picked, and picking
+one ends the search): names and makers from the start of a word (found as they're typed),
+descriptions and tags too from 4 letters on ("snow" finds snowy), by whole words or their plurals
+below that ("car" finds cars, not a carpet). Names that match come first, then descriptions and
+tags, then makers, each in the chosen sort. It shows all it finds; one that finds nothing says
+"Nothing called “…” yet" with **Make it** (its words in the composer at the top, focused), then
+what's trending.
 `/explore` opens home at its worlds, all of them (more load as you scroll), and carries them in its
 address (`?filter=games&sort=new&q=…`), which the server renders as asked. A new filter, sort or
 search keeps the header where it is, its worlds starting right under it. Explore stays as it was
@@ -586,7 +597,7 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `GET /api/config` | | `ApiConfig` |
 | `GET /api/me` | | `MeResponse` (an account's `user` has its blob's `look`: `color`, `wear`) |
 | `PATCH /api/me` | `{ name }` | `MeResponse` |
-| `GET /api/worlds` | `?sort=trending\|featured\|popular\|played\|liked\|views\|new&q=&tag=&verified=1&limit=&cursor=&mine=1` (tag matches tags, kind, or a category (above); `q` matches words (above); `remixable=1`: only Orb worlds anyone may remix; `mine` includes private + untitled) | `{ worlds: WorldCard[], nextCursor?: string }` |
+| `GET /api/worlds` | `?sort=trending\|featured\|popular\|played\|liked\|views\|new&q=&tag=&verified=1&limit=&cursor=&mine=1` (tag matches tags, kind, or a category (above); `q` matches words (above), names first; `remixable=1`: only Orb worlds anyone may remix; `mine` includes private + untitled) | `{ worlds: WorldCard[], nextCursor?: string }` |
 | `POST /api/worlds` | `CreateWorldInput` | `{ world: WorldFull }` |
 | `GET /api/worlds/:id` | | `{ world: WorldFull }` (404 if private & not owner; `remixes`: its changed public remixes; `size`: bytes of its files, for a multi-file world: over 25 MB, the world says while it opens that it can take a minute, its preview playing behind its name) |
 | `GET /api/worlds/:id/remixes` | | `{ worlds: WorldCard[] }`: its public remixes their makers changed (version > 1), newest first, ≤ 24 |
@@ -946,18 +957,21 @@ queue per trace and failures are only logged (`[orb] trace … failed`).
   only for the Orb, the send button glow and the verified seal.
 - Focus rings: a 2px ink outline, 2px out, along each element's own shape, in either scheme.
 - Motion: springy but calm (`cubic-bezier(.2,.8,.2,1)`, 250–450 ms). Respect `prefers-reduced-motion`.
-- Mobile first: Orb panel = bottom sheet on < 640 px, as tall as what it holds (up to ¾ of the screen;
-  "full", nearly all of it, adds the world's row): a tap on its handle switches, a swipe down closes it,
-  and the system Back closes it (then a profile over it) before leaving the page. Desktop: a 400 px
-  panel on the Orb's side, anchored at the bottom and as tall as what it holds, closed by its "—" (or
-  Esc). Its glass is nearly opaque (94% paper), so it reads the same over any world. Tabs: Chat · You;
-  the world's row shows above the chat only.
+- Mobile first: Orb panel = bottom sheet on < 640 px, as tall as what it holds (up to ¾ of the screen,
+  the world's row over the chat; "full", nearly all of it, adds "← Explore"): a tap on its handle
+  switches, a swipe down closes it (from full height, a drag down settles at half unless it goes most
+  of the way), and the system Back closes it (then a profile over it) before leaving the page.
+  Desktop: a 400 px panel on the Orb's side, anchored at the bottom and as tall as what it holds,
+  closed by its "—". Esc closes it wherever focus is on the page (a world's frame keeps its own keys;
+  a dialog or menu over it closes first); on home a click outside it does too (in a world, clicking
+  the world leaves it open). Opening a world brings its chat. Its glass is nearly opaque (94% paper),
+  so it reads the same over any world. Tabs: Chat · You; the world's row shows above the chat only.
 - Copy: warm, short, never technical by default ("Building your castle…", not "Applying patch").
 - Toasts: in a world, a small bubble beside the Orb (beside its panel when that's open on a wide
   screen, above or below it on a phone); just above the sheet while it's open on a phone; elsewhere
   at the bottom centre, above the safe area.
-- Tab titles: "Orb — make and play worlds" at home, "<Name> by <maker> · Orb" in a world,
-  "<Page> · Orb" elsewhere.
+- Tab titles: "Orb — make and play worlds" at home, "<Name> by <maker> · Orb" in someone else's
+  world, "<Name> · Orb" in your own, "<Page> · Orb" elsewhere.
 
 ## 10. Conventions
 

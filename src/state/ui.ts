@@ -8,7 +8,7 @@ import { getOrbPosition, readJSON, setOrbPosition, writeJSON } from '@/lib/local
 import { PHONE_MEDIA } from '@/lib/keyboard';
 
 export type PanelTab = 'chat' | 'you';
-/** Mobile bottom sheet: 'half' holds the chat (up to ~3/4 of the screen), 'full' adds the world's row (up to nearly all of it). */
+/** Mobile bottom sheet: 'half' holds the world's row and the chat (up to ~3/4 of the screen), 'full' up to nearly all of it (adding "← Explore"). */
 type SheetDetent = 'half' | 'full';
 export type OrbSide = 'left' | 'right';
 

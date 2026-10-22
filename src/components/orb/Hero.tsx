@@ -4,9 +4,10 @@
 // invitation to make a world.
 import { useFriendUnread } from '@/state/friends';
 import { useUi } from '@/state/ui';
-import { useSession } from './AccountCard';
+import { requestSignIn, useSession } from './AccountCard';
 import { OrbSphere } from './Orb';
 import { Composer } from './Composer';
+import { Thumb } from './WorldCard';
 import { WorldStrip } from './WorldStrip';
 
 // Short enough to fit a phone's composer.
@@ -19,12 +20,19 @@ const IDEAS = [
   'a tiny planet to walk around',
 ];
 
-const HERO_COMPOSER_ID = 'orb-hero-composer';
+export const HERO_COMPOSER_ID = 'orb-hero-composer';
+
+/** Three of Orb's own worlds to start from, each a different kind: a game to build in, a toy, a tiny game. */
+const REMIXES = [
+  { id: 'orb-craft', name: 'Orbcraft', thumb: '/templates/craft.webp' },
+  { id: 'orb-paint', name: 'Glow Paint', thumb: '/templates/paint.webp' },
+  { id: 'orb-runner', name: 'Star Runner', thumb: '/templates/runner.webp' },
+];
 
 /**
  * The Orb, docked in the home page's header (it floats only inside worlds): it opens its panel (under
- * it) on the You tab, or on the chat when a build there has news, and closes it again. It swirls
- * while a build runs.
+ * it) on the chat ("What should we make?"), or on You when the news is only a friend's (as the
+ * floating Orb does), and closes it again. It swirls while a build runs.
  */
 export function OrbButton({ building, className = '' }: { building: boolean; className?: string }) {
   const news = useUi((s) => s.unread);
@@ -35,7 +43,7 @@ export function OrbButton({ building, className = '' }: { building: boolean; cla
       type="button"
       aria-label={open ? 'Close Orb' : news || friendNews ? 'Open Orb (new message)' : 'Open Orb'}
       aria-expanded={open}
-      onClick={() => (open ? useUi.getState().closePanel() : useUi.getState().openPanel(news ? 'chat' : 'you'))}
+      onClick={() => (open ? useUi.getState().closePanel() : useUi.getState().openPanel(!news && friendNews ? 'you' : 'chat'))}
       className={`group relative h-10 w-10 shrink-0 rounded-full focus-visible:rounded-full ${className}`}
     >
       <span className="block transition-transform duration-300 ease-[var(--ease-spring)] group-hover:scale-[1.06] group-active:scale-95">
@@ -46,7 +54,7 @@ export function OrbButton({ building, className = '' }: { building: boolean; cla
   );
 }
 
-/** The home page's header row: Orb's name, and the Orb (signed out, a quiet "Sign in" before it). */
+/** The home page's header row: Orb's name, and the Orb (signed out, a quiet "Sign in" to the sign-in form before it). */
 export function HomeHeader({ building }: { building: boolean }) {
   const guest = useSession((s) => s.meStatus === 'ready' && !s.me?.user);
   return (
@@ -55,7 +63,7 @@ export function HomeHeader({ building }: { building: boolean }) {
         <OrbSphere size={22} glow={false} /> Orb
       </p>
       {guest && (
-        <button type="button" onClick={() => useUi.getState().openPanel('you')} className="h-10 rounded-full px-3 text-[14px] font-medium text-ink-2 transition-colors hover:text-ink">
+        <button type="button" onClick={requestSignIn} className="h-10 rounded-full px-3 text-[14px] font-medium text-ink-2 transition-colors hover:text-ink">
           Sign in
         </button>
       )}
@@ -65,15 +73,19 @@ export function HomeHeader({ building }: { building: boolean }) {
 }
 
 /**
- * The invitation to make a world: a serif headline, the big frosted composer (typing out ideas) and,
- * for people who have some, their own and their friends' worlds. Scrolls away into the worlds below.
+ * The invitation to make a world: a serif headline, the big frosted composer (typing out ideas), a
+ * few of Orb's worlds to remix instead and, for people who have some, their own and their friends'
+ * worlds. Scrolls away into the worlds below.
  */
 export function HomeIntro({
   onSend,
+  onRemix,
   onOpenWorld,
   onOpenMine,
 }: {
   onSend(text: string): void;
+  /** Remix this world (as a tile's Remix does): the copy opens with its chat. */
+  onRemix(id: string): void;
   onOpenWorld(id: string): void;
   /** All of this person's worlds (the You tab). */
   onOpenMine(): void;
@@ -91,6 +103,23 @@ export function HomeIntro({
         <div className="mx-auto mt-6 w-full max-w-[680px] sm:mt-8">
           <div className="animate-rise [animation-delay:120ms]">
             <Composer variant="hero" id={HERO_COMPOSER_ID} value={draft} onChange={setDraft} onSend={onSend} placeholder="Describe a world to make…" ideas={IDEAS} autoFocus />
+          </div>
+          {/* One line from 360px: the label above the chips on phones, before them from sm. */}
+          <div role="group" aria-label="Or remix" className="animate-rise mt-3 flex flex-wrap items-center justify-center gap-1 [animation-delay:140ms] sm:mt-3.5 sm:gap-2">
+            <span aria-hidden="true" className="basis-full pb-1 text-center text-[13px] text-ink-2 sm:basis-auto sm:pr-1 sm:pb-0">
+              Or remix
+            </span>
+            {REMIXES.map((w) => (
+              <button
+                key={w.id}
+                type="button"
+                onClick={() => onRemix(w.id)}
+                className="glass-soft flex h-9 items-center gap-1.5 rounded-full pr-2.5 pl-1 text-[12.5px] font-medium text-ink transition-[transform,background] duration-200 ease-[var(--ease)] hover:-translate-y-0.5 hover:bg-[var(--glass-bg)] focus-visible:rounded-full active:scale-[.97] sm:gap-2 sm:pr-3.5 sm:text-[13px]"
+              >
+                <Thumb src={w.thumb} seed={w.id} name={w.name} initialSize={12} className="h-6 w-6 shrink-0 rounded-full sm:h-7 sm:w-7" />
+                {w.name}
+              </button>
+            ))}
           </div>
         </div>
         <WorldStrip className="animate-rise mt-9 [animation-delay:160ms]" onOpenWorld={onOpenWorld} onOpenMine={onOpenMine} />

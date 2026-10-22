@@ -155,8 +155,15 @@ function accountErrorMessage(e: unknown, action: 'signup' | 'signin' | 'password
 type Step = 'status' | 'signup' | 'signin';
 type Busy = null | 'signup' | 'signin' | 'passkey' | 'password' | 'signout';
 
-/** The last `useUi().signupSeq` a panel card answered. */
+/** The last `useUi().signupSeq` a panel card answered, and the form the newest ask opens. */
 let handledSignupSeq = 0;
+let askedForm: 'signup' | 'signin' = 'signup';
+
+/** The You tab, at its sign-in form (the home page's "Sign in"). */
+export function requestSignIn(): void {
+  askedForm = 'signin';
+  useUi.getState().requestSignup();
+}
 
 const labelClass = 'mb-1.5 block px-0.5 text-[13px] font-medium text-ink-2';
 const hintClass = 'mt-1.5 px-0.5 text-[12px] leading-snug text-ink-3';
@@ -201,12 +208,13 @@ export function AccountCard({
   }, [step, variant]);
 
   // Asked from elsewhere (e.g. adding friends while signed out), maybe before this card mounted:
-  // open the sign-up form here.
+  // open the sign-up form here (or the sign-in form, when that was asked for).
   const signupSeq = useUi((s) => s.signupSeq);
   useEffect(() => {
     if (variant !== 'panel' || signupSeq <= handledSignupSeq) return;
     handledSignupSeq = signupSeq;
-    setStep('signup');
+    setStep(askedForm);
+    askedForm = 'signup';
     setError(null);
   }, [signupSeq, variant]);
 

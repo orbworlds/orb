@@ -1,7 +1,8 @@
 'use client';
 // The world's row at the top of the Orb panel (nothing floats over the world itself, whose own UI
-// often lives in the corners): the way back to Explore, its name and its maker (and who's here).
-// Owners rename inline, share, and find the rest under "⋯"; visitors like and remix.
+// often lives in the corners): the way back to Explore (on a phone, at the sheet's full height), its
+// name, and its maker and what it was remixed from (and who's here). Owners rename (inline or under
+// "⋯"), share, and find the rest under "⋯"; visitors like and remix.
 import { track } from '@/lib/analytics';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -16,7 +17,7 @@ import { useFriends } from '@/state/friends';
 import { useClip } from '@/state/clips';
 import { copyLink, downloadZip, shareUrl } from '@/state/share';
 import { toast } from '@/state/toast';
-import { useUi } from '@/state/ui';
+import { useIsMobile, useUi } from '@/state/ui';
 import { useWorld } from '@/state/world';
 import { RemixesSheet } from './RemixesSheet';
 
@@ -46,7 +47,7 @@ function toggleFullscreen(): void {
   else void document.documentElement.requestFullscreen?.().catch(() => toast("Fullscreen isn't available here."));
 }
 
-/** Share a world's link: the phone's share sheet when available, else copy it. */
+/** Share a world's link: the phone's share sheet when available, else (or when it can't open) copy it. */
 async function shareWorldLink(world: WorldFull): Promise<void> {
   const url = shareUrl(world);
   try {
@@ -55,8 +56,8 @@ async function shareWorldLink(world: WorldFull): Promise<void> {
       track('share_copy', { world_id: world.id, how: 'native', where: 'bar' });
       return;
     }
-  } catch {
-    return; // cancelled
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') return; // cancelled
   }
   if (await copyLink(url, 'Link copied')) track('share_copy', { world_id: world.id, how: 'copy', where: 'bar' });
 }
@@ -87,6 +88,9 @@ async function githubAction(w: WorldFull, action: 'sync' | 'create' | 'unlink'):
 /** World name, author and actions. */
 export function WorldBar({ visible, actions }: { visible: boolean; actions: WorldBarActions }) {
   const { world, canEdit, isExternal, rename, like, remix } = useWorld();
+  // On a phone's half-height sheet, one row: the way back to Explore waits for the full height.
+  const mobile = useIsMobile();
+  const short = useUi((s) => s.detent) === 'half' && mobile;
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [madeOpen, setMadeOpen] = useState(false);
@@ -154,13 +158,12 @@ export function WorldBar({ visible, actions }: { visible: boolean; actions: Worl
 
   const newChat: MenuEntry[] = actions.onNewChat && !isExternal ? [{ label: 'New chat', icon: 'chat', onSelect: actions.onNewChat }] : [];
   // (Download .zip is in the owner's Share sheet.)
+  const renameItem: MenuEntry = { label: 'Rename', icon: 'pencil', onSelect: () => setEditing(true) };
   const ownerItems = (): MenuEntry[] => {
     // An embedded world has no code here to copy or download.
-    if (isExternal) {
-      const items = [...story, ...site, ...source, ...fullscreen];
-      return items.length ? [...items, { kind: 'separator' }, remove] : [remove];
-    }
+    if (isExternal) return [renameItem, ...story, ...site, ...source, ...fullscreen, { kind: 'separator' }, remove];
     return withLineage([
+      renameItem,
       ...newChat,
       { label: 'History', icon: 'history', onSelect: actions.onHistory },
       { label: 'Duplicate', icon: 'remix', onSelect: () => void remix() },
@@ -188,15 +191,17 @@ export function WorldBar({ visible, actions }: { visible: boolean; actions: Worl
 
   return (
     <>
-      <button
-        type="button"
-        onClick={actions.onExplore}
-        // A phone's whole 44 px to tap, in the same room (it reaches into the gaps around it).
-        className="mx-3 -mt-1.5 -mb-1 flex h-11 items-center gap-1 self-start rounded-full pr-2 pl-1 text-[13px] font-medium text-ink-2 transition-colors hover:text-ink sm:-mt-0.5 sm:mb-1 sm:h-8"
-      >
-        <Icon name="arrow-left" size={15} strokeWidth={2} />
-        Explore
-      </button>
+      {!short && (
+        <button
+          type="button"
+          onClick={actions.onExplore}
+          // A phone's whole 44 px to tap, in the same room (it reaches into the gaps around it).
+          className="mx-3 -mt-1.5 -mb-1 flex h-11 items-center gap-1 self-start rounded-full pr-2 pl-1 text-[13px] font-medium text-ink-2 transition-colors hover:text-ink sm:-mt-0.5 sm:mb-1 sm:h-8"
+        >
+          <Icon name="arrow-left" size={15} strokeWidth={2} />
+          Explore
+        </button>
+      )}
       <div className="mx-3 mb-2 flex min-h-[52px] items-center gap-1 rounded-[18px] bg-[var(--field-bg)] py-1.5 pr-1.5 pl-3.5">
         <div className="mr-1 flex min-w-0 flex-1 flex-col justify-center">
           <div className="flex min-w-0 items-center gap-1.5">
@@ -222,13 +227,22 @@ export function WorldBar({ visible, actions }: { visible: boolean; actions: Worl
             )}
             {w.visibility === 'private' && <Icon name="lock" size={13} className="shrink-0 text-ink-3" aria-label="Private" />}
           </div>
+          {/* "by you · remixed from Glow Paint": the remix's credit gives way first when room is short. */}
           <div className="flex min-w-0 items-center gap-1.5 text-[12px] leading-4 text-ink-3">
             {maker ? (
-              <button type="button" onClick={() => useUi.getState().openProfile(maker)} title="See their profile" className="min-w-0 truncate hover:text-ink-2 hover:underline">
+              <button type="button" onClick={() => useUi.getState().openProfile(maker)} title="See their profile" className={`min-w-0 truncate hover:text-ink-2 hover:underline ${from ? 'shrink-0' : ''}`}>
                 by {owner ? 'you' : w.authorName || 'someone'}
               </button>
             ) : (
-              <span className="truncate">by {owner ? 'you' : w.authorName || 'someone'}</span>
+              <span className={`truncate ${from ? 'shrink-0' : ''}`}>by {owner ? 'you' : w.authorName || 'someone'}</span>
+            )}
+            {from && (
+              <>
+                <span aria-hidden="true">·</span>
+                <button type="button" onClick={openFrom} title={`Open ${from.name}`} className="min-w-0 truncate hover:text-ink-2 hover:underline">
+                  remixed from {from.name}
+                </button>
+              </>
             )}
             {others > 0 && (
               <span className="flex shrink-0 items-center gap-1 font-medium text-ink-2 tabular-nums" title={hereTitle}>
@@ -251,7 +265,7 @@ export function WorldBar({ visible, actions }: { visible: boolean; actions: Worl
         <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-ink-4" />
 
         {owner ? (
-          <Button size="sm" variant="ghost" icon="share" onClick={actions.onShare} className="h-10 shrink-0 px-3 text-ink">
+          <Button size="sm" variant="ghost" icon="share" aria-label="Share" onClick={actions.onShare} className="h-10 shrink-0 px-3 text-ink">
             <span className="hidden sm:inline">Share</span>
           </Button>
         ) : (

@@ -10,6 +10,8 @@ import { previewVideo } from '@/lib/previews';
 import type { WorldCard as WorldCardData } from '@/lib/types';
 import { Icon } from '@/components/ui/Icon';
 import { showFriends, useFriends } from '@/state/friends';
+import { useUi } from '@/state/ui';
+import { useWorld } from '@/state/world';
 import { useSession } from './AccountCard';
 import { POPULAR_KEY } from './StartFrom';
 import { onPlainClick, Thumb, timeAgo, useHydrated } from './WorldCard';
@@ -30,18 +32,26 @@ export function WorldStrip({ onOpenWorld, onOpenMine, className = '' }: { onOpen
   const tab = chosen ?? (hydrated ? readJSON<Tab | null>(TAB_KEY, null) : null);
   const friends = useFriendWorlds();
 
+  // Keeps StartFrom's local copy fresh, for its instant first paint.
   useEffect(() => {
-    let alive = true;
-    // Keeps StartFrom's local copy fresh, for its instant first paint.
     api.listWorlds({ sort: 'trending', limit: LIMIT }).then((r) => writeJSON(POPULAR_KEY, r.worlds), () => {});
+  }, []);
+
+  // Their own worlds, again each time home shows (they may have made one meanwhile).
+  const done = useUi((s) => s.heroDone);
+  const inWorld = useWorld((s) => !!s.world);
+  const away = done || inWorld;
+  useEffect(() => {
+    if (away) return;
+    let alive = true;
     api
       .listWorlds({ mine: true, limit: LIMIT })
       .then((r) => alive && setMine(r.worlds.filter(named)))
-      .catch(() => alive && setMine([]));
+      .catch(() => alive && setMine((m) => m ?? []));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [away]);
 
   const hasMine = !!mine?.length;
   const hasFriends = friends.worlds.length > 0;

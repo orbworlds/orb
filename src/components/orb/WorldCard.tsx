@@ -382,11 +382,12 @@ export function ExploreTile({
         <Thumb src={world.thumbUrl} seed={world.id} name={world.name} initialSize={big ? 96 : 56} video={previewVideo(world.id)} priority={priority} className="h-full w-full" />
       </div>
 
-      {/* Its name and maker, always; hovered, what it is. */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[60%] bg-[linear-gradient(to_top,rgba(8,8,16,.72),rgba(8,8,16,.3)_50%,transparent)]" />
+      {/* Its name and maker, always (in two columns, the name in up to two lines over the maker); hovered, what it is. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[72%] bg-[linear-gradient(to_top,rgba(8,8,16,.72),rgba(8,8,16,.3)_50%,transparent)] md:h-[60%]" />
       <div className={`pointer-events-none absolute inset-x-0 bottom-0 text-white [text-shadow:0_1px_10px_rgba(0,0,0,.3)] ${big ? 'p-3.5 sm:p-4 md:p-6' : 'p-3 sm:p-4'}`}>
-        <h3 className={`truncate leading-tight font-semibold tracking-[-0.01em] ${big ? 'text-[15px] md:text-[24px]' : 'text-[14px] sm:text-[15px]'}`}>
-          {world.name} <span className={`font-normal text-white/75 ${big ? 'text-[12.5px] sm:text-[13px] md:text-[15px]' : 'text-[12px] sm:text-[13px]'}`}>by {author}</span>
+        <h3 className={`leading-tight font-semibold tracking-[-0.01em] md:truncate ${big ? 'text-[15px] md:text-[24px]' : 'text-[14px] sm:text-[15px]'}`}>
+          <span className="line-clamp-2 md:inline">{world.name}</span>{' '}
+          <span className={`block truncate font-normal text-white/75 md:inline ${big ? 'text-[12.5px] sm:text-[13px] md:text-[15px]' : 'text-[12px] sm:text-[13px]'}`}>by {author}</span>
         </h3>
         {about && (
           <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-[var(--ease)] group-hover/tile:grid-rows-[1fr] group-has-[:focus-visible]/tile:grid-rows-[1fr] phone:hidden">

@@ -259,6 +259,6 @@ function EmptyState({
     );
   }
   if (world && isExternal) return <OrbLine text={`${world.name} runs on its maker's site, so I can't look inside it. Describe a world of your own and I'll make it.`} onPick={onPick} />;
-  if (world && visitor) return <OrbLine text={`Ask me anything about ${world.name}.`} chips={VISITOR_CHIPS} onPick={onPick} />;
+  if (world && visitor) return <OrbLine text={`You’re in ${world.name}${world.authorName ? ` by ${world.authorName}` : ''}. Ask me anything about it.`} chips={VISITOR_CHIPS} onPick={onPick} />;
   return <OrbLine text="What should we change?" chips={template?.suggestions ?? CHANGE_CHIPS} onPick={onPick} />;
 }
