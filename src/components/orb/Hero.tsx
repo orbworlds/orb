@@ -1,6 +1,6 @@
 'use client';
 // The top of the home page, above Explore's worlds (the home page is Explore: worlds to get inspired
-// by, right under a composer to make your own): a header row with Orb's name and the Orb, and the
+// by, right under a composer to make your own): a header row with the Orb, and the
 // invitation to make a world.
 import { useFriendUnread } from '@/state/friends';
 import { useUi } from '@/state/ui';
@@ -54,14 +54,11 @@ export function OrbButton({ building, className = '' }: { building: boolean; cla
   );
 }
 
-/** The home page's header row: Orb's name, and the Orb (signed out, a quiet "Sign in" to the sign-in form before it). */
+/** The home page's header row: the Orb at the right (signed out, a quiet "Sign in" to the sign-in form before it). */
 export function HomeHeader({ building }: { building: boolean }) {
   const guest = useSession((s) => s.meStatus === 'ready' && !s.me?.user);
   return (
-    <div className="flex items-center gap-1 px-3 pt-[max(12px,env(safe-area-inset-top))] sm:px-5 lg:px-6">
-      <p className="font-display mr-auto flex items-center gap-2 pl-1 text-[24px] leading-none text-ink">
-        <OrbSphere size={22} glow={false} /> Orb
-      </p>
+    <div className="flex items-center justify-end gap-1 px-3 pt-[max(12px,env(safe-area-inset-top))] sm:px-5 lg:px-6">
       {guest && (
         <button type="button" onClick={requestSignIn} className="h-10 rounded-full px-3 text-[14px] font-medium text-ink-2 transition-colors hover:text-ink">
           Sign in

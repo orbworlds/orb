@@ -1,5 +1,5 @@
 'use client';
-// The Orb expanded: a 400px glass panel beside the Orb, anchored at the bottom and only as tall as
+// The Orb expanded: a 400px glass panel beside the Orb, level with it and only as tall as
 // what it holds (desktop; on home, under the header's Orb), or a bottom sheet with a grab handle
 // (phones). It grows out of the Orb and collapses back into it; the Orb stays where it was, and a
 // tap on it closes the panel again.
@@ -156,22 +156,28 @@ export function OrbPanel({
   };
 
   // --- geometry ------------------------------------------------------------------------------
-  // Beside the Orb (which stays, to close it again), or on home under the header's Orb. The panel
-  // grows out of the Orb: transform-origin = the Orb's center in panel coordinates.
+  // Beside the Orb (which stays, to close it again), level with it: from its top down when it sits in
+  // the upper half of the screen, from its bottom up when lower. On home, under the header's Orb.
+  // The panel grows out of the Orb: transform-origin = the Orb's center in panel coordinates.
   const right = home || orb.side === 'right';
   const side = home ? PANEL_INSET : ORB_MARGIN + ORB_SIZE + ORB_GAP;
-  const orbY = `(var(--safe-t) + ${ORB_MARGIN + ORB_SIZE / 2}px + (100vh - var(--safe-t) - var(--safe-b) - ${ORB_MARGIN * 2 + ORB_SIZE}px) * ${orb.y.toFixed(4)})`;
+  const free = `(100vh - var(--safe-t) - var(--safe-b) - ${ORB_MARGIN * 2 + ORB_SIZE}px)`;
+  const down = home || orb.y < 0.5;
+  const edge = home
+    ? `calc(var(--safe-t) + ${HOME_TOP}px)`
+    : down
+      ? `calc(var(--safe-t) + ${ORB_MARGIN}px + ${free} * ${orb.y.toFixed(4)})`
+      : `calc(var(--safe-b) + ${ORB_MARGIN}px + ${free} * ${(1 - orb.y).toFixed(4)})`;
   const origin = home
     ? 'calc(100% - 28px) -32px'
-    : `${right ? `calc(100% + ${ORB_GAP + ORB_SIZE / 2}px)` : `${-(ORB_GAP + ORB_SIZE / 2)}px`} calc(100% - (100vh - var(--safe-b) - ${PANEL_INSET}px - ${orbY}))`;
-  const top = `calc(var(--safe-t) + ${HOME_TOP}px)`;
+    : `${right ? `calc(100% + ${ORB_GAP + ORB_SIZE / 2}px)` : `${-(ORB_GAP + ORB_SIZE / 2)}px`} ${down ? `${ORB_SIZE / 2}px` : `calc(100% - ${ORB_SIZE / 2}px)`}`;
 
   const desktopStyle: CSSProperties = {
-    ...(home ? { top } : { bottom: `calc(var(--safe-b) + ${PANEL_INSET}px)` }),
+    [down ? 'top' : 'bottom']: edge,
     [right ? 'right' : 'left']: `calc(${right ? 'var(--safe-r)' : 'var(--safe-l)'} + ${side}px)`,
     width: PANEL_W,
     maxWidth: `calc(100vw - ${side + PANEL_INSET}px)`,
-    maxHeight: home ? `calc(100dvh - ${top} - var(--safe-b) - ${PANEL_INSET}px)` : `calc(100dvh - var(--safe-t) - var(--safe-b) - ${PANEL_INSET * 2}px)`,
+    maxHeight: `calc(100dvh - ${edge} - ${down ? 'var(--safe-b)' : 'var(--safe-t)'} - ${PANEL_INSET}px)`,
     borderRadius: 'var(--r-panel)',
     transformOrigin: origin,
     transform: open ? 'none' : 'scale(.14)',

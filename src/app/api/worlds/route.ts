@@ -13,8 +13,9 @@ export const GET = handle(async (req: Request) => {
   const viewer = getViewer(req);
   const db = await ready();
   const result = await listWorlds(db, viewer, params);
-  // Public listings don't depend on the viewer, so a CDN may hold them briefly; "mine" never.
-  const cache = params.mine ? 'no-store' : 'public, max-age=0, s-maxage=10, stale-while-revalidate=60';
+  // Public listings don't depend on the viewer, so a CDN may hold them briefly; the viewer's own
+  // ("mine", "liked") never.
+  const cache = params.mine || params.liked || params.hidden ? 'no-store' : 'public, max-age=0, s-maxage=10, stale-while-revalidate=60';
   return json(result, { headers: { 'cache-control': cache } });
 });
 

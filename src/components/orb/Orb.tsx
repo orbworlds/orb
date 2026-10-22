@@ -79,6 +79,8 @@ export function Orb({
     suppressClick.current = false; // a touch drag never fires the click that would reset it
     const r = e.currentTarget.getBoundingClientRect();
     drag.current = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, moved: false };
+    // From the press on, so a quick flick that leaves the Orb before it moves still ends here.
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const onPointerMove = (e: PointerEvent<HTMLButtonElement>) => {
@@ -88,11 +90,6 @@ export function Orb({
     if (!d.moved) {
       if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < DRAG_THRESHOLD) return;
       d.moved = true;
-      try {
-        el.setPointerCapture(e.pointerId);
-      } catch {
-        /* pointer already gone */
-      }
       el.dataset.dragging = '';
     }
     const x = Math.min(Math.max(e.clientX - d.ox, 4), window.innerWidth - ORB_SIZE - 4);

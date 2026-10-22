@@ -671,7 +671,8 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
   } else {
     where.push(...LISTED);
     // Newest is what people just made on Orb: curated worlds come in batches and would bury them.
-    if (!p.q) where.push(p.sort === 'new' ? `(w.owner_user is not null or w.owner_device is not null)` : EARNED);
+    // Within a kind (games, places…) it's every world of that kind, as people's carry no kind.
+    if (!p.q && !(p.sort === 'new' && p.tag)) where.push(p.sort === 'new' ? `(w.owner_user is not null or w.owner_device is not null)` : EARNED);
   }
   // A search's relevance, before the sort: its name, then its description or tags, then its maker.
   let rank = '';

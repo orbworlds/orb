@@ -218,12 +218,12 @@ export function WorldBar({ visible, actions }: { visible: boolean; actions: Worl
                 type="button"
                 onClick={() => setEditing(true)}
                 title="Rename"
-                className="-mx-1 min-w-0 truncate rounded-md px-1 text-left text-[15px] leading-5 font-semibold tracking-[-0.01em] text-ink hover:bg-[var(--hover)]"
+                className="-mx-1 line-clamp-2 min-w-0 rounded-md px-1 text-left text-[15px] leading-5 font-semibold tracking-[-0.01em] text-ink hover:bg-[var(--hover)]"
               >
                 {w.name}
               </button>
             ) : (
-              <span className="min-w-0 truncate text-[15px] leading-5 font-semibold tracking-[-0.01em] text-ink">{w.name}</span>
+              <span className="line-clamp-2 min-w-0 text-[15px] leading-5 font-semibold tracking-[-0.01em] text-ink">{w.name}</span>
             )}
             {w.visibility === 'private' && <Icon name="lock" size={13} className="shrink-0 text-ink-3" aria-label="Private" />}
           </div>

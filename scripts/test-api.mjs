@@ -413,6 +413,8 @@ async function run() {
     check('public list hides untitled worlds', !ids.includes(untitled.id), ids);
     check('public list hides thumbnail-less native worlds', !ids.includes(noThumb.id), ids);
     check('sort=new → newest first', ids.indexOf(withThumb.id) < ids.indexOf(state.main.id), ids);
+    const newGames = await list(OTHER, { sort: 'new', tag: 'game' });
+    check('sort=new with a kind lists that kind’s worlds', newGames.json.worlds?.length > 0, newGames.json);
     const card = r.json.worlds.find((w) => w.id === withThumb.id);
     check('cards carry no code/canEdit', card && !('code' in card) && !('canEdit' in card) && card.thumbUrl === `/api/worlds/${withThumb.id}/thumb?v=1`, card);
 
@@ -420,6 +422,8 @@ async function run() {
     const mineIds = mine.json.worlds.map((w) => w.id);
     check('mine=1 includes untitled + thumbless', [untitled.id, noThumb.id, withThumb.id, state.main.id].every((x) => mineIds.includes(x)), mineIds);
     check('mine is never CDN-cached', (mine.headers.get('cache-control') || '').includes('no-store'), mine.headers.get('cache-control'));
+    const liked = await list(OTHER, { liked: '1' });
+    check('liked is never CDN-cached', (liked.headers.get('cache-control') || '').includes('no-store'), liked.headers.get('cache-control'));
     const otherMine = await list(OTHER, { mine: '1', q: TOKEN });
     check("mine=1 for another device excludes the owner's worlds", !otherMine.json.worlds.some((w) => mineIds.includes(w.id)), otherMine.json.worlds.map((w) => w.id));
     const anonMine = await list(undefined, { mine: '1' });

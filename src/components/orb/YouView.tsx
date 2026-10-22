@@ -23,7 +23,7 @@ import { Skeleton, useHydrated } from './WorldCard';
 export function YouView({ onOpenWorld, onNewWorld }: { onOpenWorld(id: string): void; onNewWorld?(): void }) {
   const { signedIn } = useMe();
   return (
-    <div className="scroll-soft h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain">
+    <div className="overflow-x-hidden">
       <div className="flex flex-col gap-8 px-4 pt-4 pb-6 sm:px-5">
         <div className="flex flex-col gap-4">
           <ProfileHeader />

@@ -69,7 +69,7 @@ If you change a contract, update this file in the same change.
   world) or "Building…".
 - **Home** (`/`) is Explore under an invitation to make a world, on a calm background of its own
   (no world behind it: light, the sky with a soft iris glow, fading into paper under the worlds;
-  dark, one deep dark with the same glow, low). A header row: Orb's name on the left; on the right
+  dark, one deep dark with the same glow, low). A header row: on the right
   the Orb itself, docked (it floats only inside worlds), and before it, signed out, a quiet
   **Sign in** (the You tab, at its sign-in form). Then the headline ("Step into a world": describe a
   world, and Orb's AI builds it), the big composer, under it **Or remix** and three of Orb's own
@@ -463,7 +463,8 @@ A world with people in it right now always says so ("● 3 playing": `WorldCard.
 `orb_here`). A tile is a link to the world: a click plays it in place, a click with a modifier key
 (or the middle button) opens it in a new tab. The header (filters, always-visible sort, search)
 stays at the top while scrolling the worlds. Sorts: Trending (default) and New (people's worlds
-only, newest first: curated worlds arrive in batches and would bury them).
+only, newest first: curated worlds arrive in batches and would bury them; with a filter, every world
+of that kind, as people's worlds carry no kind).
 People's own worlds join Trending once they've earned it: a like, 10 plays (`EARNED_PLAYS`) or Orb's
 pick (`featured`, `verified`). A world just built (changed since it began: version 2 on) gets its first 2 days there
 (`FRESH_DAYS`), wearing a "New" badge, so its first players can find it; Trending's fading boost for
@@ -961,7 +962,8 @@ queue per trace and failures are only logged (`[orb] trace … failed`).
   the world's row over the chat; "full", nearly all of it, adds "← Explore"): a tap on its handle
   switches, a swipe down closes it (from full height, a drag down settles at half unless it goes most
   of the way), and the system Back closes it (then a profile over it) before leaving the page.
-  Desktop: a 400 px panel on the Orb's side, anchored at the bottom and as tall as what it holds,
+  Desktop: a 400 px panel on the Orb's side, level with it (from the Orb's top down when the Orb is
+  in the upper half of the screen, from its bottom up when lower) and as tall as what it holds,
   closed by its "—". Esc closes it wherever focus is on the page (a world's frame keeps its own keys;
   a dialog or menu over it closes first); on home a click outside it does too (in a world, clicking
   the world leaves it open). Opening a world brings its chat. Its glass is nearly opaque (94% paper),

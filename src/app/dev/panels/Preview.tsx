@@ -80,7 +80,7 @@ export default function Preview({ params }: { params: Record<string, string> }) 
               Close
             </button>
           </div>
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             <YouView onOpenWorld={(id) => toast(`Open ${id}`)} />
           </div>
         </aside>
