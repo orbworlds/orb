@@ -94,9 +94,6 @@ export function HomeIntro({
         <h1 className="font-display animate-rise text-center text-[40px] leading-[1.02] tracking-[-0.015em] text-ink sm:text-[64px]">
           Step into a <em className="italic">world</em>
         </h1>
-        <p className="animate-rise mx-auto mt-2 max-w-[460px] text-center text-balance text-[15px] leading-snug text-ink-2 [animation-delay:60ms] sm:mt-3 sm:max-w-[600px] sm:text-[17px]">
-          Describe a world, and Orb’s AI builds it.
-        </p>
         <div className="mx-auto mt-6 w-full max-w-[680px] sm:mt-8">
           <div className="animate-rise [animation-delay:120ms]">
             <Composer variant="hero" id={HERO_COMPOSER_ID} value={draft} onChange={setDraft} onSend={onSend} placeholder="Describe a world to make…" ideas={IDEAS} autoFocus />

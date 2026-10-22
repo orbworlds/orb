@@ -71,8 +71,7 @@ If you change a contract, update this file in the same change.
   (no world behind it: light, the sky with a soft iris glow, fading into paper under the worlds;
   dark, one deep dark with the same glow, low). A header row: on the right
   the Orb itself, docked (it floats only inside worlds), and before it, signed out, a quiet
-  **Sign in** (the You tab, at its sign-in form). Then the headline ("Step into a world": describe a
-  world, and Orb's AI builds it), the big composer, under it **Or remix** and three of Orb's own
+  **Sign in** (the You tab, at its sign-in form). Then the headline ("Step into a world"), the big composer, under it **Or remix** and three of Orb's own
   worlds (Orbcraft, Glow Paint, Star Runner: each remixes as a tile's Remix does, into the copy with
   its chat open), (for people who have some) one row of their own worlds or their friends' (**Your
   worlds**, with **See all**; read again each time home shows), then Explore's header and a few of
