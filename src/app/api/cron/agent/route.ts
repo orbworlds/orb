@@ -1,8 +1,9 @@
 // Backstop for agent jobs: restart jobs that are running but that no tick holds — a tick that
 // died, or a hand-over the platform refused (Vercel stops a function from calling itself more
 // than a few times in a row, so long jobs rely on a request from outside every so often).
-// Called every minute by a database cron (pg_cron + pg_net, see /api/admin/agent-cron). Safe to call
-// by anyone: it only kicks idle jobs (as watching pages do), and it is rate limited.
+// Called by a database cron (pg_cron + pg_net, see /api/admin/agent-cron): every minute while a
+// build runs, every 10 minutes otherwise. Safe to call by anyone: it only kicks idle jobs (as
+// watching pages do), and it is rate limited.
 
 import { error, json } from '@/server/http';
 import { rateLimit } from '@/server/ratelimit';

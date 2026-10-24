@@ -187,8 +187,6 @@ export default function Shell({
   worldId,
   worldPath,
   initialWorld,
-  initialPrompt,
-  initialTemplate,
   initialProfile,
   explore,
 }: {
@@ -197,8 +195,6 @@ export default function Shell({
   /** "<handle>/<slug>" when the server couldn't resolve the address itself. */
   worldPath?: string;
   initialWorld?: WorldFull | null;
-  initialPrompt?: string;
-  initialTemplate?: string;
   /** A maker's page (/<handle>): their profile opens over the start canvas. */
   initialProfile?: string;
   /** /explore's address (?filter=…&sort=…&q=…): what Explore starts on. */
@@ -285,13 +281,16 @@ export default function Shell({
     } else if (mode === 'world' && worldId) {
       void w.loadWorld(worldId, initialWorld ?? null);
     } else {
-      if (initialPrompt) u.setDraft(initialPrompt);
-      void w.loadTemplate(initialTemplate && TEMPLATE_BY_ID[initialTemplate] ? initialTemplate : 'blank');
+      const sp = new URLSearchParams(window.location.search);
+      const prompt = sp.get('prompt')?.slice(0, 2000);
+      const template = sp.get('template');
+      if (prompt) u.setDraft(prompt);
+      void w.loadTemplate(template && TEMPLATE_BY_ID[template] ? template : 'blank');
       if (mode === 'explore') u.requestExplore();
       if (mode === 'plans') u.setPlans(true);
       if (initialProfile) u.openProfile(initialProfile);
     }
-  }, [mode, worldId, worldPath, initialWorld, initialPrompt, initialTemplate, initialProfile]);
+  }, [mode, worldId, worldPath, initialWorld, initialProfile]);
 
   // Owners land with the chat open on desktop once ownership is confirmed.
   const openedForOwner = useRef<string | null>(null);

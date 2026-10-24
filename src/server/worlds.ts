@@ -349,9 +349,9 @@ function toFull(r: FullRow, viewerCanEdit: boolean, liked: boolean): WorldFull {
 // ---------------------------------------------------------------------------------------------
 // Loading & access control
 
-async function loadFull(db: Db, id: string, deviceHash: string | null = null): Promise<FullRow | null> {
+async function loadFull(db: Db, id: string, deviceHash: string | null = null, withCode = true): Promise<FullRow | null> {
   const rows = await db.query<FullRow>(
-    `select ${CARD_COLS}, w.code, w.tree, w.version, w.owner_device, w.owner_user,
+    `select ${CARD_COLS}, ${withCode ? 'w.code' : 'null as code'}, w.tree, w.version, w.owner_device, w.owner_user,
        (select t.size from orb_trees t where t.sha = w.tree) as tree_size,
        ($2::text is not null and exists (select 1 from orb_likes l where l.world_id = w.id and l.device_hash = $2::text)) as liked,
        (select count(*) from orb_worlds r where ${REMIXED})::int as remixes
@@ -411,13 +411,14 @@ async function viewWorld(db: Db, viewer: Viewer, id: string): Promise<WorldFull>
 }
 
 /**
- * Public world for SSR/metadata (null if missing or private). `canEdit`/`liked` are always false.
+ * Public world for SSR/metadata (null if missing or private), without its code (the browser loads
+ * that itself). `canEdit`/`liked` are always false.
  * Memoized per server render (generateMetadata + page + OG image share one query).
  */
 export const getPublicWorld = cache(async (id: string): Promise<WorldFull | null> => {
   if (!isWorldId(id)) return null;
   const db = await ready();
-  const row = await loadFull(db, id);
+  const row = await loadFull(db, id, null, false);
   if (!row || row.visibility !== 'public') return null;
   return toFull(row, false, false);
 });

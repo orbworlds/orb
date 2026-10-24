@@ -23,6 +23,13 @@ const load = cache(async (handle: string, slug: string) => {
 
 type Params = { params: Promise<{ handle: string; slug: string }> };
 
+// Public metadata only (the browser loads the rest itself), so a render is served from the CDN and
+// made again at most once a minute; no address is rendered ahead at build time.
+export const revalidate = 60;
+export function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { handle, slug } = await params;
   const { id, world, failed } = await load(handle, slug);

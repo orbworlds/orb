@@ -26,6 +26,13 @@ const load = cache(async (id: string) => {
 
 type Params = { params: Promise<{ id: string }> };
 
+// Public metadata only (the browser loads the rest itself), so a render is served from the CDN and
+// made again at most once a minute; no address is rendered ahead at build time.
+export const revalidate = 60;
+export function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { world, missing } = await load((await params).id);
   if (missing) notFound();
