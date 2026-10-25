@@ -53,6 +53,10 @@ const QUICK = !!process.env.QUICK;
 const swing = (dx, dy, x = W / 2, y = H / 2) => (t) => { const e = (1 - Math.cos((2 * Math.PI * t) / SECONDS)) / 2; return [x + dx * e, y + dy * e]; };
 // The pointer hopping from point to point of `p` (0.7 s each), pressing for a moment at each.
 const hop = (p) => (t) => { const m = p.length - 1, k = Math.floor(t / 0.7), f = Math.min(1, ((t % 0.7) / 0.7) * 1.6), [a, b] = [p[k % m], p[(k % m) + 1]]; return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, t % 0.7 > 0.5 && t % 0.7 < 0.6]; };
+// A viewer run three times as fast as the recorder's clock, or half as fast (an `init`: its frames' timestamps scaled),
+// for a camera flight or a walk that's too slow or too quick for a four-second clip
+const threefold = () => { const raf = window.requestAnimationFrame; window.requestAnimationFrame = (cb) => raf((ts) => cb(ts * 3)); };
+const halved = () => { const raf = window.requestAnimationFrame; window.requestAnimationFrame = (cb) => raf((ts) => cb(ts / 2)); };
 const SHOTS = {
   // Monolith Wilds: a slow glide in over the basin of monuments toward the red peaks (its `cam` view leaves its controls out)
   'aw-monolith-wilds': {
@@ -517,6 +521,108 @@ const SHOTS = {
       clearInterval(walking);
       window.__shot = steer;
       for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
+    },
+  },
+  // The Parthenon, Restored: its own camera flight gliding up the cella toward the gold-and-ivory Athena, sped up (its
+  // viewer's buttons left out)
+  'ext-parthenon': { query: 'noui', wait: 90000, init: threefold },
+  // HAUZ Casa 1: its own camera flight past the dining table and its orchid into the double-height room with the
+  // pool table, stair and tree, at twice its pace (the viewer's `scrubTo` sets the flight's time; its buttons left out)
+  'ext-hauz-casa': {
+    query: 'noui', wait: 60000, crf: [46, 30],
+    setup: async () => {
+      if (!window.scrubTo) return;
+      window.scrubTo(95);
+      await new Promise((r) => setTimeout(r, 40000));   // the scan's detail there streams in
+      window.__shot = (t) => { window.scrubTo(95 + 2 * t); };
+    },
+  },
+  // Village de Lourmarin: strolling up the cobbled lane into the café square, past the tables under the plane tree, at
+  // half its walking pace (a tap of W first puts its camera in walking mode)
+  'ext-lourmarin': { query: 'noui', wait: 75000, steps: [{ key: 'w', wait: 15000 }], hold: ['w'], init: halved },
+  // A Garden House in Provence: the camera swinging round the long stone pool among the olive trees and cypresses and back
+  'ext-provence-garden': { query: 'noui', wait: 75000, drag: swing(120, 0), crf: [50, 32] },
+  // Grace Cathedral: its own flight round the cathedral's front over Nob Hill, sped up (its title, buttons and markers
+  // are the page's, not the canvas's)
+  'ext-grace-cathedral': { wait: 90000, init: threefold, crf: [58, 35] },
+  // Kōyō-en: past its title card, walking the gravel path under the pergola out among the maples, a lantern and the red bridge
+  'ext-koyo-en': {
+    ready: () => document.getElementById('enter')?.disabled === false, readyTimeout: 600000, wait: 3000, hold: ['w'], crf: [50, 33],
+    setup: async () => { document.getElementById('enter')?.click(); await new Promise((r) => setTimeout(r, 8000)); },
+  },
+  // Sakuragaoka Station: past its station-sign title, strolling down the shopping street under the cherry trees, petals
+  // drifting (at half its pace: it walks briskly)
+  'aw-sakuragaoka-station': {
+    ready: () => !!window.__ctx && document.body.classList.contains('loaded'), readyTimeout: 900000, wait: 5000, init: halved, crf: [47, 31],
+    setup: () => {
+      const p = window.__ctx?.playerObj;
+      if (!p) return;
+      document.getElementById('go')?.click();
+      p.keys.add('KeyW');
+    },
+  },
+  // Procedural Building Configurator: the Paris Haussmann block on its plinth in the clay city at golden hour, the camera
+  // orbiting it (its own hooks set the light and the framing; its settings panel is the page's, not the canvas's)
+  'aw-procedural-buildings': {
+    ready: () => !!window.__ready && !!window.__three, readyTimeout: 900000, wait: 10000, crf: [48, 30],
+    setup: async () => {
+      if (!window.__three) return;
+      window.__mood('Golden Hour', 0);
+      window.__shot('Hero ¾', 0);
+      window.__three.controls.autoRotateSpeed = 1.2;
+      window.__shot = () => {};   // (its hook of that name flies to a named shot)
+      await new Promise((r) => setTimeout(r, 10000));
+    },
+  },
+  // Invisible Cities: Diomira, its silver domes, crystal theatre and tower with the golden rooster lit on the Khan's
+  // chessboard, the camera circling it (its own `solo` view: the one city, without the atlas's labels and panels)
+  'aw-invisible-cities': {
+    query: 'solo=diomira&view=front', ready: () => window.__ready, readyTimeout: 600000, wait: 5000,
+    setup: () => {
+      const a = window.__app;
+      if (!a) return;
+      // a little closer in than its own front view
+      const c = a.camera, tgt = a.controls.target.clone(), p = c.position.clone().sub(tgt).multiplyScalar(0.85), r = Math.hypot(p.x, p.z), a0 = Math.atan2(p.x, p.z);
+      window.__shot = (t) => {
+        const k = a0 + 0.13 * t;
+        c.position.set(tgt.x + r * Math.sin(k), tgt.y + p.y, tgt.z + r * Math.cos(k));
+        c.lookAt(tgt);
+      };
+    },
+  },
+  // The Stones Remember: Karnak's Hypostyle Hall as it stood, walking in from the Second Pylon between the painted
+  // columns, looking up toward the roof (its own guided tour set aside; its captions and buttons are the page's)
+  'ext-stones-remember': {
+    query: 'preview#/visit/karnak', ready: () => window.__tsr?.ready, readyTimeout: 600000, wait: 3000, settle: 1,
+    setup: async () => {
+      const tsr = window.__tsr;
+      if (!tsr?.ready) return;
+      document.getElementById('start-btn')?.click();
+      for (const until = Date.now() + 900000; !tsr.visitReady && Date.now() < until;) await new Promise((r) => setTimeout(r, 2000));
+      const p = tsr.player;
+      // walking pauses the tour, and its painted views (a still picture of the stop) stay away
+      p.onWalk();
+      p.cinema.dismissed = true;
+      p.setPainted(false);
+      p.guidedDrift = false;
+      window.__shot = (t) => {
+        p.cancelFlight();
+        p.setPainted(false);
+        p.placeAt([-24 + 1.5 * t, 1.65, 0.5], 90, 10 + 2.5 * t);
+      };
+      window.__shot(0);
+      await new Promise((r) => setTimeout(r, 20000));
+    },
+  },
+  // Impossible Spaces: through the third door (Gravity) and on to its Rain Greenhouse (a door opens one of its spaces),
+  // iron galleries and turning mechanisms, the camera swinging round and back (its titles and buttons are the page's)
+  'ext-impossible-spaces': {
+    wait: 15000, steps: [{ click: [236, 200], wait: 60000 }], drag: swing(-60, 0), crf: [48, 31],
+    setup: async () => {
+      const go = document.querySelector('#scene-menu [data-scene="greenhouse"]');
+      if (!go || window.__observatory?.state.scene === 'greenhouse') return;
+      go.click();
+      await new Promise((r) => setTimeout(r, 60000));
     },
   },
 };
