@@ -91,6 +91,26 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   frame, but software WebGL never got past its loader: add it once someone sees it draw on a real
   GPU. Orb could host it (MIT, a Vite build of about 160 MB) once its one CC BY-NC-SA lantern is
   swapped out.
+- **Scouted on 25 October 2026** (three.js forum Showcase, Show HN, X). In Explore now: The
+  Forbidden City, Lunar Walk and New Rad City. **The Forbidden City** is embedded although it is
+  MIT (watsonbkeel/forbidden-city-3d): the game itself is about 45 MB (`src`, `data`, `public`),
+  but the repository carries 300 MB of `reports/` and 70 MB of `docs/`, so its tarball (342 MB) is
+  past the importer's download cap and its files past a world's 200 MB. Hosting it needs the
+  importer to leave out folders a page never loads, or the maker to move those reports elsewhere.
+  **Tiny Boat, Big Lake** (danielalshriky.com/tiny-boat-big-lake: a little motorboat on a huge lake,
+  among the most beautiful found) frames fine and its menu scene draws in Orb, but on software
+  WebGL "Start the journey" never got further: check it on a real GPU and add it. **Highvale**
+  (playhighvale.com) and **Digital Garden** (digitalgarden.si) need WebGPU or refuse a frame.
+  Left out: the **Glowbit Games** series (Leaf Me Alone!, Boom Bloom!, Shine Ahoy!, Plip Plop!,
+  Picnic Heist!, Crop Circle Crew, Clickety Clack!: lovely, but their pages carry ads and refuse a
+  frame), **Efectazo** (a $2.99 "Go Pro" upsell on its menu), **Alpenwelt** (sign-in), **Roadkill**
+  (sign-in), **Interstellar** and **RoadRash** (someone else's film and game), **Demo Disc**
+  (pixelnest.io: a PlayStation in a bedroom showing other studios' demos, more a catalogue than a
+  place), **Sillage** (a small, quiet 2D swim; fine in a frame, maybe for a later batch), **Fish
+  Tank Plus** (a store page for a Windows screensaver; its browser tank is play.fishtankplus.com),
+  **Warehouse Racing** (online kart racing with voice chat; not tried past its title), and Hotel
+  Komaiha, Saltmere, Dirtbound, Aquarius, Zooki, Lam Rimba and I'll Call You Later, which refuse a
+  frame.
 
 ## Embeds we would add if their sites allowed it
 

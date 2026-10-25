@@ -2718,5 +2718,84 @@
       "author_url": "https://x.com/AurelienCa80656",
       "made_with": "Gaussian splats (XGRIDS PortalCam scan), SuperSplat (PlayCanvas)"
     }
+  },
+  {
+    "id": "ext-forbidden-city",
+    "name": "The Forbidden City",
+    "description": "Walk Beijing's Forbidden City from the Meridian Gate up its central axis, into dozens of its halls and on to the Imperial Garden, every building made in code.",
+    "kind": "external",
+    "external_url": "https://tour.bkeel.com/gugong/",
+    "source_url": "https://github.com/watsonbkeel/forbidden-city-3d",
+    "author_name": "Watson Chan",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-forbidden-city.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/procedurally-generated-forbidden-city-full-first-person-walkthrough-zero-external-3d-models/95838",
+      "platform": "three.js forum",
+      "views": 39,
+      "likes": 0,
+      "posted_at": "2026-10-24",
+      "handle": "@watson_chan",
+      "author_url": "https://github.com/watsonbkeel",
+      "made_with": "three.js r162, Vite, procedural architecture"
+    }
+  },
+  {
+    "id": "ext-lunar-walk",
+    "name": "Lunar Walk",
+    "description": "Walk the Moon as an astronaut, leaving footprints in the grey dust, then climb into the lunar rover and drive off between the craters.",
+    "kind": "external",
+    "external_url": "https://hh-hang.cn/",
+    "source_url": null,
+    "author_name": "hang",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-lunar-walk.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/lunar-walk-a-moon-exploration-scene-built-with-three-js/95778",
+      "platform": "three.js forum",
+      "views": 56,
+      "likes": 4,
+      "posted_at": "2026-10-23",
+      "handle": "@hh-hang",
+      "author_url": "https://github.com/hh-hang",
+      "made_with": "three.js, three-player-controller"
+    }
+  },
+  {
+    "id": "ext-new-rad-city",
+    "name": "New Rad City",
+    "description": "Wake up in 1989 in a vault under Manhattan, 22 years after the bomb, then step out into the ruined city to scavenge, trade and fight.",
+    "kind": "external",
+    "external_url": "https://newrad.city/",
+    "source_url": null,
+    "author_name": "Chris First",
+    "tags": [
+      "game",
+      "action",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/ext-new-rad-city.webp",
+    "origin": {
+      "post_url": "https://x.com/chrisfirst/status/2107966951200866422",
+      "platform": "x",
+      "views": 41803,
+      "likes": 588,
+      "posted_at": "2026-10-07",
+      "handle": "@chrisfirst",
+      "author_url": "https://x.com/chrisfirst",
+      "made_with": "three.js"
+    }
   }
 ]
