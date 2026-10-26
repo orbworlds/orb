@@ -321,35 +321,61 @@ make the files one commit in the public repository, by the org's bot, with the c
 A scheduled agent does this every day; anyone can do it by hand the same way. The bar is high:
 add only worlds people would love to step into, beautiful and finished, that play in a browser
 (no install, no sign-up, no ads, no tokens, no fan games of someone else's characters). Adding
-none on a quiet day is fine; five good ones beat twenty.
+none on a quiet day is fine; three great ones beat ten good ones. Every world goes in **fully
+packaged**: hosted and remixable whenever it can be, with its picture and its looping video, its
+words written, checked inside Orb, and live on orbworlds.com the same day.
 
 1. **Scout** what was made and shared lately: X posts of three.js, WebGL and WebGPU worlds and
-   games (many say what AI made them), Hacker News "Show HN", r/threejs and r/webgl, and GitHub
+   games (many say what AI made them), Hacker News "Show HN", r/threejs and r/webgl, Velven's
+   explore page (velven.ai/explore: the worlds it lists are other people's sites), and GitHub
    repositories of browser games and worlds pushed this week. Skip what
    [`src/data/seeds.json`](../src/data/seeds.json) already has (match the site and the repository)
    and what [WORLD_WISHLIST.md](WORLD_WISHLIST.md) "Scouted for Explore" and "Embeds we would add"
-   already record as left out.
-2. **Prefer hosting.** A world whose code is on GitHub and runs without a build server is added
-   with `native` (its `license` when it has one, `{}` when it has none): Orb imports it and runs it
-   from its own copy, remixable, and it stays when its site goes away. Check it the way the
-   minute cron will: run Orb locally, `POST /api/admin/seeds` with `{ "again": ["<id>"] }`, and
-   open `/w/<id>` (most hosting fixes needed so far are in `src/server/importer.ts`). A world that
-   needs a React or webpack build, or is over 200 MB, is embedded by its address instead.
-3. **Check that it plays in Orb's frame**: `node scripts/check-embeds.mjs` for embedded ones, and
-   for every world a look at it inside Orb (`/w/<id>`): it draws, nothing important is cut off,
-   no errors that matter. Worlds the test machine's software GPU can't start (WebGPU) wait in the
-   wishlist for a check on a real GPU.
-4. **Add it** to `seeds.json` like the others: an `ext-` or `aw-` id, its name, one plain sentence
-   of Explore copy (what you do there, no hype), tags, `featured` near similar worlds, the maker's
-   name as they give it, and `origin` from the post that shared it (link, views, likes, date,
-   handle, what it was made with). A thumbnail from inside the world goes in
-   `public/seeds/<id>.webp` (1280 × 800, webp); a preview clip when it can be made well
-   (`scripts/previews.mjs` with a shot for it, or `scripts/previews-from-post.mjs` from the maker's
-   video), redeploying after.
+   already record as left out. Look for kinds Explore has few of (sports, learning, cozy games
+   with goals, places outside Europe and Japan) as much as for beauty.
+2. **Make it remixable: always try.** A hosted world is Orb's own copy: it can be remixed, it
+   stays when its site goes away, and it plays through Orb's runtime. So for every world:
+   - **Find its code**, even when the post doesn't link it: the site's footer and source, the
+     maker's GitHub (search their handle and the world's name), a `github.io` address. Note the
+     license (none is fine: `native: {}`).
+   - **Import it locally** the way the minute cron will: run Orb (`ORB_MOCK_AI=1
+     ORB_ADMIN_TOKEN=local npx next dev`), `POST /api/admin/seeds` with header
+     `x-admin-token: local` and `{ "again": ["<id>"] }`, then open `/w/<id>` and see it draw. When
+     codeload.github.com is out of reach from the machine, `git clone` the repository, pack it as
+     codeload does (`<owner>/<repo>/tar.gz/HEAD`) and point `ORB_GITHUB_CODELOAD` at a local file
+     server.
+   - **If it doesn't run, find out why** (missing files, root-absolute paths, a bundler feature):
+     most hosting fixes so far were small, general changes in `src/server/importer.ts`, each with a
+     test in `src/lib/engine/__tests__/importer.test.mjs` and SPEC.md updated. Make the fix when it
+     is small and general; otherwise say in the wishlist what would unlock it.
+   - Only a world that truly can't be hosted (needs a build server or React/webpack build, over
+     200 MB, private code) is embedded by its address, after `node scripts/check-embeds.mjs`
+     shows that its site lets Orb frame it.
+3. **Check it inside Orb** (`/w/<id>`): it draws, nothing important is cut off, controls work, no
+   errors that matter, and on a phone it either plays or is tagged `keyboard`. Worlds the test
+   machine's software GPU can't start (WebGPU) wait in the wishlist for a check on a real GPU.
+4. **Package it** in `seeds.json` like the others: an `ext-` or `aw-` id, its name, one plain
+   sentence of Explore copy (what you do there, no hype), tags, `featured` near similar worlds, the
+   maker's name as they give it, and `origin` from the post that shared it (link, views, likes,
+   date, handle, what it was made with). Then:
+   - **Picture**: from inside the world at its most beautiful, `public/seeds/<id>.webp`
+     (1280 × 800, webp, no loading screens or menus).
+   - **Video**: the looping preview its card plays, recorded the same day:
+     `node scripts/previews.mjs <id>` with a shot for it in that script's SHOTS (one line saying
+     what it shows; `QUICK=1` first). Look at frames from the start, middle and end of the final
+     mp4: the world in motion (a slow camera move, walking, driving), no loading screens, menus or
+     overlays, a smooth loop, about 0.5–1.2 MB (raise the shot's `crf` when it is bigger). When the
+     recorder can't make a good one, cut it from the maker's own video with
+     `scripts/previews-from-post.mjs`. A world with no good video waits for a later day (record
+     why in the wishlist) unless it is exceptional.
+   - Record one world at a time: the machine is small, and two browsers at once have crashed it.
 5. **Record the rest** in WORLD_WISHLIST.md "Scouted for Explore": what was found and why it is not
-   in (refuses a frame, needs a real GPU, not good enough), so tomorrow's scout doesn't look again.
+   in (refuses a frame, needs a real GPU, no good video yet, not good enough), so tomorrow's scout
+   doesn't look again.
 6. **Ship** as always (AGENTS.md): `npx tsc --noEmit`, `npm run lint`, `npm run test:engine`, push
-   to `main`, `npm run deploy`, then open each new world on orbworlds.com.
+   to `main`, `npm run deploy`. Then on orbworlds.com: each new hosted world has become native
+   (`GET /api/worlds/<id>` says `kind: "native"`, within a few minutes of the deploy), opens and
+   draws, and its card plays its video.
 
 ## Moving to a new domain
 
