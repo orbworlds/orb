@@ -16,7 +16,7 @@ import { blob, GLOSS, INK, loadFonts } from '../../og';
 
 export const alt = 'A world made with Orb';
 export const size = { width: 1200, height: 630 };
-export const contentType = 'image/png';
+export const contentType = 'image/jpeg';
 
 const IRIDESCENT = 'linear-gradient(135deg, #8b7bff 0%, #5ec8ff 36%, #ffb38a 70%, #ff8fc8 100%)';
 const FETCH_TIMEOUT_MS = 2500;
@@ -25,7 +25,19 @@ const FETCH_TIMEOUT_MS = 2500;
 
 type SharpFactory = (input: Uint8Array) => {
   resize(w: number, h: number, o: { fit: 'cover' }): { jpeg(o: { quality: number }): { toBuffer(): Promise<Buffer> } };
+  jpeg(o: { quality: number }): { toBuffer(): Promise<Buffer> };
 };
+
+/**
+ * The card as a JPEG: a few hundred KB instead of a 1–2 MB PNG, so every app shows it (WhatsApp
+ * skips images over about 300 KB) and it arrives fast. A PNG when sharp is missing.
+ */
+export async function asJpeg(card: ImageResponse, headers: Record<string, string> = {}): Promise<Response> {
+  const png = new Uint8Array(await card.arrayBuffer());
+  const sharp = await loadSharp();
+  const body = sharp ? new Uint8Array(await sharp(png).jpeg({ quality: 82 }).toBuffer()) : png;
+  return new Response(body, { headers: { 'content-type': sharp ? 'image/jpeg' : 'image/png', ...headers } });
+}
 let sharpPromise: Promise<SharpFactory | null> | null = null;
 
 /** `sharp` ships with Next as an optional dependency; it may be absent on some platforms. */
@@ -140,7 +152,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const ink = onPhoto ? '#ffffff' : INK;
   const sub = onPhoto ? 'rgba(255,255,255,0.82)' : 'rgba(12,12,20,0.6)';
 
-  return new ImageResponse(
+  const card = new ImageResponse(
     (
       <div style={{ position: 'relative', width: 1200, height: 630, display: 'flex', backgroundColor: '#0d0d14', fontFamily: 'Geist' }}>
         {thumb ? (
@@ -189,11 +201,8 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         </div>
       </div>
     ),
-    {
-      ...size,
-      fonts,
-      // Worlds change (renames, new thumbnails): cache for a while, not forever.
-      headers: { 'cache-control': 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400' },
-    },
+    { ...size, fonts },
   );
+  // Worlds change (renames, new thumbnails): cache for a while, not forever.
+  return asJpeg(card, { 'cache-control': 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400' });
 }

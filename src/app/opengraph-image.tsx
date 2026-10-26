@@ -5,14 +5,15 @@
 
 import { ImageResponse } from 'next/og';
 import { blob, GLOSS, INK, loadFonts } from './og';
+import { asJpeg } from './w/[id]/opengraph-image';
 
 export const alt = 'Orb';
 export const size = { width: 1200, height: 630 };
-export const contentType = 'image/png';
+export const contentType = 'image/jpeg';
 
 export default async function Image() {
   const fonts = await loadFonts(4000);
-  return new ImageResponse(
+  return asJpeg(new ImageResponse(
     (
       <div
         style={{
@@ -65,5 +66,5 @@ export default async function Image() {
       </div>
     ),
     { ...size, fonts },
-  );
+  ));
 }
