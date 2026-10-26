@@ -111,6 +111,13 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   **Warehouse Racing** (online kart racing with voice chat; not tried past its title), and Hotel
   Komaiha, Saltmere, Dirtbound, Aquarius, Zooki, Lam Rimba and I'll Call You Later, which refuse a
   frame.
+- **Scouted on 26 October 2026**, a quiet day: nothing added. Left out: **Clearwater**
+  (aureliengmz.github.io/clearwater: a lovely sunlit water surface with caustics, but a shader to
+  look at rather than a place), **Landscape** (lo-th.github.io/landscape: a WebGPU terrain
+  prototype driven from a settings panel), **Wizardos** (wizardos.io: daily coin rewards, a shop
+  and a Poki login), **Zubspace** and **Glider 4.0** (remakes of other people's games), the
+  Crayon open-world flight game by @aniketjart (refuses a frame) and **Roadster Racing** (refuses a
+  frame).
 
 ## Embeds we would add if their sites allowed it
 
