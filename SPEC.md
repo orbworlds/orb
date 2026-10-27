@@ -24,8 +24,8 @@ If you change a contract, update this file in the same change.
    phones) and another tap closes it (it shows an × meanwhile). The one exception: as
    a world opens, "Explore" top-left goes back to Explore in one click; a few seconds after the world
    is ready it fades away, leaving the world the whole screen, and the pointer reaching the top-left
-   corner, where it sat (a tap there on a phone), brings it back (the world bar's "← Explore" and the
-   browser's back go back too). Toasts never print over the world: there they're a small bubble beside the Orb.
+   corner, where it sat, brings it back; on a phone it shrinks to a small round arrow that stays
+   (the world bar's "← Explore" and the browser's back go back too). Toasts never print over the world: there they're a small bubble beside the Orb.
    No clutter, no chrome, no ads, no badges-everywhere. The world is the hero.
 3. **Live.** Users see their instructions executed (a request that fails can be tried again, in its place): narration streams, each build step lands in
    the world as it completes (cross-faded, no flashes).

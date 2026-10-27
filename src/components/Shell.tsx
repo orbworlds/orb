@@ -491,7 +491,7 @@ export default function Shell({
       {!ui.panelOpen && <BuildingPill isBuilding={build.isBuilding} progress={build.progress} messages={build.messages} top={mobile && world ? 'calc(var(--safe-t) + 74px)' : 'calc(var(--safe-t) + 18px)'} />}
 
       {!heroVisible && status !== 'not-found' && status !== 'error' && (
-        <ExploreBack ready={ws.drawn} inset={panelDocked && ui.orb.side === 'left' ? PANEL_REACH : 0} onClick={backToExplore} />
+        <ExploreBack ready={ws.drawn} touch={mobile} inset={panelDocked && ui.orb.side === 'left' ? PANEL_REACH : 0} onClick={backToExplore} />
       )}
 
       {/* Home has the Orb in its header (it opens the You tab: the page's own composer is the chat). */}
@@ -662,9 +662,10 @@ const CORNER = { width: 'calc(var(--safe-l) + 128px)', height: 'calc(var(--safe-
 /**
  * Top-left while a world opens: "Explore", back to it in one click. A few seconds after the world is
  * ready it fades away and leaves the world the whole screen (its own controls often live there);
- * the pointer reaching the top-left corner, or a tap there, brings it back.
+ * the pointer reaching the top-left corner brings it back. Phones have no pointer to reach with,
+ * so there it shrinks to a small round arrow that stays.
  */
-function ExploreBack({ ready, inset, onClick }: { ready: boolean; inset: number; onClick(): void }) {
+function ExploreBack({ ready, touch, inset, onClick }: { ready: boolean; touch: boolean; inset: number; onClick(): void }) {
   // `wake` counts the times it's asked to show (a world opening, the corner); gone once that one has had its time.
   const [wake, setWake] = useState(0);
   const [goneAt, setGoneAt] = useState(-1);
@@ -678,7 +679,9 @@ function ExploreBack({ ready, inset, onClick }: { ready: boolean; inset: number;
     const t = setTimeout(() => setGoneAt(wake), 4000);
     return () => clearTimeout(t);
   }, [ready, wake]);
-  const gone = goneAt === wake;
+  const settled = goneAt === wake;
+  const gone = settled && !touch;
+  const small = settled && touch;
   // A tap that brings it back ends in a click where it now is: that one isn't a click on it.
   const tapped = useRef(-1e9);
   const again = (e?: ReactPointerEvent) => {
@@ -703,10 +706,10 @@ function ExploreBack({ ready, inset, onClick }: { ready: boolean; inset: number;
           aria-label="Back to Explore"
           title="Back to Explore"
           tabIndex={gone ? -1 : 0}
-          className="glass animate-pop flex h-10 items-center gap-1.5 rounded-full pr-3.5 pl-2.5 text-[14px] font-medium text-ink active:scale-[.96]"
+          className={`glass animate-pop flex h-10 items-center gap-1.5 rounded-full text-[14px] font-medium text-ink active:scale-[.96] ${small ? 'w-10 justify-center' : 'pr-3.5 pl-2.5'}`}
         >
           <Icon name="arrow-left" size={18} strokeWidth={2} />
-          Explore
+          {!small && 'Explore'}
         </button>
       </div>
     </>
