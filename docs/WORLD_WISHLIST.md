@@ -118,6 +118,18 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   and a Poki login), **Zubspace** and **Glider 4.0** (remakes of other people's games), the
   Crayon open-world flight game by @aniketjart (refuses a frame) and **Roadster Racing** (refuses a
   frame).
+- **Scouted on 27 October 2026** (three.js forum, Show HN, velven.ai/explore). In Explore now: World
+  Explorer (hosted), Gulabi Nagar, Gulmohar Local and Wildlands: Seasonkeeper. No code could be
+  found for the last three, so they are embedded. For a later day: **Three-Point Contest**
+  (3pointscontest.netlify.app: a basketball shooting contest in a school gym, sport Explore lacks;
+  fine in a frame, but its Shop wasn't looked into), **Low Tide** (low-tide.netlify.app: a top-down
+  beach painted in impasto, gorgeous), **NINE LOOPS: SUBWAY** (design9.jp: an Exit 8-style loop
+  game in a subway tunnel), **RIRRI'S** (world.irisli.dev: a rainy-night Japanese convenience store
+  as a portfolio), **OFRENDA** (ofrenda.davidlangarica.dev: building a Día de Muertos altar) and
+  **FLOAT** (floatparkour.vercel.app, on GitHub: brutalist first-person parkour), all fine in a
+  frame. Left out: Hammy Pinball (Glowbit Games: ads), Father's Night (refuses a frame), Ocean
+  (ocean-noniv: WebGPU only), Nekada (a timeline tool), Mini World (a children's app more than a
+  world) and Cymatic Drift (lets only Velven frame it).
 
 ## Embeds we would add if their sites allowed it
 

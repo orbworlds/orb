@@ -625,6 +625,23 @@ const SHOTS = {
       await new Promise((r) => setTimeout(r, 60000));
     },
   },
+  // Lunar Walk: the astronaut walking out across the grey dust under the black sky, the rover behind
+  'ext-lunar-walk': { wait: 60000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['w'] },
+  // The Forbidden City: walking up the stone path of the square before the Meridian Gate, its red walls either side
+  'ext-forbidden-city': { wait: 60000, steps: [{ click: [320, 200], wait: 5000 }], hold: ['w'], crf: [50, 33] },
+  // World Explorer: the helicopter flying on over San Francisco's lit towers by the bay at night
+  'aw-world-explorer': { wait: 60000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['w'], crf: [52, 33] },
+  // Gulabi Nagar: past its title card, walking down the Jaipur street of shops under the trees
+  'ext-gulabi-nagar': { wait: 60000, steps: [{ click: [80, 295], wait: 15000 }], hold: ['w'], crf: [50, 32] },
+  // Gulmohar Local: Mumbai's little planet in its whole-planet view (P), turned by the mouse past the bay, the beach
+  // and the old town round the line on its equator, and back
+  'ext-gulmohar-local': {
+    wait: 40000, steps: [{ click: [320, 215], wait: 60000 }, { click: [257, 303], wait: 30000 }, { key: 'p', wait: 10000 }, { wheel: -300, wait: 5000 }],
+    drag: swing(140, 0),
+  },
+  // Wildlands: Seasonkeeper: the first island seen whole from the sky, its village, forest and snowy ridge turning
+  // slowly over the sea at dusk (its title is the page's)
+  'ext-wildlands': { wait: 40000 },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

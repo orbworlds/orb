@@ -2797,5 +2797,108 @@
       "author_url": "https://x.com/chrisfirst",
       "made_with": "three.js"
     }
+  },
+  {
+    "id": "aw-world-explorer",
+    "name": "World Explorer",
+    "description": "Fly a helicopter, drive or walk anywhere on Earth through real streets and buildings streamed from OpenStreetMap, starting over San Francisco's waterfront.",
+    "kind": "external",
+    "external_url": "https://axieyangb.github.io/world-explorer/",
+    "source_url": "https://github.com/axieyangb/world-explorer",
+    "author_name": "Yangyang Xie",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/aw-world-explorer.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/world-explorer-an-open-world-of-the-whole-planet-streamed-from-openstreetmap/95917",
+      "platform": "three.js forum",
+      "views": 20,
+      "likes": 2,
+      "posted_at": "2026-10-26",
+      "handle": "@Yangyang_Xie",
+      "author_url": "https://github.com/axieyangb",
+      "made_with": "three.js r161, OpenFreeMap vector tiles"
+    }
+  },
+  {
+    "id": "ext-gulabi-nagar",
+    "name": "Gulabi Nagar",
+    "description": "Spend an afternoon walking Gulabi Nagar, a Jaipur railway neighbourhood of pink havelis, chai stalls and local trains.",
+    "kind": "external",
+    "external_url": "https://gulabi-nagar-jaipur.vercel.app/",
+    "source_url": null,
+    "author_name": "Karan Gupta",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 63,
+    "thumb_url": "/seeds/ext-gulabi-nagar.webp",
+    "origin": {
+      "post_url": "https://velven.ai/s/gulabi-nagar",
+      "platform": "velven",
+      "posted_at": "2026-09-28",
+      "handle": "@justkarangupta",
+      "author_url": "https://x.com/justkarangupta",
+      "made_with": "GPT-6 Sol in Codex, three.js"
+    }
+  },
+  {
+    "id": "ext-gulmohar-local",
+    "name": "Gulmohar Local",
+    "description": "Pick one of seven Indian cities, each a planet small enough to walk round with its train, tram or metro circling the equator.",
+    "kind": "external",
+    "external_url": "https://gulmohar-local.pages.dev/",
+    "source_url": null,
+    "author_name": "Shardul",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-gulmohar-local.webp",
+    "origin": {
+      "post_url": "https://velven.ai/s/gulmohar-local",
+      "platform": "velven",
+      "posted_at": "2026-09-25",
+      "handle": "@pracosm",
+      "author_url": "https://x.com/pracosm",
+      "made_with": "Claude Opus 5.5, three.js"
+    }
+  },
+  {
+    "id": "ext-wildlands",
+    "name": "Wildlands: Seasonkeeper",
+    "description": "Carry a lantern that changes the season around you across five low-poly islands: freeze rivers, grow vine bridges and wake each island's shrine.",
+    "kind": "external",
+    "external_url": "https://wildlands.jeremyteddy.dev/",
+    "source_url": null,
+    "author_name": "Jeremy",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-wildlands.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/wildlands-seasonkeeper/95928",
+      "platform": "three.js forum",
+      "views": 25,
+      "likes": 0,
+      "posted_at": "2026-10-26",
+      "handle": "@Jeremy1",
+      "author_url": "https://wildlands.jeremyteddy.dev/",
+      "made_with": "three.js, procedural islands"
+    }
   }
 ]
