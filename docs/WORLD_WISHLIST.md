@@ -130,6 +130,15 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   frame. Left out: Hammy Pinball (Glowbit Games: ads), Father's Night (refuses a frame), Ocean
   (ocean-noniv: WebGPU only), Nekada (a timeline tool), Mini World (a children's app more than a
   world) and Cymatic Drift (lets only Velven frame it).
+- **Scouted on 28 October 2026**: Infinite Garden, Low Tide and Three-Point Contest went in, all
+  embedded (no code could be found). For a later day: **FLOAT** (floatparkour.vercel.app, on GitHub
+  without a licence and needing a React build: fine in Orb's frame, but its recorded preview ran
+  off the first platform into the void; record it walking, not sprinting), **SF Blimp** (sf-blimp.vercel.app: a blimp over a pixel-art San
+  Francisco, charming; Velven credited Guillermo Rauch, but its page there is gone, so who made it
+  needs confirming), **VybeNomad** (vaigames.com/vybenomad: a digital-nomad life sim; its site
+  didn't load in time to check), **NINE LOOPS: SUBWAY**, **RIRRI'S** and **OFRENDA** (see 27
+  October). Left out: **Whack!** (a plain whack-a-mole) and **City Drones** (citydrones.app: a
+  landing page in front of the game, not looked into further).
 
 ## Embeds we would add if their sites allowed it
 

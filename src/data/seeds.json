@@ -2900,5 +2900,75 @@
       "author_url": "https://wildlands.jeremyteddy.dev/",
       "made_with": "three.js, procedural islands"
     }
+  },
+  {
+    "id": "ext-infinite-garden",
+    "name": "Infinite Garden",
+    "description": "Walk through 48 impossible Chinese courtyards, turning gravity, water and light to find the way on to the next garden.",
+    "kind": "external",
+    "external_url": "https://infinite-garden.yelin8130.chatgpt.site/",
+    "source_url": null,
+    "author_name": "Ling ye",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 63,
+    "thumb_url": "/seeds/ext-infinite-garden.webp",
+    "origin": {
+      "post_url": "https://velven.ai/s/infinite-garden-atlas-of-echoes",
+      "platform": "velven",
+      "posted_at": "2026-09-12",
+      "handle": "@LingyeNBird",
+      "author_url": "https://x.com/LingyeNBird",
+      "made_with": "GPT-6 Astra, three.js"
+    }
+  },
+  {
+    "id": "ext-low-tide",
+    "name": "Low Tide",
+    "description": "Dart along a beach painted in thick impasto, grabbing what the foam leaves behind before the next wave rolls in.",
+    "kind": "external",
+    "external_url": "https://low-tide.netlify.app/",
+    "source_url": null,
+    "author_name": "Ibrahim Boona",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-low-tide.webp",
+    "origin": {
+      "post_url": "https://velven.ai/s/low-tide",
+      "platform": "velven",
+      "posted_at": "2026-09-25",
+      "handle": "@boona11",
+      "author_url": "https://x.com/boona11",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "ext-three-point-contest",
+    "name": "Three-Point Contest",
+    "description": "Shoot from five racks round the arc of a sunlit school gym in a daily three-point contest, with money balls and golden streaks.",
+    "kind": "external",
+    "external_url": "https://3pointscontest.netlify.app/",
+    "source_url": null,
+    "author_name": "Lluís Andreu Pardo",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-three-point-contest.webp",
+    "origin": {
+      "post_url": "https://velven.ai/s/three-point-contest",
+      "platform": "velven",
+      "posted_at": "2026-09-28",
+      "handle": "@k3lk0m",
+      "author_url": "https://x.com/k3lk0m",
+      "made_with": "Claude Opus 5.5, three.js"
+    }
   }
 ]

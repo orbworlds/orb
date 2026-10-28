@@ -642,6 +642,13 @@ const SHOTS = {
   // Wildlands: Seasonkeeper: the first island seen whole from the sky, its village, forest and snowy ridge turning
   // slowly over the sea at dusk (its title is the page's)
   'ext-wildlands': { wait: 40000 },
+  // Infinite Garden: in its free-roam flight (自由漫游), gliding on through the first pale courtyard toward its tree of
+  // cubes, the galleries rising round it
+  'ext-infinite-garden': { wait: 40000, steps: [{ click: [69, 319], wait: 15000 }], hold: ['w'] },
+  // Low Tide: the painted beach from above, waves of thick blue strokes rolling in over the sand and the crowd
+  'ext-low-tide': { wait: 40000, crf: [48, 30] },
+  // Three-Point Contest: on the court of the sunlit school gym, the first ball going up from the left corner
+  'ext-three-point-contest': { wait: 40000, steps: [{ click: [320, 256], wait: 8000 }, { click: [554, 339], wait: 15000 }], press: [['Space', 0.3, 1.0]] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */
