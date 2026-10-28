@@ -2928,13 +2928,14 @@
   {
     "id": "ext-low-tide",
     "name": "Low Tide",
-    "description": "Dart along a beach painted in thick impasto, grabbing what the foam leaves behind before the next wave rolls in.",
+    "description": "Comb a beach painted in thick impasto for what the waves leave behind and carry it back to camp before the foam takes it.",
     "kind": "external",
     "external_url": "https://low-tide.netlify.app/",
     "source_url": null,
     "author_name": "Ibrahim Boona",
     "tags": [
-      "game"
+      "game",
+      "keyboard"
     ],
     "verified": false,
     "featured": 61,
