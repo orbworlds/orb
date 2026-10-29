@@ -27,7 +27,8 @@ import { getModelSettings, listChats, loadChatMessages, saveChatMessages, saveCh
 import { BuildError, DETACH, loadTreeEntry, resumeBuild as defaultResumeBuild, runBuild as defaultRunBuild, sendLookAnswer, type AgentLook, type AgentVersion, type BuildHooks } from './client';
 import { treePath, withTree } from '../tree';
 import { ProtocolParser, type ProtocolEvent } from './protocol';
-import { BUILD_LIMITS, isBuildImage } from './prompt';
+import { BUILD_LIMITS, isBuildImage, PHOTOS_ONLY } from './prompt';
+import { keepSent, sentPhotos, type Photo } from '../photos';
 
 export interface BuildHost {
   /** Stable key for chat threads: world id, or 'new' on the start canvas. */
@@ -95,7 +96,8 @@ export interface UseBuild {
   progress: BuildProgress | null;
   /** Builds still running for other worlds. */
   background: BackgroundBuild[];
-  send(text: string): Promise<void>;
+  /** Ask for something (with photos, when the person attached some). */
+  send(text: string, photos?: Photo[]): Promise<void>;
   /** A request that failed (the newest answer is an error): ask it again, in its place. */
   retry(messageId: string): Promise<void>;
   stop(): void;
@@ -236,10 +238,18 @@ function summarizeAssistant(m: ChatMessage): string {
 }
 
 /** Last 10 turns, assistant turns summarized, every message within the server's limits. */
+/** A message's photos, in words, for the AI's memory of the chat (it sees only a new message's own). */
+function withPhotoNote(m: ChatMessage): string {
+  const n = m.photos?.length ?? 0;
+  if (!n) return m.text.trim();
+  const note = `(${m.text.trim() ? 'with' : 'sent'} ${n === 1 ? 'a photo' : `${n} photos`})`;
+  return m.text.trim() ? `${m.text.trim()}\n${note}` : note;
+}
+
 function summarizeHistory(prior: ChatMessage[]): ModelMessage[] {
   const out: ModelMessage[] = [];
   for (const m of prior.slice(-20)) {
-    const content = m.role === 'user' ? m.text.trim() : summarizeAssistant(m);
+    const content = m.role === 'user' ? withPhotoNote(m) : summarizeAssistant(m);
     if (content) out.push({ role: m.role, content: clip(content, BUILD_LIMITS.messageChars) });
   }
   return out;
@@ -658,16 +668,17 @@ export class BuildEngine {
 
   // -- build flow ---------------------------------------------------------------------------------
 
-  send = async (text: string): Promise<void> => {
+  send = async (text: string, photos: Photo[] = []): Promise<void> => {
     const t = text.trim();
     const host = this.host;
-    if (!t || !host || this.job || this.sending || !this.chatKey) return;
+    if ((!t && !photos.length) || !host || this.job || this.sending || !this.chatKey) return;
     this.cancelWatch();
 
-    const threadId = this.ensureThreadPersisted(t);
+    const threadId = this.ensureThreadPersisted(t || 'Photos');
     const prior = this.getMessages(threadId);
     const now = Date.now();
-    const user: ChatMessage = { id: uid(), role: 'user', text: t, createdAt: now };
+    const user: ChatMessage = { id: uid(), role: 'user', text: t, createdAt: now, ...(photos.length ? { photos: photos.map((p) => p.thumb) } : {}) };
+    keepSent(user.id, photos);
     if (this.jobs.size >= MAX_PARALLEL_BUILDS) {
       const names = [...this.jobs].map((j) => `“${j.worldName}”`).join(', ');
       const wait: ChatMessage = {
@@ -692,7 +703,7 @@ export class BuildEngine {
     // Persist the user's words before anything can fail.
     this.setMessages(threadId, [...prior, user, assistant], 'now');
 
-    const job = newJob(host, { threadId, assistantId: assistant.id, userText: t, history: summarizeHistory(prior), base: '' });
+    const job = newJob(host, { threadId, assistantId: assistant.id, userText: t || PHOTOS_ONLY, history: summarizeHistory(prior), base: '' });
     this.jobs.add(job);
     this.lastPreviewCode = null;
     this.emit();
@@ -722,8 +733,9 @@ export class BuildEngine {
     const shot = host.getImage ? await Promise.race([host.getImage().catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), this.opts.imageTimeoutMs))]) : null;
     const req: BuildRequest = {
       worldId: job.worldId,
-      messages: [...job.history, { role: 'user', content: clip(t, BUILD_LIMITS.messageChars) }],
+      messages: [...job.history, { role: 'user', content: clip(t || PHOTOS_ONLY, BUILD_LIMITS.messageChars) }],
       image: isBuildImage(shot) ? shot : null,
+      ...(photos.length ? { photos: photos.slice(0, BUILD_LIMITS.photos).map((p) => p.full) } : {}),
       mode: job.mode,
       worldName: host.worldName,
     };
@@ -1094,7 +1106,9 @@ export class BuildEngine {
     if (i !== list.length - 1 || list[i].build?.status !== 'error' || asked?.role !== 'user') return;
     this.setMessages(threadId, list.slice(0, i - 1), 'now');
     this.emit();
-    await this.send(asked.text);
+    // The same photos again: as sent in this page view, else the chat's own small copies.
+    const fulls = sentPhotos(asked.id) ?? asked.photos ?? [];
+    await this.send(asked.text, fulls.map((full, k) => ({ id: `${asked.id}-${k}`, full, thumb: asked.photos?.[k] ?? full })));
   };
 
   undo = async (messageId: string): Promise<void> => {

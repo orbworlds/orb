@@ -21,6 +21,7 @@ import { useBuild, type BackgroundBuild, type BuildHost } from '@/lib/engine/use
 import { track } from '@/lib/analytics';
 import { api, worldHref } from '@/lib/api';
 import { setChatSync } from '@/lib/chatsync';
+import type { Photo } from '@/lib/photos';
 import { trackVisualViewport } from '@/lib/viewport';
 import { TEMPLATE_BY_ID } from '@/lib/templates';
 import type { WorldFull } from '@/lib/types';
@@ -396,13 +397,15 @@ export default function Shell({
 
   const sendFromHero = useCallback((text: string) => {
     const t = text.trim();
-    if (!t) return;
-    trackPrompt('hero', t);
     const u = useUi.getState();
+    const photos = u.draftPhotos;
+    if (!t && !photos.length) return;
+    trackPrompt('hero', t);
     u.setHeroDone(true);
     u.setDraft('');
+    u.setDraftPhotos([]);
     u.openPanel('chat', 'half');
-    void buildRef.current.send(t);
+    void buildRef.current.send(t, photos);
   }, []);
 
   // Explore is the home page: every way to it (the Explore pill, the world bar's, "See all") goes home,
@@ -417,19 +420,19 @@ export default function Shell({
 
   // In a world that runs on its maker's site (embedded), Orb can't see inside it: what the chat's
   // composer says starts a world of one's own, built from it on the start canvas.
-  const newWorldFrom = useRef<string | null>(null);
-  const makeOwn = useCallback((text: string) => {
+  const newWorldFrom = useRef<{ text: string; photos: Photo[] } | null>(null);
+  const makeOwn = useCallback((text: string, photos: Photo[]) => {
     const t = text.trim();
-    if (!t) return;
+    if (!t && !photos.length) return;
     trackPrompt('chat', t);
-    newWorldFrom.current = t;
+    newWorldFrom.current = { text: t, photos };
     void useWorld.getState().goStart({ chat: true });
   }, []);
   useEffect(() => {
-    const t = newWorldFrom.current;
-    if (!t || world || chatKey !== 'new' || status !== 'ready') return;
+    const p = newWorldFrom.current;
+    if (!p || world || chatKey !== 'new' || status !== 'ready') return;
     newWorldFrom.current = null;
-    void build.send(t);
+    void build.send(p.text, p.photos);
   });
 
   // Remix offered under an answer in someone else's world: remix it, then (when they had asked for a

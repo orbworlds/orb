@@ -36,6 +36,7 @@ import { jobToken, openKey, sealKey } from './secrets';
 import { filesUrl } from './sync';
 import { agentTools, closeToolCalls, isFinalStep, Workspace, type LookInput, type Meta, type StepEvent } from './workspace';
 import { cursorTick, FREE_DOWN } from './cursor';
+import { withoutUnusedPhotos } from './photos';
 import { attachLookImages, closeOpenLooks, dropLooks, formatLook, LOOK_OVERHEAD_MS, lookCount, lookFrames, lookRefusal, looksLeft, MAX_LOOKS, missedLook, openLook, pruneLookImages, resolveLookImages, trimLooks, waitForLook, type LookImage } from './look';
 import { latestSentence } from './narration';
 import { cleanProbeActions, probeDuration } from '../../lib/probe';
@@ -139,6 +140,8 @@ export interface NewJob {
   origin: string;
   messages: ModelMessage[];
   prompt: string;
+  /** Files the job starts with on top of the world's (the person's photos, ./photos.ts). */
+  files?: Tree;
   /** Model options and the like. */
   ext?: Record<string, unknown>;
   /** For its trace (../traces.ts): the chat turn it belongs to, and more about the request. */
@@ -160,11 +163,13 @@ export async function createAgentJob(db: Db, j: NewJob): Promise<string> {
   const world = await worldTree(db, j.worldId);
   if (!world) throw new Error('world not found');
   const id = newJobId();
+  // The job works on the world plus what it starts with; the world's own tree stays its base.
+  const tree = j.files && Object.keys(j.files).length ? await putTree(db, { ...world.files, ...j.files }) : world.tree;
   await db.query(`insert into orb_build_jobs (id) values ($1)`, [id]);
   if (Math.random() < 0.02) void sweepJobs(db).catch(() => undefined); // housekeeping, without relying on the cron
   await db.query(
     `insert into orb_agent_jobs (id, world_id, owner_device, owner_user, mode, provider, model, key_enc, origin, messages, base_tree, tree, committed_tree, prompt, max_steps, ext)
-     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $11, $11, $12, $13, $14::jsonb)`,
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $15, $11, $12, $13, $14::jsonb)`,
     [
       id,
       j.worldId,
@@ -180,6 +185,7 @@ export async function createAgentJob(db: Db, j: NewJob): Promise<string> {
       j.prompt.slice(0, 2000),
       MAX_STEPS,
       JSON.stringify(j.ext ?? {}),
+      tree,
     ],
   );
   const onCursor = runsOnCursor(j.provider, j.ext);
@@ -516,6 +522,7 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
   /** Save the files as a new version of the world (merged with changes made meanwhile). */
   const commit = async (): Promise<void> => {
     if (job.mode !== 'build' || !tree || tree === committedTree) return;
+    const photos = Array.isArray(ext.photos) ? (ext.photos as string[]) : [];
     for (let attempt = 0; attempt < 3; attempt++) {
       const now = await worldTree(db, job.world_id);
       if (!now) return;
@@ -525,6 +532,9 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
         const base: Tree = (await getTree(db, committedTree)) ?? {};
         target = await putTree(db, mergeTrees(base, ws.files, now.files));
       }
+      // The person's photos are saved only where the world uses them.
+      target = await withoutUnusedPhotos(db, target, photos);
+      if (target === now.tree) return; // nothing new to save (yet)
       const res = await commitTree(db, ownerOf(job), job.world_id, target, { prompt: job.prompt, name: meta.name ?? null, category: meta.category ?? null, expect: { tree: now.stored } });
       if (res) {
         committedTree = target;

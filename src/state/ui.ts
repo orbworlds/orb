@@ -6,6 +6,7 @@ import { useEffect, useEffectEvent, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { getOrbPosition, readJSON, setOrbPosition, writeJSON } from '@/lib/local';
 import { PHONE_MEDIA } from '@/lib/keyboard';
+import type { Photo } from '@/lib/photos';
 
 export type PanelTab = 'chat' | 'you';
 /** Mobile bottom sheet: 'half' holds the world's row and the chat (up to ~3/4 of the screen), 'full' up to nearly all of it (adding "← Explore"). */
@@ -39,6 +40,8 @@ interface UiState {
   orbLoaded: boolean;
   /** Text being typed (shared by the hero composer and the chat composer). */
   draft: string;
+  /** Photos going with it. */
+  draftPhotos: Photo[];
   intro: ChatIntro | null;
   /** Incremented to ask the visible composer to take focus. */
   focusSeq: number;
@@ -64,6 +67,7 @@ interface UiState {
   setPlans(open: boolean): void;
   setUnread(v: boolean): void;
   setDraft(text: string): void;
+  setDraftPhotos(photos: Photo[]): void;
   setExploreScrolled(v: boolean): void;
   setIntro(intro: ChatIntro | null): void;
   setHeroDone(v: boolean): void;
@@ -93,6 +97,7 @@ export const useUi = create<UiState>((set, get) => ({
   orb: { side: 'right', y: 0.72 }, // mid-right: worlds rarely put controls there (bottom bars, top HUDs)
   orbLoaded: false,
   draft: '',
+  draftPhotos: [],
   intro: null,
   focusSeq: 0,
   heroDone: false,
@@ -130,6 +135,9 @@ export const useUi = create<UiState>((set, get) => ({
   },
   setDraft(draft) {
     set({ draft });
+  },
+  setDraftPhotos(draftPhotos) {
+    set({ draftPhotos });
   },
   setIntro(intro) {
     set({ intro });

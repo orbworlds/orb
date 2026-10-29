@@ -2,8 +2,9 @@
 // src/server/agent/runner.ts). Streams its output (Orb protocol text + control frames; the first
 // frame is the job handle). The build goes on without the page; GET /api/agent/jobs/:id follows it.
 //
-// Body: BuildRequest ({ worldId, messages, errors?, image?, mode, worldName }; the agent reads the
-// world's files itself). Own keys: x-orb-agent-provider (anthropic | openai |
+// Body: BuildRequest ({ worldId, messages, errors?, image?, photos?, mode, worldName }; the agent
+// reads the world's files itself; the person's photos it sees, and a build has them among the
+// world's files too, see src/server/agent/photos.ts). Own keys: x-orb-agent-provider (anthropic | openai |
 // openrouter), x-orb-agent-key, x-orb-agent-model, x-orb-agent-effort (Anthropic and OpenAI:
 // low | medium | high | xhigh, high by default). The key is kept encrypted with the job only
 // while it runs. Free builds run as Cursor agents on Orb's own key when that is how the free
@@ -27,13 +28,14 @@ import { ready } from '@/server/schema';
 import { traceGroup } from '@/server/traces';
 import { worldTree } from '@/server/worlds';
 import { followJob } from '@/server/agent/follow';
+import { buildPhotos, photoNote } from '@/server/agent/photos';
 import { cursorOrbPrompt } from '@/server/agent/prompt';
 import { AGENT_EFFORTS, AGENT_PROVIDERS, type AgentEffort, type AgentProvider } from '@/server/agent/models';
 import { createAgentJob, MAX_RUNNING, runningJobs, runTick, kick } from '@/server/agent/runner';
 
 export const maxDuration = 300;
 
-const MAX_BODY = BUILD_LIMITS.image + BUILD_LIMITS.messages * BUILD_LIMITS.messageChars + 100_000;
+const MAX_BODY = BUILD_LIMITS.image + BUILD_LIMITS.photos * BUILD_LIMITS.photo + BUILD_LIMITS.messages * BUILD_LIMITS.messageChars + 100_000;
 /** Inline all files in the first message when they are this small together (saves read steps). */
 const INLINE_ALL = 60_000;
 const INLINE_ENTRY = 24_000;
@@ -41,8 +43,8 @@ const LIST_MAX = 300;
 
 const escapeAttr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/\n/g, ' ');
 
-/** The first user message: the world's files (inlined when small), errors, screenshot, request. */
-async function firstMessage(db: Db, files: Tree, name: string, req: BuildRequest): Promise<ModelMessage> {
+/** The first user message: the world's files (inlined when small), errors, screenshot, the person's photos, request. */
+async function firstMessage(db: Db, files: Tree, name: string, req: BuildRequest, photos: FilePart[]): Promise<ModelMessage> {
   const paths = Object.keys(files).sort();
   const texts = new Map<string, string>();
   let total = 0;
@@ -75,18 +77,19 @@ async function firstMessage(db: Db, files: Tree, name: string, req: BuildRequest
     parts.push({ type: 'text', text: 'Screenshot of the world as it looks right now:' });
     parts.push(img);
   }
+  parts.push(...photos);
   const last = req.messages[req.messages.length - 1];
   parts.push({ type: 'text', text: `<request>\n${last.content.trim()}\n</request>` });
   return { role: 'user', content: parts };
 }
 
-/** Cursor agents take one prompt (+ images): the whole instruction for working on the world's files through Orb's link. */
-function cursorMessage(build: BuildRequest, worldName: string, mode: 'build' | 'ask'): ModelMessage {
+/** Cursor agents take one prompt (+ images, the person's photos first): the whole instruction for working on the world's files through Orb's link. */
+function cursorMessage(build: BuildRequest, worldName: string, mode: 'build' | 'ask', photos: FilePart[]): ModelMessage {
   const history = build.messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }));
   const opts = { worldName: build.worldName || worldName, history, request: build.messages[build.messages.length - 1].content, errors: build.errors };
   const text = cursorOrbPrompt({ ...opts, mode });
   const img = build.image ? imagePart(build.image) : null;
-  return { role: 'user', content: img ? [{ type: 'text', text }, img] : [{ type: 'text', text }] };
+  return { role: 'user', content: [{ type: 'text', text }, ...photos, ...(img ? [img] : [])] };
 }
 
 /** `{"effort":"high","fast":"true"}` → Cursor's [{id, value}] (bounded, strings only). */
@@ -158,10 +161,15 @@ export const POST = handle(async (req: Request): Promise<Response> => {
 
   const world = await worldTree(db, build.worldId);
   if (!world) return error(404, 'not_found', 'This world does not exist.');
+  // The person's photos: the AI sees them, and a build has them among the world's files.
+  const last = build.messages[build.messages.length - 1];
+  const asked = last.content;
+  const photos = build.photos?.length ? await buildPhotos(db, build.photos, mode === 'build') : null;
+  if (photos?.parts.length) last.content = `${asked.trim()}\n\n${photoNote(photos)}`;
   const messages: ModelMessage[] =
     provider === 'cursor' || viaCursor
-      ? [cursorMessage(build, world.name, mode)]
-      : [...normalizeHistory(build.messages.slice(0, -1)), await firstMessage(db, world.files, build.worldName ?? world.name, build)];
+      ? [cursorMessage(build, world.name, mode, photos?.parts ?? [])]
+      : [...normalizeHistory(build.messages.slice(0, -1)), await firstMessage(db, { ...world.files, ...photos?.files }, build.worldName ?? world.name, build, photos?.parts ?? [])];
   const { origin } = requestOrigin(req);
   // Orb's AI builds with one model for everyone; Pro only has more credits.
   const freeModel = viaCursor ? DEFAULT_CURSOR_MODEL : null;
@@ -173,6 +181,7 @@ export const POST = handle(async (req: Request): Promise<Response> => {
         ? { effort }
         : {};
   if (billing) ext.billing = billing;
+  if (photos?.paths.length) ext.photos = photos.paths;
   const id = await createAgentJob(db, {
     owner: viewer,
     worldId: build.worldId,
@@ -182,7 +191,8 @@ export const POST = handle(async (req: Request): Promise<Response> => {
     apiKey,
     origin,
     messages,
-    prompt: build.messages[build.messages.length - 1].content,
+    prompt: asked,
+    files: photos?.files,
     ext: Object.keys(ext).length ? ext : undefined,
     trace: { group: traceGroup(req), meta: build.errors?.length ? { repair: build.errors.length } : undefined },
   });

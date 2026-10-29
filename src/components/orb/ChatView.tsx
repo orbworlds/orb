@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { Icon } from '@/components/ui/Icon';
 import { track } from '@/lib/analytics';
 import type { UseBuild } from '@/lib/engine/useBuild';
+import type { Photo } from '@/lib/photos';
 import { getModelSettings } from '@/lib/local';
 import { TEMPLATE_BY_ID } from '@/lib/templates';
 import { creditsText, useCredits } from '@/state/billing';
@@ -31,15 +32,15 @@ export function ChatView({
   build: UseBuild;
   onOpenKeys(): void;
   onOpenWorld(worldId: string): void;
-  /** In a world on its maker's site: start a world of one's own from this text. */
-  onMakeOwn(text: string): void;
+  /** In a world on its maker's site: start a world of one's own from this text (and photos). */
+  onMakeOwn(text: string, photos: Photo[]): void;
   /** Remix the world on screen, then build `request` in the copy. */
   onRemix(request?: string): void;
   /** Start a new world as a remix of this one. */
   onStartFrom(worldId: string): void;
 }) {
   const { world, canEdit, chatKey, templateId, isExternal, verified } = useWorld();
-  const { draft, setDraft, intro, focusSeq, detent, setDetent, panelOpen } = useUi();
+  const { draft, setDraft, draftPhotos, setDraftPhotos, intro, focusSeq, detent, setDetent, panelOpen, tab } = useUi();
   const mobile = useIsMobile();
   const { messages, threads, threadId, isBuilding, retryAfter } = build;
 
@@ -90,16 +91,16 @@ export function ChatView({
   // --- sending -------------------------------------------------------------------------------
   const send = (text: string, where: 'chat' | 'suggestion' = 'chat') => {
     const t = text.trim();
-    if (!t || isBuilding || confirming) return;
-    if (isExternal) {
-      setDraft('');
-      return onMakeOwn(t);
-    }
-    trackPrompt(where, t);
+    // A suggestion is words alone; what the composer sends takes its photos along.
+    const photos = where === 'chat' ? draftPhotos : [];
+    if ((!t && !photos.length) || isBuilding || confirming) return;
     setDraft('');
+    if (photos.length) setDraftPhotos([]);
+    if (isExternal) return onMakeOwn(t, photos);
+    trackPrompt(where, t);
     stick.current = true;
     if (mobile) setDetent('half'); // keep the world visible while it gets built
-    void build.send(t);
+    void build.send(t, photos);
   };
 
   const suggest = (text: string) => send(text, 'suggestion');
@@ -198,6 +199,9 @@ export function ChatView({
           placeholder={placeholder}
           focusSignal={focusSeq}
           id="orb-composer"
+          photos={draftPhotos}
+          onPhotos={setDraftPhotos}
+          catchDrops={panelOpen && tab === 'chat'}
         />
       </div>
     </>

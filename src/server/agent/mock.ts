@@ -92,6 +92,12 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
     }
   }
   const request = lastUser >= 0 ? textOf(prompt[lastUser]).toLowerCase() : '';
+  // The pictures it was shown with the request (the world's screenshot, the person's photos).
+  const asked = lastUser >= 0 ? prompt[lastUser].content : '';
+  const pictures = Array.isArray(asked) ? asked.filter((p) => p.type === 'file').length : 0;
+  const sawPictures = pictures ? ` I can see ${pictures === 1 ? 'one picture' : `${pictures} pictures`}.` : '';
+  // "mockphoto": the world uses the person's first photo (by its path, as the request names it).
+  const photo = request.includes('mockphoto') ? /photos\/[\w-]+\.(?:jpg|png|webp|gif)/.exec(request)?.[0] : undefined;
   const step = prompt.slice(lastUser + 1).filter((m) => m.role === 'assistant').length;
   const results = prompt.slice(lastUser + 1).filter((m) => m.role === 'tool').map(textOf).join('\n');
   if (request.includes('mockerror')) return { calls: [], fail: true };
@@ -100,7 +106,7 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
   if (prompt.some((m) => m.role === 'system' && textOf(m).includes('# Mode: guide'))) {
     return request.includes('mockchange')
       ? { text: "This world is someone else's — remix it and I'll change it in your copy!", calls: [{ name: 'offer_remix', input: {} }, { name: 'suggest_next', input: { ideas: ['How does it work?', 'What can I do here?', 'Is there a secret?'] } }] }
-      : { text: 'Walk around with the arrow keys and tap things to see what they do!', calls: [{ name: 'suggest_next', input: { ideas: ['What can I do here?', 'Is there a secret?', 'How do I win?'] } }] };
+      : { text: `Walk around with the arrow keys and tap things to see what they do!${sawPictures}`, calls: [{ name: 'suggest_next', input: { ideas: ['What can I do here?', 'Is there a secret?', 'How do I win?'] } }] };
   }
   if (request.includes('mockfirstlook')) return { calls: [{ name: 'suggest_next', input: { ideas: ['Keep going like this', 'Softer painted look', 'Golden sunset'], question: 'Is this the feel you want?' } }] };
   // A first reply cut off at the output limit after a whole tool call ("mockcutoff").
@@ -120,6 +126,7 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
           { name: 'write_file', input: { label: 'Painting the sky', path: 'style.css', content: STYLE } },
           { name: 'write_file', input: { label: 'Tuning the colors', path: 'src/config.js', content: CONFIG_JS(250) } },
           { name: 'write_file', input: { label: 'Planting the glows', path: 'src/main.js', content: main(request.includes('mockcrash')) } },
+          ...(photo ? [{ name: 'write_file', input: { label: 'Hanging your photo', path: 'src/poster.js', content: `export const POSTER = '${photo}';\n` } }] : []),
         ],
       };
     return { calls: [{ name: 'read_file', input: { path: 'src/config.js' } }] };
@@ -148,7 +155,7 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
     return { text: 'Shifting the colors a little.', calls: [{ name: 'edit_file', input: { label: 'Shifting the colors', path: 'src/config.js', old_string: `hue: ${hue[1]}`, new_string: `hue: ${next}` } }] };
   }
   if (long && step < (request.includes('mockchain') ? 26 : 9)) return { text: `Step ${step}.`, calls: [{ name: 'write_file', input: { label: `Adding note ${step}`, path: `.orb/note-${step}.md`, content: `step ${step}\n` } }] };
-  return { text: repair ? 'All better now!' : 'Your garden is ready — tap to plant more glows!', calls: [{ name: 'suggest_next', input: { ideas: ['Make it sunset', 'Add fireflies', 'Add soft music'] } }] };
+  return { text: repair ? 'All better now!' : `Your garden is ready — tap to plant more glows!${sawPictures}`, calls: [{ name: 'suggest_next', input: { ideas: ['Make it sunset', 'Add fireflies', 'Add soft music'] } }] };
 }
 
 export function mockAgentModel(): LanguageModel {

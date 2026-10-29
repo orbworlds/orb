@@ -4,9 +4,11 @@
 // said after; then Undo (the newest reply that changed the world) and suggestion chips, or Remix
 // when a visitor asked for a change.
 import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
+import { sentPhotos } from '@/lib/photos';
 import type { BuildInfo, BuildStep, ChatMessage } from '@/lib/types';
 import { useBilling } from '@/state/billing';
 import { useUi } from '@/state/ui';
@@ -47,14 +49,61 @@ export function MessageView(props: MessageViewProps) {
   const { message } = props;
   if (message.role === 'user') {
     return (
-      <div className="animate-fade-up flex justify-end pl-10">
-        <div className="max-w-full rounded-[18px] rounded-br-[6px] bg-[var(--bubble)] px-3.5 py-2 text-[14.5px] leading-[1.45] break-words whitespace-pre-wrap text-ink">
-          {message.text}
-        </div>
+      <div className="animate-fade-up flex flex-col items-end gap-1.5 pl-10">
+        {!!message.photos?.length && <SentPhotos id={message.id} photos={message.photos} />}
+        {message.text && (
+          <div className="max-w-full rounded-[18px] rounded-br-[6px] bg-[var(--bubble)] px-3.5 py-2 text-[14.5px] leading-[1.45] break-words whitespace-pre-wrap text-ink">
+            {message.text}
+          </div>
+        )}
       </div>
     );
   }
   return <AssistantMessage {...props} />;
+}
+
+/** The photos a message was sent with: one shows large, several as tiles; a click shows one up close. */
+function SentPhotos({ id, photos }: { id: string; photos: string[] }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const one = photos.length === 1;
+  return (
+    <>
+      <ul className="flex flex-wrap justify-end gap-1.5" aria-label={one ? 'Photo' : `${photos.length} photos`}>
+        {photos.map((src, i) => (
+          <li key={i}>
+            <button type="button" onClick={() => setOpen(i)} aria-label={`Show photo ${i + 1}`} className="block overflow-hidden rounded-[16px] rounded-br-[6px] focus-visible:rounded-[16px]">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a small data URL kept with the chat */}
+              <img src={src} alt="" className={one ? 'max-h-[220px] max-w-[220px] object-cover' : 'h-24 w-24 object-cover'} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      {open !== null && <PhotoViewer src={sentPhotos(id)?.[open] ?? photos[open]} onClose={() => setOpen(null)} />}
+    </>
+  );
+}
+
+/** One photo over everything; a click anywhere or Esc closes it. */
+function PhotoViewer({ src, onClose }: { src: string; onClose(): void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      onClose();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose]);
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label="Photo" onClick={onClose} className="animate-fade-in fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      {/* eslint-disable-next-line @next/next/no-img-element -- a data URL from this chat */}
+      <img src={src} alt="" className="max-h-full max-w-full rounded-[14px] object-contain shadow-[0_20px_60px_rgba(0,0,0,.5)]" />
+      <button type="button" onClick={onClose} aria-label="Close" className="absolute top-[calc(var(--safe-t)+12px)] right-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25">
+        <Icon name="x" size={18} />
+      </button>
+    </div>,
+    document.body,
+  );
 }
 
 function AssistantMessage({ message, isLast, building, guide, canUndo, retryAfter, onUndo, onSuggest, onOpenKeys, onRemix, onRetry }: MessageViewProps) {

@@ -67,6 +67,15 @@ If you change a contract, update this file in the same change.
   was". Replies carry no version numbers or credits (the chat says so only when credits run low:
   "12 credits left · See plans"). While Orb works, one word: "Thinking…" (answers in someone else's
   world) or "Building…".
+  **Photos** go with a message (the hero's composer and the chat's alike): the picture button (on a
+  phone it offers the camera too), pasting one, or dropping pictures anywhere on the page. Up to 4,
+  each read in the browser into a JPEG (a PNG when it has see-through parts) of at most 1600 px and
+  under 700 KB (`src/lib/photos.ts`); they show above the words, each with an ×, and a message may
+  be photos alone. The chat keeps small copies with the message (a tap shows one up close). The AI
+  sees them; in a build they are also among the world's files (`photos/<id>.<ext>`), for when the
+  person wants one in the world (a picture on a wall, a poster, a texture), and a photo the world
+  doesn't use is left out whenever the build saves, so what was only shown for reference never
+  becomes part of the world (`src/server/agent/photos.ts`).
 - **Home** (`/`) is Explore under an invitation to make a world, on a calm background of its own
   (no world behind it: light, the sky with a soft iris glow, fading into paper under the worlds;
   dark, one deep dark with the same glow, low). A header row: on the right
@@ -889,8 +898,10 @@ world as it goes; a Cursor agent does the same through the job's files link (§3
 ticks of a few minutes that hand over to each other, so a build goes on for as long as it needs,
 without the page.
 
-`BuildRequest` = `{ worldId, messages, image?, errors?, mode, worldName? }`: the chat (earlier
-turns summarized), a screenshot of the world, runtime errors to repair, and `mode` build or ask
+`BuildRequest` = `{ worldId, messages, image?, photos?, errors?, mode, worldName? }`: the chat
+(earlier turns summarized, a turn's photos as a note), a screenshot of the world, the person's
+photos for the last message (≤ 4 data URLs, each ≤ 700 KB; the last message may then be empty),
+runtime errors to repair, and `mode` build or ask
 (a guide in someone else's world: it answers, can offer a copy, and changes nothing). The agent
 reads the world's files itself; its system prompts are in `src/server/agent/prompt.ts`.
 - **Direction first.** Small and open requests are built right away, without questions. A big,

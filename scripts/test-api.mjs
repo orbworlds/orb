@@ -57,6 +57,8 @@ const LOOKER = device('looker');
 const LOOKER2 = device('looker2');
 const TRACER = device('tracer');
 const BUILDER = device('builder');
+const PHOTOGRAPHER = device('photographer');
+const PHOTO_VISITOR = device('photovisitor');
 const BUILDER2 = device('builder2');
 const SIGNUP_DEV = device('signup');
 const SIGNUP_DEV2 = device('signup2');
@@ -179,9 +181,16 @@ async function watch(dev, world, text, answer, headers = {}) {
   return { status: res.status, text: out, looks };
 }
 
-function pngSize(buf) {
-  if (buf.length < 24 || buf.readUInt32BE(0) !== 0x89504e47) return null;
-  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+/** A JPEG's size, from its frame header. */
+function jpegSize(buf) {
+  if (buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8) return null;
+  for (let i = 2; i + 9 < buf.length; ) {
+    if (buf[i] !== 0xff) return null;
+    const marker = buf[i + 1];
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) return { width: buf.readUInt16BE(i + 7), height: buf.readUInt16BE(i + 5) };
+    i += 2 + buf.readUInt16BE(i + 2);
+  }
+  return null;
 }
 
 // ------------------------------------------------------------------------------------------
@@ -1176,9 +1185,9 @@ async function run() {
 
   await section('OG images', async () => {
     const home = await request('GET', '/opengraph-image');
-    const hs = pngSize(home.bytes);
-    check('home OG → 1200×630 PNG', home.status === 200 && hs && hs.width === 1200 && hs.height === 630, { status: home.status, size: hs });
-    if (home.status === 200) fs.writeFileSync(path.join(OUT_DIR, 'og-home.png'), home.bytes);
+    const hs = jpegSize(home.bytes);
+    check('home OG → 1200×630 JPEG (small enough for every app)', home.status === 200 && hs && hs.width === 1200 && hs.height === 630 && home.bytes.length < 300_000, { status: home.status, size: hs, bytes: home.bytes.length });
+    if (home.status === 200) fs.writeFileSync(path.join(OUT_DIR, 'og-home.jpg'), home.bytes);
     for (const [label, id] of [
       ['thumb', state.main?.id],
       ['nothumb', state.bare?.id],
@@ -1187,9 +1196,9 @@ async function run() {
       if (!id) continue;
       const t0 = Date.now();
       const r = await request('GET', `/w/${id}/opengraph-image`);
-      const s = pngSize(r.bytes);
-      check(`world OG (${label}) → 1200×630 PNG in ${Date.now() - t0} ms`, r.status === 200 && s && s.width === 1200 && s.height === 630, { status: r.status, size: s, text: r.text.slice(0, 200) });
-      if (r.status === 200) fs.writeFileSync(path.join(OUT_DIR, `og-world-${label}.png`), r.bytes);
+      const s = jpegSize(r.bytes);
+      check(`world OG (${label}) → 1200×630 JPEG in ${Date.now() - t0} ms`, r.status === 200 && s && s.width === 1200 && s.height === 630 && r.bytes.length < 300_000, { status: r.status, size: s, bytes: r.bytes.length });
+      if (r.status === 200) fs.writeFileSync(path.join(OUT_DIR, `og-world-${label}.jpg`), r.bytes);
     }
     console.log(`    (images saved to ${path.relative(root, OUT_DIR)}/)`);
   });
@@ -1360,6 +1369,28 @@ async function run() {
     check('…an answer in place, with no copy offered', !/<orb:remix\/>/.test(vr.text), vr.text.slice(-200));
     const wish = await build(OTHER, 'make it pink mockchange');
     check('a visitor’s change request offers their own copy (<orb:remix/>), still changing nothing', wish.status === 200 && /<orb:remix\/>/.test(wish.text) && !/"t":"version"/.test(wish.text) && (await get(OWNER, w.id)).json.world.version === 3, wish.text.slice(-300));
+
+    // Photos: the AI sees them; a build has them among the world's files, and saves one only where the world uses it.
+    const JPEG = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=';
+    const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const { createHash } = await import('node:crypto');
+    const photoPath = (b64, ext) => `photos/${createHash('sha256').update(Buffer.from(b64, 'base64')).digest('hex').slice(0, 10)}.${ext}`;
+    const seenByVisitor = await build(PHOTO_VISITOR, 'what is this?', { photos: [`data:image/png;base64,${PNG}`] });
+    check('a visitor’s question with a photo: the AI sees it, and nothing changes', seenByVisitor.status === 200 && /I can see one picture/.test(seenByVisitor.text) && (await get(OWNER, w.id)).json.world.version === 3, seenByVisitor.text.slice(-200));
+    const pw = (await create(PHOTOGRAPHER, { name: `Photos ${TOKEN}` })).json.world;
+    const withPhoto = await request('POST', '/api/agent/jobs', { dev: PHOTOGRAPHER, body: { worldId: pw.id, messages: [{ role: 'user', content: 'a garden with my photo on a poster mockphoto' }], photos: [`data:image/jpeg;base64,${JPEG}`], mode: 'build', code: '' } });
+    check('a build with a photo: the AI sees it', withPhoto.status === 200 && /I can see one picture/.test(withPhoto.text), withPhoto.text.slice(-300));
+    const pv = (await get(PHOTOGRAPHER, pw.id)).json.world;
+    const poster = await request('GET', `/api/tree/${pv.tree}/src/poster.js`);
+    const used = await request('GET', `/api/tree/${pv.tree}/${photoPath(JPEG, 'jpg')}`);
+    check('…the world that uses it keeps it, at the path it was given', poster.text.includes(photoPath(JPEG, 'jpg')) && used.status === 200 && /image\/jpeg/.test(used.headers.get('content-type') || ''), { poster: poster.text, photo: used.status });
+    const asIs = await request('POST', '/api/agent/jobs', { dev: PHOTOGRAPHER, body: { worldId: pw.id, messages: [{ role: 'user', content: 'change the colors, like this' }], photos: [`data:image/png;base64,${PNG}`], mode: 'build', code: '' } });
+    const pv2 = (await get(PHOTOGRAPHER, pw.id)).json.world;
+    check('a photo shown only for reference isn’t saved in the world (one in use stays)', asIs.status === 200 && pv2.version === pv.version + 1 && (await request('GET', `/api/tree/${pv2.tree}/${photoPath(PNG, 'png')}`)).status === 404 && (await request('GET', `/api/tree/${pv2.tree}/${photoPath(JPEG, 'jpg')}`)).status === 200, { version: pv2.version });
+    const onlyPhotos = await request('POST', '/api/agent/jobs', { dev: PHOTOGRAPHER, body: { worldId: pw.id, messages: [{ role: 'user', content: '' }], photos: [`data:image/png;base64,${PNG}`], mode: 'build', code: '' } });
+    check('photos alone are a request too', onlyPhotos.status === 200 && /"kind":"agent"/.test(onlyPhotos.text), onlyPhotos.status + ' ' + onlyPhotos.text.slice(0, 160));
+    check('too many photos → 400', (await request('POST', '/api/agent/jobs', { dev: PHOTOGRAPHER, body: { worldId: pw.id, messages: [{ role: 'user', content: 'x' }], photos: Array(5).fill(`data:image/png;base64,${PNG}`), mode: 'build', code: '' } })).status === 400);
+    await request('DELETE', `/api/worlds/${pw.id}`, { dev: PHOTOGRAPHER });
 
     // Restore an older version by its tree.
     const old = (await request('GET', `/api/worlds/${w.id}/versions/2`, { dev: OWNER })).json;

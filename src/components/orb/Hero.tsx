@@ -87,7 +87,7 @@ export function HomeIntro({
   /** All of this person's worlds (the You tab). */
   onOpenMine(): void;
 }) {
-  const { draft, setDraft } = useUi();
+  const { draft, setDraft, draftPhotos, setDraftPhotos, panelOpen } = useUi();
   return (
     <section aria-label="Make a world" className="relative px-4 pt-7 pb-9 sm:px-6 sm:pt-[7vh] sm:pb-14">
       <div className="mx-auto w-full max-w-[760px]">
@@ -96,7 +96,19 @@ export function HomeIntro({
         </h1>
         <div className="mx-auto mt-6 w-full max-w-[680px] sm:mt-8">
           <div className="animate-rise [animation-delay:120ms]">
-            <Composer variant="hero" id={HERO_COMPOSER_ID} value={draft} onChange={setDraft} onSend={onSend} placeholder="Describe a world to make…" ideas={IDEAS} autoFocus />
+            <Composer
+              variant="hero"
+              id={HERO_COMPOSER_ID}
+              value={draft}
+              onChange={setDraft}
+              onSend={onSend}
+              placeholder="Describe a world to make…"
+              ideas={IDEAS}
+              autoFocus
+              photos={draftPhotos}
+              onPhotos={setDraftPhotos}
+              catchDrops={!panelOpen}
+            />
           </div>
           {/* One line from 360px: the label above the chips on phones, before them from sm. */}
           <div role="group" aria-label="Or remix" className="animate-rise mt-3 flex flex-wrap items-center justify-center gap-1 [animation-delay:140ms] sm:mt-3.5 sm:gap-2">

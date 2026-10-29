@@ -4,7 +4,7 @@
 import './setup.mjs';
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateBuildRequest, normalizeHistory, imagePart, BUILD_LIMITS } from '../prompt.ts';
+import { validateBuildRequest, normalizeHistory, imagePart, BUILD_LIMITS, PHOTOS_ONLY } from '../prompt.ts';
 
 const { agentSystemPrompt, cursorOrbPrompt } = await import('../../../server/agent/prompt.ts');
 
@@ -82,6 +82,17 @@ describe('imagePart', () => {
 });
 
 describe('validateBuildRequest', () => {
+  test('photos go with the last message, which may be photos alone', () => {
+    const photo = 'data:image/jpeg;base64,/9j/AAAA';
+    const r = validateBuildRequest({ ...req(), photos: [photo, photo] });
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.req.photos, [photo, photo]);
+    const alone = validateBuildRequest({ ...req(), messages: [{ role: 'user', content: '  ' }], photos: [photo] });
+    assert.equal(alone.ok, true);
+    assert.equal(alone.req.messages[0].content, PHOTOS_ONLY);
+    assert.equal(validateBuildRequest({ ...req(), photos: [] }).req.photos, undefined);
+  });
+
   test('accepts and normalizes a valid request', () => {
     const r = validateBuildRequest({ ...req(), errors: ['x'.repeat(5000)], worldId: 'w'.repeat(100), extra: 1, code: '<html></html>' });
     assert.equal(r.ok, true);
@@ -108,6 +119,12 @@ describe('validateBuildRequest', () => {
       { ...req(), mode: 'edit' },
       { ...req(), worldName: 7 },
       { ...req(), worldId: 7 },
+      { ...req(), photos: 'data:image/jpeg;base64,AAAA' },
+      { ...req(), photos: ['http://example.com/x.jpg'] },
+      { ...req(), photos: ['data:image/svg+xml;base64,AAAA'] },
+      { ...req(), photos: ['data:image/jpeg;base64,' + 'A'.repeat(BUILD_LIMITS.photo)] },
+      { ...req(), photos: Array.from({ length: BUILD_LIMITS.photos + 1 }, () => 'data:image/jpeg;base64,AAAA') },
+      { ...req(), messages: [{ role: 'user', content: ' ' }] },
     ];
     for (const b of bad) {
       const r = validateBuildRequest(b);

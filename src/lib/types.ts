@@ -392,6 +392,8 @@ export interface BuildRequest {
   messages: ModelMessage[];
   /** Optional screenshot of the current world as a data URL (jpeg/png/webp/gif, ≤ BUILD_LIMITS.image characters). */
   image?: string | null;
+  /** Photos the person attached to the last message, as data URLs (≤ BUILD_LIMITS.photos of ≤ BUILD_LIMITS.photo characters). */
+  photos?: string[];
   /** Runtime errors to repair (the automatic repair round). */
   errors?: string[];
   /** 'build' edits the world; 'ask' only answers questions (e.g. visiting someone else's world without remixing). */
@@ -453,6 +455,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
   createdAt: number;
+  /** Photos the person sent with it: small JPEG data URLs, as the chat shows them. */
+  photos?: string[];
   build?: BuildInfo;
 }
 

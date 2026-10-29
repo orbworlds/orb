@@ -1,9 +1,15 @@
 'use client';
 // The message box. Auto-grows, Enter sends (Shift+Enter = newline, IME-safe), the send button
-// turns into stop while building. Two looks: 'hero' (big, frosted, ideas typed out in the
-// placeholder's color, as a hint) and 'panel' (compact).
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+// turns into stop while building. Photos go with the words: the picture button (on a phone it
+// offers the camera too), pasting, or dropping them on the page; they show above the words, each
+// with a way to take it out. Two looks: 'hero' (big, frosted, ideas typed out in the placeholder's
+// color, as a hint) and 'panel' (compact).
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { Spinner } from '@/components/ui/Spinner';
+import { BUILD_LIMITS } from '@/lib/engine/prompt';
+import { addPhotos, isPhotoFile, type Photo } from '@/lib/photos';
+import { toast } from '@/state/toast';
 import { useReducedMotion } from '@/state/ui';
 
 interface ComposerProps {
@@ -22,15 +28,93 @@ interface ComposerProps {
   focusSignal?: number;
   autoFocus?: boolean;
   id?: string;
+  /** Photos going with the message, when this composer takes them. */
+  photos?: Photo[];
+  onPhotos?(photos: Photo[]): void;
+  /** Pictures dropped anywhere on the page come here (the composer in view). */
+  catchDrops?: boolean;
 }
+
+/** A drag that carries files. */
+const hasFiles = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files');
 
 const MAX_H = { hero: 168, panel: 176 };
 
-export function Composer({ value, onChange, onSend, onStop, building = false, placeholder, ideas, blocked, variant = 'panel', focusSignal, autoFocus, id }: ComposerProps) {
+export function Composer({ value, onChange, onSend, onStop, building = false, placeholder, ideas, blocked, variant = 'panel', focusSignal, autoFocus, id, photos = [], onPhotos, catchDrops = false }: ComposerProps) {
   const ta = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const hero = variant === 'hero';
   const [focused, setFocused] = useState(false);
   const typed = useTypingIdeas(ideas, !value);
+
+  // --- photos: read one batch at a time, each added to what's there when it starts -------------
+  const [reading, setReading] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const current = useRef(photos);
+  useLayoutEffect(() => {
+    current.current = photos;
+  }, [photos]);
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const add = (files: File[]) => {
+    if (!onPhotos || !files.length) return;
+    setReading((n) => n + Math.min(files.length, BUILD_LIMITS.photos));
+    queue.current = queue.current.then(async () => {
+      const { photos: next, problem } = await addPhotos(current.current, files);
+      current.current = next;
+      onPhotos(next);
+      setReading(0);
+      if (problem) toast(problem);
+    });
+  };
+  const dropped = useEffectEvent((files: File[]) => add(files));
+  const remove = (photoId: string) => onPhotos?.(photos.filter((p) => p.id !== photoId));
+
+  // Pictures dragged over the page land here (a dropped file must never open in place of Orb).
+  useEffect(() => {
+    if (!catchDrops || !onPhotos) return;
+    let depth = 0;
+    const over = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    };
+    const enter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth++;
+      setDragging(true);
+    };
+    const leave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (!depth) setDragging(false);
+    };
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setDragging(false);
+      dropped([...(e.dataTransfer?.files ?? [])]);
+    };
+    window.addEventListener('dragover', over);
+    window.addEventListener('dragenter', enter);
+    window.addEventListener('dragleave', leave);
+    window.addEventListener('drop', drop);
+    return () => {
+      window.removeEventListener('dragover', over);
+      window.removeEventListener('dragenter', enter);
+      window.removeEventListener('dragleave', leave);
+      window.removeEventListener('drop', drop);
+    };
+  }, [catchDrops, onPhotos]);
+
+  // A pasted picture is added (pasted words stay words).
+  const onPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!onPhotos || e.clipboardData.getData('text/plain').trim()) return;
+    const files = [...e.clipboardData.files].filter(isPhotoFile);
+    if (!files.length) return;
+    e.preventDefault();
+    add(files);
+  };
 
   // Auto-grow: measure the content height, cap it, scroll beyond.
   useLayoutEffect(() => {
@@ -55,7 +139,7 @@ export function Composer({ value, onChange, onSend, onStop, building = false, pl
     if (autoFocus && window.matchMedia('(pointer: fine)').matches) ta.current?.focus({ preventScroll: true });
   }, [autoFocus]);
 
-  const canSend = !!value.trim() && !building && !blocked;
+  const canSend = (!!value.trim() || photos.length > 0) && !reading && !building && !blocked;
   const submit = () => {
     if (!canSend) return;
     onSend(value.trim());
@@ -71,19 +155,68 @@ export function Composer({ value, onChange, onSend, onStop, building = false, pl
     submit();
   };
 
-  const showIdeas = !value && !!ideas?.length && !blocked;
-  const ph = blocked || (showIdeas ? '' : placeholder);
+  const showIdeas = !value && !photos.length && !!ideas?.length && !blocked;
+  const ph = blocked || (showIdeas ? '' : photos.length && !value ? 'Say what to do with it…' : placeholder);
+  const tile = hero ? 'h-16 w-16' : 'h-14 w-14';
 
   return (
     <form
       onSubmit={onSubmit}
       className={
         hero
-          ? `glass-strong relative flex items-end gap-2 rounded-[28px] py-2.5 pr-2.5 pl-5 transition-shadow duration-300 sm:py-3 sm:pr-3 sm:pl-6 ${focused ? 'shadow-[inset_0_0_0_1px_var(--glass-hairline),0_0_0_1px_color-mix(in_oklab,var(--iris-1)_35%,transparent),0_0_0_6px_color-mix(in_oklab,var(--iris-1)_10%,transparent),var(--shadow-soft)]' : ''}`
-          : `relative flex items-end gap-1.5 rounded-[22px] bg-[var(--field-bg)] py-1.5 pr-1.5 pl-1.5 transition-[background,box-shadow] duration-200 ${focused ? 'bg-[var(--field-bg-focus)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--iris-1)_40%,transparent),0_0_0_4px_color-mix(in_oklab,var(--iris-1)_10%,transparent)]' : ''}`
+          ? `glass-strong relative flex items-end gap-2 rounded-[28px] py-2.5 pr-2.5 pl-2.5 transition-shadow duration-300 sm:py-3 sm:pr-3 sm:pl-3 ${focused || dragging ? 'shadow-[inset_0_0_0_1px_var(--glass-hairline),0_0_0_1px_color-mix(in_oklab,var(--iris-1)_35%,transparent),0_0_0_6px_color-mix(in_oklab,var(--iris-1)_10%,transparent),var(--shadow-soft)]' : ''}`
+          : `relative flex items-end gap-1.5 rounded-[22px] bg-[var(--field-bg)] py-1.5 pr-1.5 pl-1.5 transition-[background,box-shadow] duration-200 ${focused || dragging ? 'bg-[var(--field-bg-focus)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--iris-1)_40%,transparent),0_0_0_4px_color-mix(in_oklab,var(--iris-1)_10%,transparent)]' : ''}`
       }
     >
-      <div className={`relative min-w-0 flex-1 ${hero ? 'py-[7px]' : 'py-[6px] pl-2.5'}`}>
+      {onPhotos && (
+        <>
+          <button
+            type="button"
+            onClick={() => picker.current?.click()}
+            disabled={photos.length + reading >= BUILD_LIMITS.photos}
+            aria-label="Add photos"
+            title="Add photos"
+            className={`flex shrink-0 items-center justify-center rounded-full text-ink-2 transition-colors hover:bg-[var(--hover)] hover:text-ink disabled:opacity-40 ${hero ? 'h-11 w-11' : 'h-[34px] w-[34px]'}`}
+          >
+            <Icon name="image" size={hero ? 21 : 18} />
+          </button>
+          <input
+            ref={picker}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              add([...(e.target.files ?? [])]);
+              e.target.value = '';
+            }}
+          />
+        </>
+      )}
+      <div className={`relative min-w-0 flex-1 ${hero ? 'py-[7px]' : 'py-[6px]'} ${onPhotos ? '' : hero ? 'pl-3 sm:pl-3' : 'pl-2.5'}`}>
+        {(photos.length > 0 || reading > 0) && (
+          <ul className="mb-2 flex flex-wrap gap-2" aria-label="Photos to send">
+            {photos.map((p, i) => (
+              <li key={p.id} className={`animate-pop relative shrink-0 ${tile}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- a data URL made in this page */}
+                <img src={p.thumb} alt={`Photo ${i + 1}`} className={`${tile} rounded-[12px] object-cover shadow-[inset_0_0_0_1px_var(--ink-5)]`} />
+                <button
+                  type="button"
+                  onClick={() => remove(p.id)}
+                  aria-label={`Remove photo ${i + 1}`}
+                  className="absolute -top-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-ink text-paper shadow-[0_0_0_2px_var(--paper)] transition-transform hover:scale-105"
+                >
+                  <Icon name="x" size={12} strokeWidth={2.4} />
+                </button>
+              </li>
+            ))}
+            {Array.from({ length: reading }, (_, i) => (
+              <li key={`r${i}`} className={`flex shrink-0 items-center justify-center rounded-[12px] bg-[var(--field-bg-focus)] ${tile}`} aria-label="Adding a photo">
+                <Spinner size={14} />
+              </li>
+            ))}
+          </ul>
+        )}
         {showIdeas && (
           <div aria-hidden="true" className={`pointer-events-none absolute inset-x-0 top-0 truncate text-ink-3 ${hero ? 'py-[7px] text-[17px] leading-[26px]' : 'py-[6px] text-[14.5px] leading-[22px]'}`}>
             {typed}
@@ -96,6 +229,7 @@ export function Composer({ value, onChange, onSend, onStop, building = false, pl
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           placeholder={ph}

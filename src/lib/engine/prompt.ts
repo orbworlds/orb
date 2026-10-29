@@ -12,6 +12,9 @@ export const BUILD_LIMITS = {
   messages: 30,
   messageChars: 12_000,
   image: 450_000,
+  /** Photos the person attached to the message: how many, and each one's size (data URL characters). */
+  photos: 4,
+  photo: 700_000,
   errors: 12,
   errorChars: 4_000,
   worldName: 120,
@@ -29,6 +32,10 @@ const IMAGE_RE = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=\s]+
 
 /** A screenshot of the world a build may carry. */
 export const isBuildImage = (img: unknown): img is string => typeof img === 'string' && img.length <= BUILD_LIMITS.image && IMAGE_RE.test(img);
+/** A photo the person attached. */
+export const isBuildPhoto = (img: unknown): img is string => typeof img === 'string' && img.length <= BUILD_LIMITS.photo && IMAGE_RE.test(img);
+/** What a message of photos alone asks. */
+export const PHOTOS_ONLY = '(I sent photos without words.)';
 
 /** Validate and normalize an untrusted BuildRequest body. */
 export function validateBuildRequest(body: unknown): { ok: true; req: BuildRequest } | { ok: false; message: string } {
@@ -44,8 +51,18 @@ export function validateBuildRequest(body: unknown): { ok: true; req: BuildReque
     if (mm.content.length > BUILD_LIMITS.messageChars) return { ok: false, message: `A message is too long (max ${BUILD_LIMITS.messageChars.toLocaleString('en')} characters).` };
     messages.push({ role: mm.role, content: mm.content });
   }
-  if (messages[messages.length - 1].role !== 'user' || !messages[messages.length - 1].content.trim())
-    return { ok: false, message: 'The last message must be a non-empty user message.' };
+  let photos: string[] | undefined;
+  if (b.photos != null) {
+    if (!Array.isArray(b.photos) || b.photos.length > BUILD_LIMITS.photos || !b.photos.every(isBuildPhoto))
+      return { ok: false, message: `\`photos\` must be up to ${BUILD_LIMITS.photos} jpeg/png/webp/gif data URLs under ${Math.round(BUILD_LIMITS.photo / 1000)} KB each.` };
+    if (b.photos.length) photos = b.photos as string[];
+  }
+  const last = messages[messages.length - 1];
+  if (last.role !== 'user') return { ok: false, message: 'The last message must be a non-empty user message.' };
+  if (!last.content.trim()) {
+    if (!photos) return { ok: false, message: 'The last message must be a non-empty user message.' };
+    last.content = PHOTOS_ONLY;
+  }
   let image: string | null = null;
   if (b.image != null) {
     if (!isBuildImage(b.image)) return { ok: false, message: `\`image\` must be a jpeg/png/webp/gif data URL under ${Math.round(BUILD_LIMITS.image / 1000)} KB.` };
@@ -66,6 +83,7 @@ export function validateBuildRequest(body: unknown): { ok: true; req: BuildReque
       worldId: typeof b.worldId === 'string' ? b.worldId.slice(0, BUILD_LIMITS.worldId) : null,
       messages,
       image,
+      ...(photos ? { photos } : {}),
       errors,
       mode,
       worldName: typeof b.worldName === 'string' ? b.worldName.slice(0, BUILD_LIMITS.worldName) : undefined,

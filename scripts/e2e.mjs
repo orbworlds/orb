@@ -54,6 +54,11 @@ try {
     await box.click();
     // "mocklook": the mock agent plays the world with its look tool, which this page answers.
     await box.fill('a castle on a cloud with friendly dragons mocklook');
+    // A photo goes with it, picked with the box's picture button.
+    const photoFile = path.join(OUT, `${label}-photo.png`);
+    fs.writeFileSync(photoFile, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
+    await page.locator('form:has(#orb-hero-composer) input[type=file]').setInputFiles(photoFile);
+    check('a photo picked for the message shows in the box', await page.locator('form:has(#orb-hero-composer) [aria-label="Photos to send"] img').first().waitFor({ timeout: 15000 }).then(() => true, () => false));
     await page.screenshot({ path: `${OUT}/${label}-2-typing.png` });
     await box.press('Enter');
     await page.waitForTimeout(1500);
@@ -113,6 +118,7 @@ try {
       }
       const chatText = await page.locator('body').innerText();
       check('after reload: chat history persists', /castle on a cloud/i.test(chatText), page.url() + ' — ' + chatText.slice(0, 200));
+      check('…with the photo it was sent with', (await page.locator('aside[aria-label="Orb"] [aria-label="Photo"] img').count()) === 1);
       await page.screenshot({ path: `${OUT}/${label}-5-reloaded.png` });
 
       // Visitor: a fresh context sees the world read-only with the orb collapsed.
