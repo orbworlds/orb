@@ -23,9 +23,7 @@ const CRAFT = `# Craft: wow within one second, on a phone or a laptop
 - The world is a small web project: index.html loads the other files with relative URLs (./src/main.js…), plain ES modules, no build step. Keep files small.
 - three.js through exactly this import map: <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script> Other libraries only from cdn.jsdelivr.net, pinned. Make textures, models and sounds in code or as files you write.
 - three r186: THREE.SRGBColorSpace, THREE.ACESFilmicToneMapping, THREE.PCFShadowMap (PCFSoftShadowMap is gone), const timer = new THREE.Timer() with timer.update(t) and dt = clamp(timer.getDelta(), 0, 0.05) (THREE.Clock is deprecated; early deltas can be negative).
-- Looks are half the wow. Pick a mood (golden hour, pastel dusk, moonlit, neon…) and 3–5 harmonious, slightly muted colors. In 3D: a warm sun with soft shadows, a HemisphereLight fill, scene.environment from RoomEnvironment (three/addons) through PMREMGenerator, and a sky with Fog of the horizon's color, so the ground never just ends.
-- No programmer art: characters, animals and vehicles are several rounded parts with a face or details, never a lone box or capsule; ground has gentle height, color variation and scattered detail fading into the fog; canvas textures are soft shapes and gradients, not stripes or noise. Frame the main subject in the first second, and keep the world moving (sway, drift, particles, idle motion).
-- A style the request names goes for everything, the island's too: anime or Ghibli is soft cel shading (MeshToonMaterial), rounded shapes and a painted sky, not faceted low-poly. Soft particles are round, never square.
+- A sky, light, palette and Fog that fit the mood; a world that moves. A style the request names goes for everything, the island's too: anime or Ghibli is soft cel shading (MeshToonMaterial), rounded shapes and a painted sky, not faceted low-poly. Soft particles are round, never square.
 - Works with mouse, keys and touch, with a short controls hint. Small UI in the corners; keep the bottom-right 90×90 px free (Orb's button lives there). Sound only after the first tap.
 - Smooth on a phone (InstancedMesh for repeated things). Handle resize, never throw at startup, no popups, navigation or network requests beyond the CDN.`;
 
@@ -40,7 +38,7 @@ Inside Orb the page has window.orb (exported copies don't): const orb = window.o
 
 /** Checking your work by looking at the world. `how`: how looking works here; `looker`: what says that nobody can look. */
 const checkWork = (how: string, looker: string) =>
-  `- ${how} Look after the first version and before you finish: play it like a person would, compare it with the request, fix what's broken, then what looks plain (light, colors, shapes, empty ground, framing), and check a phone ("viewport":"phone") once. If nobody has the world open, ${looker} says so: then read your code carefully.`;
+  `- ${how} Look after the first version and before you finish: play it like a person would, compare it with the request, fix what's broken or ugly, and check a phone ("viewport":"phone") once. If nobody has the world open, ${looker} says so: then read your code carefully.`;
 
 const WAYS = `- Do what was asked, make it delightful, and finish. For big tasks keep a short plan in .orb/plan.md.
 - Changing a world: change only what was asked and keep the rest. Questions: answer in words, without changes. <errors> in the request: fix exactly those.

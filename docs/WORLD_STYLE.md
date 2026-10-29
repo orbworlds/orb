@@ -33,10 +33,6 @@ says "wow" within one second, on a phone or a laptop.
   moonlit blues). Never pure #ff0000/#00ff00/#0000ff. Vary colors subtly per instance (HSL jitter).
 - Materials: `MeshStandardMaterial` (roughness 0.6–0.95), `flatShading` for charming low-poly,
   emissive for glow. Gentle rim/ambient light so nothing is pitch black.
-- No programmer art: characters, animals and vehicles are built from several rounded parts with a
-  face or details (never a lone box or capsule); ground has gentle height, color variation and
-  scattered detail fading into the fog (never a flat plane to the horizon); canvas textures are soft
-  shapes and gradients, not random stripes or noise. Frame the main subject in the first second.
 - A style the request names (anime, Ghibli, pixel art, watercolor, realistic, a film's or a game's)
   replaces the low-poly default everywhere, starter island included: a world never mixes the two.
 - Motion: the world is alive — swaying plants, drifting clouds, bobbing water, floating particles
