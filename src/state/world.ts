@@ -164,15 +164,20 @@ async function publicDeviceId(): Promise<string> {
 
 // --- store ---------------------------------------------------------------------------------------
 
-export const useWorld = create<WorldState>((set, get) => {
+export const useWorld = create<WorldState>((set, get, store) => {
   // ---- thumbnails: capture ~2.5 s after the world settles (each `ready` restarts the wait) ----
+  // A picture of one flat color (a world caught before it drew) is never kept: Orb tries again a
+  // little later, a few times.
   const THUMB_DELAY = 2500;
   const THUMB_GIVE_UP = 15000;
-  let thumb: { worldId: string; since: number; timer: ReturnType<typeof setTimeout> } | null = null;
+  const THUMB_TRIES = 4;
+  let thumb: { worldId: string; since: number; tries: number; timer: ReturnType<typeof setTimeout> } | null = null;
+  /** Worlds that got a new version while not on screen (built in the background): photographed when next opened. */
+  const unseen = new Set<string>();
 
-  function scheduleThumb(worldId: string): void {
+  function scheduleThumb(worldId: string, tries = 1): void {
     if (thumb) clearTimeout(thumb.timer);
-    thumb = { worldId, since: Date.now(), timer: setTimeout(captureThumb, THUMB_DELAY) };
+    thumb = { worldId, since: Date.now(), tries, timer: setTimeout(captureThumb, THUMB_DELAY) };
   }
 
   async function captureThumb(): Promise<void> {
@@ -181,19 +186,42 @@ export const useWorld = create<WorldState>((set, get) => {
     const s = get();
     if (!job || !s.world || s.world.id !== job.worldId || !s.canEdit || s.isExternal) return;
     const url = await (frame?.capture() ?? Promise.resolve(null));
-    if (url) await uploadThumb(job.worldId, url);
+    if (url && (await uploadThumb(job.worldId, url)) !== 'blank') return;
+    if (job.tries < THUMB_TRIES && !thumb) scheduleThumb(job.worldId, job.tries + 1);
   }
 
-  async function uploadThumb(worldId: string, dataUrl: string): Promise<void> {
+  async function uploadThumb(worldId: string, dataUrl: string): Promise<'saved' | 'blank' | 'failed'> {
     try {
       const blob = await (await fetch(dataUrl)).blob();
-      if (blob.size > 500_000) return;
+      if (blob.size > 500_000) return 'failed';
+      if (await isBlank(blob)) return 'blank';
       const { thumbVersion } = await api.uploadThumb(worldId, blob);
       const w = get().world;
       if (w?.id === worldId) set({ world: { ...w, thumbVersion, thumbUrl: thumbPath(worldId, thumbVersion) } });
+      return 'saved';
     } catch (e) {
       console.warn('[orb] thumbnail upload failed', e);
+      return 'failed';
     }
+  }
+
+  /** Until the start canvas has loaded (a first message sent before it arrived), at most `ms`. */
+  function canvasLoaded(ms: number): Promise<void> {
+    const loading = () => get().status === 'loading' || get().status === 'idle';
+    if (!loading()) return Promise.resolve();
+    return new Promise((resolve) => {
+      let off = () => {};
+      const timer = setTimeout(() => {
+        off();
+        resolve();
+      }, ms);
+      off = store.subscribe(() => {
+        if (loading()) return;
+        clearTimeout(timer);
+        off();
+        resolve();
+      });
+    });
   }
 
   function afterCommit(world: WorldFull): void {
@@ -325,7 +353,8 @@ export const useWorld = create<WorldState>((set, get) => {
           }, 6000);
         }
         if (world.canEdit) {
-          if (world.kind === 'native' && !world.thumbUrl) scheduleThumb(world.id);
+          const changed = unseen.delete(world.id);
+          if (world.kind === 'native' && (!world.thumbUrl || changed)) scheduleThumb(world.id);
         } else {
           countPlay(world);
         }
@@ -369,6 +398,7 @@ export const useWorld = create<WorldState>((set, get) => {
     },
 
     async createForBuild(threadId) {
+      await canvasLoaded(15_000);
       const s = get();
       if (s.world || s.status === 'loading' || s.status === 'idle') return null;
       const token = loadToken;
@@ -394,6 +424,7 @@ export const useWorld = create<WorldState>((set, get) => {
     adoptVersion({ worldId, version, tree, code, name }) {
       const w = get().world;
       if (name) rememberWorldName(worldId, name);
+      if (w?.id !== worldId) unseen.add(worldId);
       if (!w || w.id !== worldId || version <= w.version) return;
       const next: WorldFull = { ...w, version, tree, code, ...(name ? { name } : {}) };
       // A world created when its first build started still runs under its canvas draft id: give
@@ -548,6 +579,31 @@ export const useWorld = create<WorldState>((set, get) => {
     },
   };
 });
+
+/** Whether a picture is all one flat color (a world caught before it drew: often just black). */
+async function isBlank(picture: Blob): Promise<boolean> {
+  try {
+    const img = await createImageBitmap(picture);
+    const c = document.createElement('canvas');
+    c.width = 24;
+    c.height = 16;
+    const g = c.getContext('2d')!;
+    g.drawImage(img, 0, 0, c.width, c.height);
+    img.close();
+    const px = g.getImageData(0, 0, c.width, c.height).data;
+    let sum = 0;
+    let sq = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      const l = px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11;
+      sum += l;
+      sq += l * l;
+    }
+    const n = px.length / 4;
+    return Math.sqrt(Math.max(0, sq / n - (sum / n) ** 2)) < 1.5;
+  } catch {
+    return false;
+  }
+}
 
 function pick<T extends object>(o: T, keys: (keyof T)[]): Partial<T> {
   const out: Partial<T> = {};

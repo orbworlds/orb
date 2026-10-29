@@ -66,7 +66,10 @@ If you change a contract, update this file in the same change.
   newest reply that changed the world offers **Undo**; an undone reply fades, with "Back to how it
   was". Replies carry no version numbers or credits (the chat says so only when credits run low:
   "12 credits left · See plans"). While Orb works, one word: "Thinking…" (answers in someone else's
-  world) or "Building…".
+  world) or "Building…". A build of one's own that has run 30 s shows **Play while it builds** under
+  it: the three most played games (a phone's own: none that need a keyboard), and "Your world keeps
+  building. You'll get a note when it's ready." A tap opens the game with the panel closed; the build
+  goes on in the background (`src/components/orb/PlayWhileBuilding.tsx`).
   **Photos** go with a message (the hero's composer and the chat's alike): the picture button (on a
   phone it offers the camera too), pasting one, or dropping pictures anywhere on the page — into the
   home page's box while it's in view, else into the chat, which opens (a world that takes drops
@@ -814,7 +817,10 @@ parent → iframe: `capture-request {reqId}`; `clip-request {reqId, ms, label}`;
 `room-event {room, event: RoomEvent}`; `probe {reqId, actions: ProbeAction[], opts: {size?, shots?}}`.
 A world is in at most 4 rooms at once (a page in at most 8 networked rooms; joining too fast gives solo rooms).
 `capture` carries `reqId` when answering a request and none when the world called `orb.capture()`
-(the host then uploads it as the thumbnail via `WorldFrame` `onCapture`). `error.source` is the failing
+(the host then uploads it as the thumbnail via `WorldFrame` `onCapture`). A picture of one flat color
+(a world caught before it drew, often black) is never kept as a thumbnail: after a build Orb tries
+again a few times, 2.5 s apart; a world that got new versions while it wasn't on screen is
+photographed when its maker next opens it. `error.source` is the failing
 URL (absent for errors in the world's own HTML). Room peer ids are `<me.id>:<random>` (one per page and room);
 rooms use broadcast events `state` and `msg`. A world id that is empty, `new`, or starts with
 `draft`/`local`/`tmp`/`template` is a draft: `orb.store` is in-memory and rooms are solo.
