@@ -31,8 +31,10 @@ interface ComposerProps {
   /** Photos going with the message, when this composer takes them. */
   photos?: Photo[];
   onPhotos?(photos: Photo[]): void;
-  /** Pictures dropped anywhere on the page come here (the composer in view). */
+  /** Pictures dropped anywhere on the page come here (the one composer in view does). */
   catchDrops?: boolean;
+  /** Pictures were dropped (e.g. to bring this composer into view). */
+  onDropped?(): void;
 }
 
 /** A drag that carries files. */
@@ -40,7 +42,7 @@ const hasFiles = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types]
 
 const MAX_H = { hero: 168, panel: 176 };
 
-export function Composer({ value, onChange, onSend, onStop, building = false, placeholder, ideas, blocked, variant = 'panel', focusSignal, autoFocus, id, photos = [], onPhotos, catchDrops = false }: ComposerProps) {
+export function Composer({ value, onChange, onSend, onStop, building = false, placeholder, ideas, blocked, variant = 'panel', focusSignal, autoFocus, id, photos = [], onPhotos, catchDrops = false, onDropped }: ComposerProps) {
   const ta = useRef<HTMLTextAreaElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   const hero = variant === 'hero';
@@ -66,7 +68,10 @@ export function Composer({ value, onChange, onSend, onStop, building = false, pl
       if (problem) toast(problem);
     });
   };
-  const dropped = useEffectEvent((files: File[]) => add(files));
+  const dropped = useEffectEvent((files: File[]) => {
+    onDropped?.();
+    add(files);
+  });
   const remove = (photoId: string) => onPhotos?.(photos.filter((p) => p.id !== photoId));
 
   // Pictures dragged over the page land here (a dropped file must never open in place of Orb).

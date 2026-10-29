@@ -79,6 +79,7 @@ export function HomeIntro({
   onRemix,
   onOpenWorld,
   onOpenMine,
+  catchDrops,
 }: {
   onSend(text: string): void;
   /** Remix this world (as a tile's Remix does): the copy opens with its chat. */
@@ -86,8 +87,10 @@ export function HomeIntro({
   onOpenWorld(id: string): void;
   /** All of this person's worlds (the You tab). */
   onOpenMine(): void;
+  /** Pictures dropped on the page come to this box (while it's in view, with the Orb's panel closed). */
+  catchDrops: boolean;
 }) {
-  const { draft, setDraft, draftPhotos, setDraftPhotos, panelOpen } = useUi();
+  const { draft, setDraft, draftPhotos, setDraftPhotos } = useUi();
   return (
     <section aria-label="Make a world" className="relative px-4 pt-7 pb-9 sm:px-6 sm:pt-[7vh] sm:pb-14">
       <div className="mx-auto w-full max-w-[760px]">
@@ -107,7 +110,7 @@ export function HomeIntro({
               autoFocus
               photos={draftPhotos}
               onPhotos={setDraftPhotos}
-              catchDrops={!panelOpen}
+              catchDrops={catchDrops}
             />
           </div>
           {/* One line from 360px: the label above the chips on phones, before them from sm. */}

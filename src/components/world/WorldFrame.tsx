@@ -51,6 +51,8 @@ export interface WorldFrameProps {
   onPeople?(people: { count: number; friends: number }): void;
   /** The world called `orb.shop.buy(item)`: ask the player in Orb's own sheet; whether they got it. */
   onPurchase?(item: string): Promise<{ ok: boolean; reason?: string }>;
+  /** Pictures dropped on the world that it didn't take itself. */
+  onDrop?(files: File[]): void;
   ref?: Ref<WorldFrameHandle>;
 }
 
@@ -315,6 +317,7 @@ class FrameStack {
       onInvite: (room) => (isNewest() ? (this.handlers().onInvite?.(room) ?? null) : null),
       onPeople: (p) => isNewest() && this.handlers().onPeople?.(p),
       onPurchase: (item) => (isNewest() && this.handlers().onPurchase ? this.handlers().onPurchase!(item) : Promise.resolve({ ok: false, reason: 'unavailable' })),
+      onDrop: (files) => isNewest() && this.handlers().onDrop?.(files),
     });
     iframe.addEventListener('load', () => {
       if (slot === this.pending) slot.timers.push(setTimeout(() => this.swapIn(slot), LOAD_GRACE_MS));
@@ -367,7 +370,7 @@ class FrameStack {
   }
 }
 
-export default function WorldFrame({ html, externalUrl, ctx, onReady, onError, onToast, onTitle, onCapture, onInvite, onPeople, onPurchase, ref }: WorldFrameProps) {
+export default function WorldFrame({ html, externalUrl, ctx, onReady, onError, onToast, onTitle, onCapture, onInvite, onPeople, onPurchase, onDrop, ref }: WorldFrameProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const externalRef = useRef<HTMLIFrameElement>(null);
   const stackRef = useRef<FrameStack | null>(null);
@@ -380,7 +383,7 @@ export default function WorldFrame({ html, externalUrl, ctx, onReady, onError, o
   // Latest props for the long-lived frame stack / bridges.
   useLayoutEffect(() => {
     ctxRef.current = ctx;
-    handlersRef.current = { onReady, onError, onToast, onTitle, onCapture, onInvite, onPeople, onPurchase };
+    handlersRef.current = { onReady, onError, onToast, onTitle, onCapture, onInvite, onPeople, onPurchase, onDrop };
   });
 
   useEffect(() => {

@@ -68,7 +68,9 @@ If you change a contract, update this file in the same change.
   "12 credits left · See plans"). While Orb works, one word: "Thinking…" (answers in someone else's
   world) or "Building…".
   **Photos** go with a message (the hero's composer and the chat's alike): the picture button (on a
-  phone it offers the camera too), pasting one, or dropping pictures anywhere on the page. Up to 4,
+  phone it offers the camera too), pasting one, or dropping pictures anywhere on the page — into the
+  home page's box while it's in view, else into the chat, which opens (a world that takes drops
+  itself keeps them; Orb's runtime passes the others on, `drop` in §7). Up to 4,
   each read in the browser into a JPEG (a PNG when it has see-through parts) of at most 1600 px and
   under 700 KB (`src/lib/photos.ts`); they show above the words, each with an ×, and a message may
   be photos alone. The chat keeps small copies with the message (a tap shows one up close). The AI
@@ -805,7 +807,7 @@ iframe → parent: `ready`; `error {message, stack?, line?, col?, source?}`;
 `storage {area:'local'|'session', op:'set'|'remove'|'clear', key?, value?}`;
 `capture {dataUrl}`; `store {reqId, op:'get'|'set'|'incr'|'push'|'merge'|'list', key, value?, by?, max?}`;
 `room {op:'join'|'send'|'state'|'leave', room?, data?}` (`room` = the room's name, '' for the world's own);
-`invite {reqId, room}`; `shop {reqId, op:'items'|'owned'|'buy', item?}`; `toast {text}`; `title {text}`; `probe-result {reqId, result?: ProbeResult, error?}`;
+`invite {reqId, room}`; `shop {reqId, op:'items'|'owned'|'buy', item?}`; `toast {text}`; `title {text}`; `drop {files}` (pictures dropped on the world that it didn't take itself: they go with the person's next message, the chat open); `probe-result {reqId, result?: ProbeResult, error?}`;
 `clip-result {reqId, mime, data: ArrayBuffer (transferred)} | {reqId, error}`.
 parent → iframe: `capture-request {reqId}`; `clip-request {reqId, ms, label}`; `store-result {reqId, ok, value?, error?}`; `invite-result {reqId, url}`;
 `shop-result {reqId, ok, value?, error?}`;

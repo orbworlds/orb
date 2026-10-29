@@ -30,6 +30,8 @@ export interface BridgeHandlers {
   onPeople?(people: { count: number; friends: number }): void;
   /** The world called orb.shop.buy(item): Orb asks the player in its own sheet; whether they got it. */
   onPurchase?(item: string): Promise<{ ok: boolean; reason?: string }>;
+  /** Pictures dropped on the world that it didn't take itself (for the person's chat). */
+  onDrop?(files: File[]): void;
 }
 
 export interface BridgeOptions extends BridgeHandlers {
@@ -318,6 +320,7 @@ export class WorldBridge {
   private tokensAt = Date.now();
   private lastCaptureAt = 0;
   private toastTimes: number[] = [];
+  private lastDrop = 0;
   private storageFullReported = false;
 
   /** Listens at once, so create it before the iframe gets its srcdoc. */
@@ -480,6 +483,14 @@ export class WorldBridge {
       case 'title': {
         const text = clip(d.text, 120)?.trim();
         if (text) o.onTitle?.(text);
+        return;
+      }
+      case 'drop': {
+        const files = Array.isArray(d.files) ? d.files.filter((f): f is File => f instanceof File && /^image\//.test(f.type)).slice(0, 8) : [];
+        const now = Date.now();
+        if (!files.length || now - this.lastDrop < 800) return; // one drop at a time
+        this.lastDrop = now;
+        o.onDrop?.(files);
         return;
       }
     }

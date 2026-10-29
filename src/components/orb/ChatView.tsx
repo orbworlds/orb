@@ -28,6 +28,7 @@ export function ChatView({
   onMakeOwn,
   onRemix,
   onStartFrom,
+  catchDrops,
 }: {
   build: UseBuild;
   onOpenKeys(): void;
@@ -38,6 +39,8 @@ export function ChatView({
   onRemix(request?: string): void;
   /** Start a new world as a remix of this one. */
   onStartFrom(worldId: string): void;
+  /** Pictures dropped on the page come to this chat (everywhere but the home page's own box). */
+  catchDrops: boolean;
 }) {
   const { world, canEdit, chatKey, templateId, isExternal, verified } = useWorld();
   const { draft, setDraft, draftPhotos, setDraftPhotos, intro, focusSeq, detent, setDetent, panelOpen, tab } = useUi();
@@ -201,7 +204,8 @@ export function ChatView({
           id="orb-composer"
           photos={draftPhotos}
           onPhotos={setDraftPhotos}
-          catchDrops={panelOpen && tab === 'chat'}
+          catchDrops={catchDrops}
+          onDropped={() => (!panelOpen || tab !== 'chat') && useUi.getState().openPanel('chat')}
         />
       </div>
     </>

@@ -379,6 +379,8 @@ export default function Shell({
   // ---- hero (start canvas) ---------------------------------------------------------------------------
   // Landing on a world's address, home waits for the start canvas (going home from there loads it).
   const heroVisible = !world && status !== 'not-found' && status !== 'error' && !ui.heroDone && (mode !== 'world' || ws.onStart);
+  // Pictures dropped on the page: into the home page's box while it's in view, else into the chat.
+  const heroCatches = heroVisible && !ui.panelOpen;
   const exploreUsed = useEver(heroVisible);
 
   // ---- keyboard: ⌘/Ctrl+K focuses the chat -------------------------------------------------------
@@ -522,6 +524,7 @@ export default function Shell({
             onOpenKeys={openKeys}
             onOpenWorld={openWorld}
             onMakeOwn={makeOwn}
+            catchDrops={!heroCatches}
             onRemix={(request) => void remixWith(request)}
             onStartFrom={remixWorld}
           />
@@ -533,7 +536,7 @@ export default function Shell({
       {exploreUsed && (
         <ExploreSheet
           open={heroVisible}
-          intro={<HomeIntro onSend={sendFromHero} onRemix={remixWorld} onOpenWorld={openWorld} onOpenMine={() => ui.openPanel('you')} />}
+          intro={<HomeIntro onSend={sendFromHero} onRemix={remixWorld} onOpenWorld={openWorld} onOpenMine={() => ui.openPanel('you')} catchDrops={heroCatches} />}
           building={build.isBuilding || build.background.length > 0}
           start={explore}
           onOpenWorld={openWorld}

@@ -2070,8 +2070,33 @@ const RUNTIME_SOURCE = String.raw`
   };
   try { Object.defineProperty(W, 'orb', { value: Object.freeze(orb), writable: false, enumerable: false, configurable: false }); } catch (e) { /* ignore */ }
 
+  /* ===== Pictures dropped on the world =====
+     They go to the person's chat, unless the world takes drops itself (its own listeners, on the
+     page's elements or set up on the window before these, run first and call preventDefault). */
+  function filesDrag(e) {
+    var t = e.dataTransfer && e.dataTransfer.types;
+    if (!t) { return false; }
+    for (var i = 0; i < t.length; i++) { if (t[i] === 'Files') { return true; } }
+    return false;
+  }
+  function listenDrops() {
+    W.addEventListener('dragover', function (e) {
+      if (!filesDrag(e) || e.defaultPrevented) { return; }
+      e.preventDefault();
+      try { e.dataTransfer.dropEffect = 'copy'; } catch (err) { /* ignore */ }
+    });
+    W.addEventListener('drop', function (e) {
+      if (!filesDrag(e) || e.defaultPrevented) { return; }
+      e.preventDefault();
+      var files = [], list = e.dataTransfer.files || [];
+      for (var i = 0; i < list.length && files.length < 8; i++) { if (/^image\//.test(list[i].type)) { files.push(list[i]); } }
+      if (files.length) { post({ type: 'drop', files: files }); }
+    });
+  }
+
   /* ===== Ready ===== */
   function onLoad() {
+    setTimeout(listenDrops, 0); /* after the world's own setup */
     raf(function () { raf(function () { post({ type: 'ready' }); postTitle(); }); });
     try {
       new MutationObserver(postTitle).observe(D.head, { childList: true, subtree: true, characterData: true });

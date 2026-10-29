@@ -15,6 +15,7 @@ import type { RuntimeContext, WorldFull, WorldRuntimeError } from '@/lib/types';
 import { needsKeyboard, onPhone } from '@/lib/keyboard';
 import { PANEL_REACH } from '@/components/orb/OrbPanel';
 import { Button } from '@/components/ui/Button';
+import { addPhotos } from '@/lib/photos';
 import { previewVideo } from '@/lib/previews';
 import { toast } from '@/state/toast';
 import { useIsMobile, useUi } from '@/state/ui';
@@ -151,6 +152,7 @@ export function WorldStage({ home, onReady, onError }: { home: boolean; onReady(
           onInvite={(room) => shareInvite(world, frameId, room)}
           onPeople={(p) => useWorld.setState({ people: { worldId: frameId, ...p } })}
           onPurchase={(item) => askPurchase(world, frameId, item)}
+          onDrop={(files) => void dropIntoChat(files)}
         />
       )}
       {covered && world && (
@@ -232,4 +234,12 @@ function Cover({ world, inset, onPlay }: { world: WorldFull; inset?: CSSProperti
       </div>
     </div>
   );
+}
+
+/** Pictures dropped on the world: they go with the person's next message, the chat open to show them. */
+async function dropIntoChat(files: File[]): Promise<void> {
+  useUi.getState().openPanel('chat');
+  const { photos, problem } = await addPhotos(useUi.getState().draftPhotos, files);
+  useUi.getState().setDraftPhotos(photos);
+  if (problem) toast(problem);
 }

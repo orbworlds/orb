@@ -11,7 +11,7 @@ import type { ProbeResult, ProbeUnavailable, RuntimeContext, WorldRuntimeError }
 
 interface HarnessEvent {
   t: number;
-  type: 'ready' | 'error' | 'toast' | 'title' | 'capture' | 'invite' | 'people' | 'purchase';
+  type: 'ready' | 'error' | 'toast' | 'title' | 'capture' | 'invite' | 'people' | 'purchase' | 'drop';
   data?: unknown;
 }
 
@@ -262,6 +262,7 @@ export default function Harness({ params }: { params: Record<string, string> }) 
           await new Promise((r) => setTimeout(r, h?.shopDelay ?? 0));
           return h?.shopAnswer ?? { ok: true };
         }}
+        onDrop={(files) => push('drop', files.map((f) => `${f.name}:${f.type}`))}
       />
       {showUi && (
         <div className="glass-strong" style={{ position: 'absolute', left: 16, bottom: 16, zIndex: 10, width: 'min(360px, calc(100vw - 32px))', borderRadius: 22, padding: 14, fontSize: 13 }}>

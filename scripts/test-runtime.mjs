@@ -1419,6 +1419,34 @@ async function testClips(context) {
   await page.close();
 }
 
+async function testDrops(context) {
+  // A drop in the frame, as the browser makes one: `files` as [name, type] pairs.
+  const dropIn = (f, files) =>
+    f.evaluate((list) => {
+      const dt = new DataTransfer();
+      for (const [name, type] of list) dt.items.add(new File(['x'], name, { type }));
+      const over = !document.body.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }));
+      const drop = !document.body.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+      return { over, drop };
+    }, files);
+  const page = await openHarness(context);
+  let f = await load(page, solid('#203040'));
+  const r = await dropIn(f, [['cat.png', 'image/png'], ['notes.txt', 'text/plain']]);
+  await page.waitForFunction(() => window.__orbHarness.events.some((e) => e.type === 'drop'), null, { timeout: 5000 }).catch(() => {});
+  check('a picture dropped on a world that takes no drops: Orb gets it (the picture alone)', JSON.stringify(await eventsOf(page, 'drop')) === '[["cat.png:image/png"]]', await eventsOf(page, 'drop'));
+  check('…and the browser doesn’t open it in place of the world', r.over && r.drop, r);
+  await page.waitForTimeout(900);
+  await dropIn(f, [['notes.txt', 'text/plain']]);
+  await page.waitForTimeout(400);
+  check('a drop without pictures: nothing for Orb', (await count(page, 'drop')) === 1);
+  f = await load(page, solid('#203040', `<script>window.got = 0; addEventListener('dragover', (e) => e.preventDefault()); addEventListener('drop', (e) => { e.preventDefault(); window.got = e.dataTransfer.files.length; });</script>`));
+  await page.waitForTimeout(900);
+  await dropIn(f, [['dog.jpg', 'image/jpeg']]);
+  await page.waitForTimeout(400);
+  check('a world that takes drops itself keeps them', (await f.evaluate(() => window.got)) === 1 && (await count(page, 'drop')) === 1, { got: await f.evaluate(() => window.got), drops: await count(page, 'drop') });
+  await page.close();
+}
+
 // ------------------------------------------------------------------------------------------
 
 const server = await ensureServer();
@@ -1443,6 +1471,7 @@ try {
   await section('friends in the room: vouched by the friends sync (mock realtime server)', () => testFriendsInRooms(context));
   await section('clips: a few seconds of the world as a video', () => testClips(context));
   await section('shop: orb.shop asks Orb, which asks the player', () => testShop(context));
+  await section('drops: pictures dropped on a world go to Orb’s chat', () => testDrops(context));
 } finally {
   await browser.close();
   await stopNext(server);
