@@ -66,10 +66,7 @@ If you change a contract, update this file in the same change.
   newest reply that changed the world offers **Undo**; an undone reply fades, with "Back to how it
   was". Replies carry no version numbers or credits (the chat says so only when credits run low:
   "12 credits left · See plans"). While Orb works, one word: "Thinking…" (answers in someone else's
-  world) or "Building…". A build of one's own that has run 30 s shows **Play while it builds** under
-  it: the three most played games (a phone's own: none that need a keyboard), and "Your world keeps
-  building. You'll get a note when it's ready." A tap opens the game with the panel closed; the build
-  goes on in the background (`src/components/orb/PlayWhileBuilding.tsx`).
+  world) or "Building…".
   **Photos** go with a message (the hero's composer and the chat's alike): the picture button (on a
   phone it offers the camera too), pasting one, or dropping pictures anywhere on the page — into the
   home page's box while it's in view, else into the chat, which opens (a world that takes drops

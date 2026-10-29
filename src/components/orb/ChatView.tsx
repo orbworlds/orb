@@ -17,7 +17,6 @@ import { ChatSwitcher } from './ChatSwitcher';
 import { Composer } from './Composer';
 import { Chips, formatCountdown, MessageView } from './MessageView';
 import { OrbSphere } from './Orb';
-import { PlayWhileBuilding } from './PlayWhileBuilding';
 import { StartFrom } from './StartFrom';
 
 const VISITOR_CHIPS = ['How do I play?', 'What can I do here?'];
@@ -133,8 +132,6 @@ export function ChatView({
   const lastChange = canEdit ? messages.findLast((m) => m.build?.toVersion != null) : undefined;
   const showIntro = !!intro && intro.chatKey === chatKey;
   const empty = messages.length === 0;
-  // A build that takes a while: games to play meanwhile (it keeps going in the background).
-  const playSince = isBuilding && canEdit && messages[lastIndex]?.role === 'assistant' ? messages[lastIndex].createdAt : null;
 
   return (
     <>
@@ -178,7 +175,6 @@ export function ChatView({
                 onRetry={() => void build.retry(m.id)}
               />
             ))}
-            {playSince != null && <PlayWhileBuilding key={playSince} since={playSince} worldId={world?.id} onOpen={onOpenWorld} />}
           </div>
         </div>
         <button
