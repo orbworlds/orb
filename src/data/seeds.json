@@ -2971,5 +2971,55 @@
       "author_url": "https://x.com/k3lk0m",
       "made_with": "Claude Opus 5.5, three.js"
     }
+  },
+  {
+    "id": "ext-nine-loops",
+    "name": "NINE LOOPS: SUBWAY",
+    "description": "Walk a subway tunnel that keeps repeating: spot an anomaly and turn back, see none and keep going, nine times in a row to get out.",
+    "kind": "external",
+    "external_url": "https://design9.jp/ninecity/loops/",
+    "source_url": null,
+    "author_name": "DESIGN OFFICE NINE",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-nine-loops.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/nine-loops-subway-an-exit-8-style-anomaly-loop-game-in-three-js-mobile-en-ja-online-leaderboard/95932",
+      "platform": "three.js forum",
+      "views": 40,
+      "likes": 0,
+      "posted_at": "2026-10-26",
+      "handle": "@NINE",
+      "author_url": "https://design9.jp/",
+      "made_with": "three.js, ES modules"
+    }
+  },
+  {
+    "id": "ext-rirris",
+    "name": "RIRRI'S",
+    "description": "Look round a little Japanese convenience store and the island town around it through the seasons and the weather, its shelves stocked with its maker's work.",
+    "kind": "external",
+    "external_url": "https://world.irisli.dev/",
+    "source_url": null,
+    "author_name": "Iris Li",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-rirris.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/rirris-a-rainy-night-convenience-store-as-a-portfolio/95930",
+      "platform": "three.js forum",
+      "views": 104,
+      "likes": 3,
+      "posted_at": "2026-10-26",
+      "handle": "@scenariofour",
+      "author_url": "https://github.com/scenariofour",
+      "made_with": "three.js r169, GSAP"
+    }
   }
 ]

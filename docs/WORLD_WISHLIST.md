@@ -139,6 +139,13 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   didn't load in time to check), **NINE LOOPS: SUBWAY**, **RIRRI'S** and **OFRENDA** (see 27
   October). Left out: **Whack!** (a plain whack-a-mole) and **City Drones** (citydrones.app: a
   landing page in front of the game, not looked into further).
+- **Scouted on 29 October 2026**, a quiet day: NINE LOOPS: SUBWAY and RIRRI'S (both from 27
+  October) went in, embedded, as no code could be found. Left out: **A Little Tidy**
+  (games.roseyao.com: a lovely room-tidying game, but it sits in one family's own page of games
+  made for their children, so it isn't ours to point strangers at), **OFRENDA** (its Begin button
+  never answered here, twice), **Plushies** (prathje.github.io/plushies: a component library's
+  demo page), **Metro Maneuver** (a 2D puzzle), **Camp Nou Seat Explorer** (a seat-view tool for a
+  real club's stadium) and **Butcherbench** (a meat-cutting toy).
 
 ## Embeds we would add if their sites allowed it
 

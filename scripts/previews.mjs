@@ -649,6 +649,20 @@ const SHOTS = {
   'ext-low-tide': { wait: 40000, crf: [48, 30] },
   // Three-Point Contest: on the court of the sunlit school gym, the first ball going up from the left corner
   'ext-three-point-contest': { wait: 40000, steps: [{ click: [320, 256], wait: 8000 }, { click: [554, 339], wait: 15000 }], press: [['Space', 0.3, 1.0]] },
+  // NINE LOOPS: SUBWAY: past its rules card (its Play button is below the fold of a small window), walking down the
+  // looping tunnel under its strip lights toward the LOOP 01 sign
+  'ext-nine-loops': {
+    wait: 30000, hold: ['w'],
+    setup: async () => {
+      const play = document.querySelector('button.play');
+      if (!play) return;
+      play.click();
+      await new Promise((r) => setTimeout(r, 60000));
+    },
+  },
+  // RIRRI'S: the little town on its island (its season, hour and weather vary), the convenience store by the road, the
+  // camera swinging round and back
+  'ext-rirris': { wait: 40000, drag: swing(80, 0) },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */
