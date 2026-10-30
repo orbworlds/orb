@@ -320,8 +320,9 @@ make the files one commit in the public repository, by the org's bot, with the c
 
 A scheduled agent does this every day; anyone can do it by hand the same way. The bar is high:
 add only worlds people would love to step into, beautiful and finished, that play in a browser
-(no install, no sign-up, no ads, no tokens, no fan games of someone else's characters). Adding
-none on a quiet day is fine; three great ones beat ten good ones. Every world goes in **fully
+(no install, no sign-up, no ads, no tokens, no fan games of someone else's characters).
+Recreations of real places are welcome, famous or branded ones too (a theme park, a stadium, a
+landmark). Adding none on a quiet day is fine; three great ones beat ten good ones. Every world goes in **fully
 packaged**: hosted and remixable whenever it can be, with its picture and its looping video, its
 words written, checked inside Orb, and live on orbworlds.com the same day.
 

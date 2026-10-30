@@ -3068,5 +3068,28 @@
       "author_url": "https://x.com/speaksGaming",
       "made_with": "three.js"
     }
+  },
+  {
+    "id": "ext-camp-nou",
+    "name": "Camp Nou",
+    "description": "Look round FC Barcelona's old Camp Nou, every one of its seats in place, then pick a seat and see the pitch from there.",
+    "kind": "external",
+    "external_url": "https://camp-nou-seat-explorer.thebuggeddev.chatgpt.site/",
+    "source_url": null,
+    "author_name": "The Bugged Dev",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-camp-nou.webp",
+    "origin": {
+      "post_url": "https://velven.ai/s/camp-nou-seat-explorer",
+      "platform": "velven",
+      "posted_at": "2026-09-13",
+      "handle": "@thebuggeddev",
+      "author_url": "https://x.com/thebuggeddev",
+      "made_with": "GPT-6 Astra, three.js"
+    }
   }
 ]

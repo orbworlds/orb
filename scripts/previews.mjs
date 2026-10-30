@@ -667,6 +667,20 @@ const SHOTS = {
   'ext-sundrift': { wait: 40000, steps: [{ click: [107, 224], wait: 8000 }], hold: ['w'] },
   // ForestRide: the blue off-roader driving on down the muddy road between the ferns and the tall trees
   'ext-forestride': { wait: 45000, steps: [{ click: [320, 250], wait: 2000 }], hold: ['w'], crf: [56, 36] },
+  // Camp Nou: the stadium turning slowly on its own (Auto orbit), every seat in the club's colours, the page's own
+  // titles and buttons hidden
+  'ext-camp-nou': {
+    wait: 40000, crf: [52, 33],
+    setup: async () => {
+      const orbit = document.querySelector('.orbit-button');
+      if (!orbit) return;
+      orbit.click();
+      const style = document.createElement('style');
+      style.textContent = 'body * { visibility: hidden } canvas { visibility: visible }';
+      document.head.append(style);
+      await new Promise((r) => setTimeout(r, 3000));
+    },
+  },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */
