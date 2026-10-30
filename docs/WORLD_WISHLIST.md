@@ -146,6 +146,15 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   never answered here, twice), **Plushies** (prathje.github.io/plushies: a component library's
   demo page), **Metro Maneuver** (a 2D puzzle), **Camp Nou Seat Explorer** (a seat-view tool for a
   real club's stadium) and **Butcherbench** (a meat-cutting toy).
+- **Scouted on 30 October 2026** (Velven, Show HN, three.js forum): Sundrift and ForestRide went
+  in, embedded (no code found). For a later day: **Butterbean Hollow**
+  (wesche.com/lab/fable/ufo-farm: a UFO abducting critters from a little farm island, by the
+  maker of Sundrift; cute but slight) and **Freewheel** (noworklabs.com/freewheel: cycling through
+  Guwahati's woods at night, but its own menu says it is still under construction). Left out:
+  **Tokyo DisneySea** (a recreation of a Disney park), **Voxel Musou** (failed to load here),
+  **Dekoboko** (one motion demo in a list of them), **Pure Particles** (pureart-xyz: never got past
+  its loader here). Not looked at yet: **Tiberava** (tiberava.online, a Roman city game on Show
+  HN; its page never finished drawing for a screenshot on 25 October).
 
 ## Embeds we would add if their sites allowed it
 

@@ -3021,5 +3021,52 @@
       "author_url": "https://github.com/scenariofour",
       "made_with": "three.js r169, GSAP"
     }
+  },
+  {
+    "id": "ext-sundrift",
+    "name": "Sundrift",
+    "description": "Sail a little wooden boat at your own pace across a warm sea at golden hour, between palm islands and buoys, with nowhere you have to be.",
+    "kind": "external",
+    "external_url": "https://wesche.com/lab/astra/boat-explorer/",
+    "source_url": null,
+    "author_name": "Wësche",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 63,
+    "thumb_url": "/seeds/ext-sundrift.webp",
+    "origin": {
+      "post_url": "https://velven.ai/s/sundrift",
+      "platform": "velven",
+      "posted_at": "2026-09-18",
+      "handle": "@WescheNex1q",
+      "author_url": "https://x.com/WescheNex1q",
+      "made_with": "GPT-6 Astra, three.js"
+    }
+  },
+  {
+    "id": "ext-forestride",
+    "name": "ForestRide",
+    "description": "Drive a big off-roader down an endless muddy road through a dense forest, with boost, handbrake and a choice of cameras.",
+    "kind": "external",
+    "external_url": "https://forestride.aracos.chatgpt.site/",
+    "source_url": null,
+    "author_name": "Mark Peterson",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-forestride.webp",
+    "origin": {
+      "post_url": "https://velven.ai/s/forestride",
+      "platform": "velven",
+      "posted_at": "2026-09-14",
+      "handle": "@speaksGaming",
+      "author_url": "https://x.com/speaksGaming",
+      "made_with": "three.js"
+    }
   }
 ]

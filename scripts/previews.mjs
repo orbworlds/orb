@@ -663,6 +663,10 @@ const SHOTS = {
   // RIRRI'S: the little town on its island (its season, hour and weather vary), the convenience store by the road, the
   // camera swinging round and back
   'ext-rirris': { wait: 40000, drag: swing(80, 0) },
+  // Sundrift: past its title (Set sail), the little boat sailing ahead over the glittering sea toward the palm islands
+  'ext-sundrift': { wait: 40000, steps: [{ click: [107, 224], wait: 8000 }], hold: ['w'] },
+  // ForestRide: the blue off-roader driving on down the muddy road between the ferns and the tall trees
+  'ext-forestride': { wait: 45000, steps: [{ click: [320, 250], wait: 2000 }], hold: ['w'], crf: [56, 36] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */
