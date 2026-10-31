@@ -10,6 +10,7 @@ import type { Photo } from '@/lib/photos';
 import { getModelSettings } from '@/lib/local';
 import { TEMPLATE_BY_ID } from '@/lib/templates';
 import { creditsText, useCredits } from '@/state/billing';
+import { useTogether } from '@/state/together';
 import { trackPrompt } from '@/state/tracking';
 import { useIsMobile, useUi } from '@/state/ui';
 import { CHANGE_CHIPS, useWorld } from '@/state/world';
@@ -96,7 +97,7 @@ export function ChatView({
     const t = text.trim();
     // A suggestion is words alone; what the composer sends takes its photos along.
     const photos = where === 'chat' ? draftPhotos : [];
-    if ((!t && !photos.length) || isBuilding || confirming) return;
+    if ((!t && !photos.length) || isBuilding || confirming || blocked) return;
     setDraft('');
     if (photos.length) setDraftPhotos([]);
     if (isExternal) return onMakeOwn(t, photos);
@@ -116,9 +117,13 @@ export function ChatView({
   };
 
   const freeTier = getModelSettings().provider === 'free';
+  // Making it together: one person's build at a time.
+  const other = useTogether((s) => s.building);
   const blocked = confirming
     ? 'Loading this world…'
-    : retryAfter != null && retryAfter > 0 && freeTier
+    : other && canEdit && !isBuilding
+      ? `${other} is changing this world…`
+      : retryAfter != null && retryAfter > 0 && freeTier
       ? `Free building resumes in ${formatCountdown(retryAfter)}`
       : null;
 

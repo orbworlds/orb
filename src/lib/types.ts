@@ -87,6 +87,19 @@ export interface WorldFull extends WorldCard {
   remixes: number;
   /** The GitHub repository it's kept in sync with (only its owner is told; SPEC §2 "GitHub sync"). */
   repo?: WorldRepo | null;
+  /** Who else may change it, told to those who may (SPEC §2 "Making a world together"). */
+  editors?: WorldEditor[];
+  /** The viewer may change it because its owner let them in: deleting it, who sees it and its shop stay the owner's. */
+  invited?: boolean;
+  /** The owner's invite to make it together (the link's `?edit=`), or null when there's none. Only its owner is told. */
+  invite?: string | null;
+}
+
+/** Someone a world's owner let in to change it too. */
+export interface WorldEditor {
+  id: string;
+  name: string;
+  handle: string | null;
 }
 
 /** A world kept in sync with a branch of a GitHub repository. */

@@ -16,7 +16,7 @@
 // and pays the maker.
 
 import type { ShopBought, ShopItem, ShopView } from '@/lib/types';
-import { canEdit, type Viewer } from './auth';
+import { isOwner, type Viewer } from './auth';
 import type { Db } from './db';
 import { fail } from './http';
 import { ensureWallet, numberEnv, plansConfig, toCredits, toMicros, type PlansConfig, type Wallet } from './credits';
@@ -95,7 +95,7 @@ async function shopWorld(db: Db, viewer: Viewer, id: string): Promise<{ world: S
     ? (await db.query<ShopWorldRow>(`select id, name, kind, code, visibility, owner_user, owner_device from orb_worlds where id = $1`, [id]))[0]
     : undefined;
   if (!world) fail(404, 'not_found', 'This world does not exist.');
-  const mine = await canEdit(db, viewer, world);
+  const mine = await isOwner(db, viewer, world);
   if (world.visibility !== 'public' && !mine) fail(404, 'not_found', 'This world does not exist.');
   return { world, mine };
 }

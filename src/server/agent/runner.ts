@@ -207,6 +207,24 @@ export async function runningJobs(db: Db, owner: Viewer): Promise<number> {
   return Number(rows[0]?.n) || 0;
 }
 
+/**
+ * Someone else's build changing this world right now (SPEC §2 "Making a world together": one at a
+ * time, so nobody's changes are lost): their name, or null. A build that has stalled for a while
+ * doesn't count.
+ */
+export async function otherBuilder(db: Db, worldId: string, viewer: Viewer): Promise<string | null> {
+  const rows = await db.query<{ name: string }>(
+    `select coalesce(u.name, w.author_name, 'Someone') as name
+     from orb_agent_jobs j join orb_worlds w on w.id = j.world_id left join orb_users u on u.id = j.owner_user
+     where j.world_id = $1 and j.mode = 'build' and j.status = 'running' and j.updated_at > now() - interval '10 minutes'
+       and (j.owner_device = $2::text) is not true and (j.owner_user = $3::text) is not true
+       and (j.owner_user = (select d.user_id from orb_devices d where d.hash = $2::text)) is not true
+     order by j.created_at limit 1`,
+    [worldId, viewer.deviceHash, viewer.userId],
+  );
+  return rows[0]?.name ?? null;
+}
+
 /** What a watching page needs to know about a job. */
 export interface JobInfo {
   status: string;

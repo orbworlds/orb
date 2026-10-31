@@ -19,7 +19,7 @@ export const maxDuration = 120;
 async function ownWorld(db: Db, viewer: Viewer, id: string) {
   const world = await getWorldForViewer(db, viewer, id);
   if (!world) fail(404, 'not_found', 'This world does not exist.');
-  if (!world.canEdit) fail(403, 'forbidden', 'Only the owner can change this world.');
+  if (!world.canEdit || world.invited) fail(403, 'forbidden', 'Only the owner can change this world.');
   if (world.kind !== 'native') fail(400, 'bad_request', 'Only worlds made on Orb can be kept on GitHub.');
   return world;
 }

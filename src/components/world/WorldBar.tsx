@@ -111,6 +111,15 @@ export function WorldBar({ visible, actions }: { visible: boolean; actions: Worl
   const hereTitle = `${hereNames.slice(0, -1).join(', ')} and ${hereNames[hereNames.length - 1]} are here`;
   const native = w.kind === 'native';
   const owner = canEdit;
+  // Made together, the line names everyone: "by you and Ben", "by Ana and you".
+  const editors = w.editors ?? [];
+  const by = !owner
+    ? w.authorName || 'someone'
+    : w.invited
+      ? `${w.authorName || 'someone'} and you`
+      : editors.length
+        ? `you and ${editors.length === 1 ? editors[0].name : `${editors.length} others`}`
+        : 'you';
 
   const fullscreen: MenuEntry[] = canFullscreen() ? [{ label: 'Fullscreen', icon: 'maximize', onSelect: toggleFullscreen }] : [];
   const site: MenuEntry[] =
@@ -162,6 +171,8 @@ export function WorldBar({ visible, actions }: { visible: boolean; actions: Worl
   const ownerItems = (): MenuEntry[] => {
     // An embedded world has no code here to copy or download.
     if (isExternal) return [renameItem, ...story, ...site, ...source, ...fullscreen, { kind: 'separator' }, remove];
+    // Someone its owner let in changes it; copying it, GitHub and deleting it stay the owner's.
+    if (w.invited) return withLineage([renameItem, ...newChat, { label: 'History', icon: 'history', onSelect: actions.onHistory }, recordClip, ...fullscreen]);
     return withLineage([
       renameItem,
       ...newChat,
@@ -231,10 +242,10 @@ export function WorldBar({ visible, actions }: { visible: boolean; actions: Worl
           <div className="flex min-w-0 items-center gap-1.5 text-[12px] leading-4 text-ink-3">
             {maker ? (
               <button type="button" onClick={() => useUi.getState().openProfile(maker)} title="See their profile" className={`min-w-0 truncate hover:text-ink-2 hover:underline ${from ? 'shrink-0' : ''}`}>
-                by {owner ? 'you' : w.authorName || 'someone'}
+                by {by}
               </button>
             ) : (
-              <span className={`truncate ${from ? 'shrink-0' : ''}`}>by {owner ? 'you' : w.authorName || 'someone'}</span>
+              <span className={`truncate ${from ? 'shrink-0' : ''}`}>by {by}</span>
             )}
             {from && (
               <>

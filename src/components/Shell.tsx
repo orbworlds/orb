@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Toaster } from '@/components/ui/Toaster';
 import { WorldBar, type WorldBarActions } from '@/components/world/WorldBar';
+import { JoinTogether } from '@/components/world/JoinTogether';
 import { WorldStage } from '@/components/world/WorldStage';
 import { useBuild, type BackgroundBuild, type BuildHost } from '@/lib/engine/useBuild';
 import { track } from '@/lib/analytics';
@@ -31,6 +32,7 @@ import { useGitHubLinks } from '@/state/links';
 import { useClip } from '@/state/clips';
 import { takeParams } from '@/state/share';
 import { useShop } from '@/state/shop';
+import { takeInvite, useFollowTogether } from '@/state/together';
 import { toast, useToasts } from '@/state/toast';
 import { trackBackgroundBuild, trackPrompt, trackWorldError, useTracking } from '@/state/tracking';
 import { popLayer, useBackCloses, useIsMobile, usePhone, useUi, whenShown } from '@/state/ui';
@@ -252,6 +254,7 @@ export default function Shell({
   );
   const build = useBuild(host);
   useTracking(build);
+  useFollowTogether(build.isBuilding);
   const buildRef = useRef(build);
   useEffect(() => {
     buildRef.current = build;
@@ -276,6 +279,7 @@ export default function Shell({
     welcomeBack();
     trackVisualViewport();
 
+    if (mode === 'world') takeInvite(worldId ?? null);
     if (mode === 'world' && !worldId && worldPath) {
       const [h, s] = worldPath.split('/');
       loadPath(h, s);
@@ -591,6 +595,8 @@ export default function Shell({
           }}
         />
       )}
+
+      <JoinTogether />
 
       {/* Toasts: just above the phone's open sheet; beside the docked panel, or the Orb in a world; else at the bottom. */}
       <Toaster

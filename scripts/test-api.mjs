@@ -74,7 +74,10 @@ const SHOP_BUYER_DEV = device('shop-buyer');
 const SHOP_ANON_DEV = device('shop-anon');
 const LOOKS_DEV = device('looks');
 const LOOKS_ANON_DEV = device('looks-anon');
-const ALL_HASHES = [OWNER, OTHER, THIRD, STORE_DEV, ACCOUNT_DEV, LOOKER, LOOKER2, TRACER, BUILDER, BUILDER2, SIGNUP_DEV, SIGNUP_DEV2, ADA_DEV, BO_DEV, CY_DEV, GUS_DEV, RX_MAKER_DEV, RX_FAN_DEV, RX_ANON_DEV, SHOP_MAKER_DEV, SHOP_BUYER_DEV, SHOP_ANON_DEV].map(hashDevice);
+const MAKER_DEV = device('together-maker');
+const PAL_DEV = device('together-pal');
+const STRANGER_DEV = device('together-stranger');
+const ALL_HASHES = [OWNER, OTHER, THIRD, STORE_DEV, ACCOUNT_DEV, LOOKER, LOOKER2, TRACER, BUILDER, BUILDER2, SIGNUP_DEV, SIGNUP_DEV2, ADA_DEV, BO_DEV, CY_DEV, GUS_DEV, RX_MAKER_DEV, RX_FAN_DEV, RX_ANON_DEV, SHOP_MAKER_DEV, SHOP_BUYER_DEV, SHOP_ANON_DEV, MAKER_DEV, PAL_DEV, STRANGER_DEV].map(hashDevice);
 
 // A real 32×18 WebP (iridescent gradient + white dot) and a 2×2 PNG.
 const WEBP = Buffer.from(
@@ -1411,6 +1414,67 @@ async function run() {
     const slow = await request('POST', '/api/agent/jobs', { dev: OWNER, body: { worldId: w.id, messages: [{ role: 'user', content: 'mockslow mocklong' }], mode: 'build', code: '' } }).catch(() => null);
     check('a slow build runs too', slow && slow.status === 200);
     await request('DELETE', `/api/worlds/${w.id}`, { dev: OWNER });
+  });
+
+  await section('Making a world together', async () => {
+    const as = (who) => ({ dev: who.dev, cookie: who.cookie });
+    const editors = (who, id, body) => request('POST', `/api/worlds/${id}/editors`, { ...as(who), body });
+    const build = (who, id, text) => request('POST', '/api/agent/jobs', { ...as(who), body: { worldId: id, messages: [{ role: 'user', content: text }], mode: 'build', code: '' } });
+    const maker = await join(MAKER_DEV, `Mira ${RUN}`);
+    const pal = await join(PAL_DEV, `Pal ${RUN}`);
+    const stranger = await join(STRANGER_DEV, `Stranger ${RUN}`);
+    check('three accounts: an owner, a pal and a stranger', !!(maker.cookie && pal.cookie && stranger.cookie), { maker: maker.handle, pal: pal.handle, stranger: stranger.handle });
+    const w = (await request('POST', '/api/worlds', { ...as(maker), body: { code: html('together'), name: `Together ${TOKEN}` } })).json.world;
+    const mine = (await get(MAKER_DEV, w.id, maker.cookie)).json.world;
+    check('its owner is told who else may change it (nobody yet), and that there is no invite', mine.canEdit && !mine.invited && Array.isArray(mine.editors) && !mine.editors.length && mine.invite === null, mine);
+
+    check('only its owner makes the invite → 403', (await editors(pal, w.id, { invite: true })).status === 403);
+    const token = (await editors(maker, w.id, { invite: true })).json?.invite;
+    check('the owner makes an invite: a long random token', typeof token === 'string' && token.length >= 20, token);
+    check('…and asking again keeps it', (await editors(maker, w.id, { invite: true })).json?.invite === token);
+
+    const before = (await get(PAL_DEV, w.id, pal.cookie)).json.world;
+    check('before coming in they are a visitor: nobody else is named to them', !before.canEdit && before.editors === undefined && before.invite === undefined, before);
+    const guest = await request('POST', `/api/worlds/${w.id}/editors`, { dev: device('together-guest'), body: { token } });
+    check('coming in needs an account → 401', guest.status === 401 && guest.json.error === 'account_required', guest.json);
+    const wrong = await editors(pal, w.id, { token: `x${token.slice(1)}` });
+    check('a wrong token → 404 invite_invalid', wrong.status === 404 && wrong.json.error === 'invite_invalid', wrong.json);
+    const joined = await editors(pal, w.id, { token });
+    check('an account comes in with the invite: it may change the world, and is told it was let in', joined.status === 200 && joined.json.world?.canEdit === true && joined.json.world.invited === true && joined.json.world.invite === undefined, joined.json);
+    const seen = (await get(MAKER_DEV, w.id, maker.cookie)).json.world;
+    check('its owner sees them among those who may change it', seen.editors?.length === 1 && seen.editors[0].id === pal.id && seen.editors[0].name === `Pal ${RUN}`, seen.editors);
+    check('the world is among their worlds now', (await request('GET', '/api/worlds?mine=1', as(pal))).json.worlds.some((x) => x.id === w.id));
+
+    const renamed = await patch(PAL_DEV, w.id, { name: `Together again ${TOKEN}` }, pal.cookie);
+    check('they may rename it and change its page', renamed.status === 200 && renamed.json.world.name === `Together again ${TOKEN}` && (await patch(PAL_DEV, w.id, { code: html('changed by pal') }, pal.cookie)).status === 200, renamed.json);
+    for (const [what, input] of [['who sees it', { visibility: 'private' }], ['remixing', { forkable: false }], ['its tags', { tags: ['game'] }]]) {
+      const r = await patch(PAL_DEV, w.id, input, pal.cookie);
+      check(`…not ${what} → 403 owner_only`, r.status === 403 && r.json.error === 'owner_only', r.json);
+    }
+    check('…nor delete it → 403', (await request('DELETE', `/api/worlds/${w.id}`, as(pal))).status === 403);
+    check('…nor turn the invite off', (await editors(pal, w.id, { invite: false })).status === 403);
+    check('…nor take others off', (await request('DELETE', `/api/worlds/${w.id}/editors?user=${maker.id}`, as(stranger))).status === 403);
+
+    check('made private, the world still opens for whoever its owner let in (and nobody else)', (await patch(MAKER_DEV, w.id, { visibility: 'private' }, maker.cookie)).status === 200 && (await get(PAL_DEV, w.id, pal.cookie)).status === 200 && (await get(STRANGER_DEV, w.id, stranger.cookie)).status === 404);
+
+    // One person's build at a time: the second one waits for the first.
+    const slow = build(maker, w.id, 'a slow garden mockslow');
+    await new Promise((r) => setTimeout(r, 1500));
+    const now = (await request('GET', `/api/worlds/${w.id}/editors`, as(pal))).json;
+    check('how it stands, for those who may change it: who else is building it right now, and who may', now?.building === `Mira ${RUN}` && now.editors?.some((e) => e.id === pal.id) && now.version >= 2, now);
+    check('…not for others → 404 (it’s private)', (await request('GET', `/api/worlds/${w.id}/editors`, as(stranger))).status === 404);
+    const busy = await build(pal, w.id, 'add a pond');
+    check('while its owner builds, theirs is turned down → 409 busy, saying who', busy.status === 409 && busy.json.error === 'busy' && busy.json.message.includes(`Mira ${RUN}`), busy.json);
+    const first = await slow;
+    check('…the owner’s build saves', first.status === 200 && /"t":"version"/.test(first.text), first.status);
+    const second = await build(pal, w.id, 'add a pond');
+    check('then theirs builds and saves into the same world', second.status === 200 && /"t":"version"/.test(second.text), second.status + ' ' + second.text.slice(0, 200));
+
+    const off = await request('DELETE', `/api/worlds/${w.id}/editors?user=${pal.id}`, as(maker));
+    check('its owner takes them off: they can’t open the private world anymore', off.status === 200 && (await get(PAL_DEV, w.id, pal.cookie)).status === 404);
+    check('back in with the invite, they leave by themselves', (await editors(pal, w.id, { token })).status === 200 && (await request('DELETE', `/api/worlds/${w.id}/editors?user=${pal.id}`, as(pal))).status === 200 && (await get(PAL_DEV, w.id, pal.cookie)).status === 404);
+    const turnedOff = await editors(maker, w.id, { invite: false });
+    check('with the invite turned off, its link lets nobody in', turnedOff.status === 200 && turnedOff.json.invite === null && (await editors(pal, w.id, { token })).json?.error === 'invite_invalid');
   });
 
   await section('Hidden worlds', async () => {

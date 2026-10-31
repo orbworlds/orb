@@ -141,6 +141,16 @@ create table if not exists orb_friends (
   check (a < b collate "C")
 );
 create index if not exists orb_friends_b on orb_friends(b);
+-- Making a world together (SPEC §2): accounts its owner's invite let in, who may change it too.
+-- edit_invite is that invite's token (the link's ?edit=); null: no invite.
+create table if not exists orb_world_editors (
+  world_id text not null references orb_worlds(id) on delete cascade,
+  user_id text not null references orb_users(id) on delete cascade,
+  added_at timestamptz not null default now(),
+  primary key (world_id, user_id)
+);
+create index if not exists orb_world_editors_user on orb_world_editors(user_id);
+alter table orb_worlds add column if not exists edit_invite text;
 -- Where each signed-in person is: the world on their screen at their page's last heartbeat, and
 -- whether that page has gone away since.
 create table if not exists orb_presence (

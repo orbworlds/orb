@@ -18,6 +18,7 @@ import type {
   StoreRequest,
   UpdateWorldInput,
   WorldCard,
+  WorldEditor,
   WorldFull,
   WorldVersionInfo,
 } from './types';
@@ -89,6 +90,14 @@ export const api = {
   connectGitHub: (token: string) => call<GitHubConnection>('/api/me/github', { method: 'POST', body: JSON.stringify({ token }) }),
   keepWorldsOnGitHub: (auto: boolean) => call<GitHubConnection>('/api/me/github', { method: 'POST', body: JSON.stringify({ auto }) }),
   disconnectGitHub: () => call<{ login: null }>('/api/me/github', { method: 'DELETE' }),
+  /** Making a world together (SPEC §2): how it stands, for those who may change it (`building`: someone else changing it now). */
+  together: (id: string) => call<{ version: number; building: string | null; editors: WorldEditor[] }>(`/api/worlds/${enc(id)}/editors`),
+  /** Its owner's invite to make it together: made (or kept) → its token, or turned off → null. */
+  inviteToEdit: (id: string, on: boolean) => call<{ invite: string | null }>(`/api/worlds/${enc(id)}/editors`, { method: 'POST', body: JSON.stringify({ invite: on }) }),
+  /** Come in with an owner's invite (an account): the world is theirs to change too. */
+  joinWorld: (id: string, token: string) => call<{ world: WorldFull }>(`/api/worlds/${enc(id)}/editors`, { method: 'POST', body: JSON.stringify({ token }) }),
+  /** Its owner takes someone off; anyone else leaves. */
+  removeEditor: (id: string, user: string) => call<{ ok: true }>(`/api/worlds/${enc(id)}/editors?user=${enc(user)}`, { method: 'DELETE' }),
   versions: (id: string) => call<{ versions: WorldVersionInfo[] }>(`/api/worlds/${enc(id)}/versions`),
   version: (id: string, v: number) => call<{ version: number; code: string; tree?: string | null }>(`/api/worlds/${enc(id)}/versions/${v}`),
   /** The world's files as a zip (for its owner, or a world that can be remixed). */

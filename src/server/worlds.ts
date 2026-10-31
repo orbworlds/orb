@@ -13,8 +13,8 @@ import { cache } from 'react';
 import { CURATED_ORDER, PLAYS_THAT_COUNT } from '@/lib/curation';
 import { KEYBOARD_TAG } from '@/lib/keyboard';
 import { TEMPLATES } from '@/lib/templates';
-import type { CreateWorldInput, StoreRequest, UpdateWorldInput, Visibility, WorldCard, WorldFull, WorldKind, WorldOrigin, WorldRepo, WorldVersionInfo } from '@/lib/types';
-import { canEdit, randomId, touchDevice, type Viewer } from './auth';
+import type { CreateWorldInput, StoreRequest, UpdateWorldInput, Visibility, WorldCard, WorldEditor, WorldFull, WorldKind, WorldOrigin, WorldRepo, WorldVersionInfo } from '@/lib/types';
+import { canEdit, isEditor, isOwner, randomId, sameString, touchDevice, type Viewer } from './auth';
 import { isUniqueViolation, type Db } from './db';
 import { fail, HttpError } from './http';
 import { rateLimit } from './ratelimit';
@@ -216,6 +216,7 @@ interface FullRow extends CardRow {
   version: number;
   owner_device: string | null;
   owner_user: string | null;
+  edit_invite?: string | null;
   liked?: boolean;
   remixes?: number;
   tree_size?: number | string | null;
@@ -351,7 +352,7 @@ function toFull(r: FullRow, viewerCanEdit: boolean, liked: boolean): WorldFull {
 
 async function loadFull(db: Db, id: string, deviceHash: string | null = null, withCode = true): Promise<FullRow | null> {
   const rows = await db.query<FullRow>(
-    `select ${CARD_COLS}, ${withCode ? 'w.code' : 'null as code'}, w.tree, w.version, w.owner_device, w.owner_user,
+    `select ${CARD_COLS}, ${withCode ? 'w.code' : 'null as code'}, w.tree, w.version, w.owner_device, w.owner_user, w.edit_invite,
        (select t.size from orb_trees t where t.sha = w.tree) as tree_size,
        ($2::text is not null and exists (select 1 from orb_likes l where l.world_id = w.id and l.device_hash = $2::text)) as liked,
        (select count(*) from orb_worlds r where ${REMIXED})::int as remixes
@@ -367,15 +368,18 @@ async function loadMeta(db: Db, id: string): Promise<MetaRow | null> {
 }
 
 /**
- * Access check shared by all endpoints: missing worlds and private worlds the viewer doesn't own
- * are both "not found" (so private ids can't be probed). With `edit`, non-owners get a 403.
+ * Access check shared by all endpoints: missing worlds and private worlds the viewer may not change
+ * are both "not found" (so private ids can't be probed). With `need`, the others get a 403: 'edit'
+ * lets in the people its owner invited too (SPEC §2 "Making a world together"), 'own' only its owner.
  */
-async function access<T extends MetaRow>(db: Db, viewer: Viewer, row: T | null, edit = false): Promise<{ row: T; canEdit: boolean }> {
+async function access<T extends MetaRow>(db: Db, viewer: Viewer, row: T | null, need: 'edit' | 'own' | null = null): Promise<{ row: T; canEdit: boolean; owner: boolean }> {
   if (!row) fail(404, 'not_found', 'This world does not exist.');
-  const owner = await canEdit(db, viewer, row);
-  if (row.visibility === 'private' && !owner) fail(404, 'not_found', 'This world does not exist.');
-  if (edit && !owner) fail(403, 'forbidden', 'Only the owner can change this world.');
-  return { row, canEdit: owner };
+  const owner = await isOwner(db, viewer, row);
+  const editor = owner || (await isEditor(db, viewer, row.id));
+  if (row.visibility === 'private' && !editor) fail(404, 'not_found', 'This world does not exist.');
+  if (need && !editor) fail(403, 'forbidden', 'Only the owner can change this world.');
+  if (need === 'own' && !owner) fail(403, 'owner_only', 'Only the world’s owner can do that.');
+  return { row, canEdit: editor, owner };
 }
 
 /** World as seen by `viewer` (null if missing, or private and not theirs). */
@@ -383,10 +387,17 @@ export async function getWorldForViewer(db: Db, viewer: Viewer, id: string): Pro
   if (!isWorldId(id)) return null;
   const row = await loadFull(db, id, viewer.deviceHash);
   if (!row) return null;
-  const owner = await canEdit(db, viewer, row);
-  if (row.visibility === 'private' && !owner) return null;
-  const world = toFull(row, owner, !!row.liked);
-  if (owner && world.kind === 'native') world.repo = await repoOf(db, id, row.owner_user, row.owner_device);
+  const owner = await isOwner(db, viewer, row);
+  const editor = owner || (await isEditor(db, viewer, id));
+  if (row.visibility === 'private' && !editor) return null;
+  const world = toFull(row, editor, !!row.liked);
+  if (!editor || world.kind !== 'native') return world;
+  world.editors = await editorsOf(db, id);
+  if (!owner) world.invited = true;
+  else {
+    world.invite = row.edit_invite ?? null;
+    world.repo = await repoOf(db, id, row.owner_user, row.owner_device);
+  }
   return world;
 }
 
@@ -591,6 +602,11 @@ const ownedBy = (dev: string, user: string) =>
   `(w.owner_device = ${dev}::text or w.owner_user = ${user}::text
       or w.owner_user = (select d.user_id from orb_devices d where d.hash = ${dev}::text))`;
 
+/** Same rule as isEditor(): worlds whose owner let in the session user or the device's linked user. */
+const editedBy = (dev: string, user: string) =>
+  `exists (select 1 from orb_world_editors e where e.world_id = w.id
+      and e.user_id in (${user}::text, (select d.user_id from orb_devices d where d.hash = ${dev}::text)))`;
+
 /** Escape LIKE wildcards so user input matches literally. */
 function likePattern(q: string): string {
   return `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -659,7 +675,7 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
     if (!viewer.deviceHash && !viewer.userId) return { worlds: [] };
     const dev = $(viewer.deviceHash);
     const user = $(viewer.userId);
-    if (p.mine) where.push(ownedBy(dev, user));
+    if (p.mine) where.push(`(${ownedBy(dev, user)} or ${editedBy(dev, user)})`);
     else {
       // Likes are stored per device; a signed-in person sees the likes of all their devices.
       where.push(`exists (select 1 from orb_likes l where l.world_id = w.id and (l.device_hash = ${dev}::text
@@ -854,7 +870,11 @@ export async function createWorld(db: Db, viewer: Viewer, body: unknown): Promis
 
 export async function updateWorld(db: Db, viewer: Viewer, id: string, body: unknown): Promise<WorldFull> {
   const input = asObject(body) as Partial<Record<keyof UpdateWorldInput, unknown>>;
-  const { row } = await access(db, viewer, await loadFull(db, id), true);
+  const { row, owner } = await access(db, viewer, await loadFull(db, id), 'edit');
+  // The people its owner let in change the world itself; how it's shared stays its owner's.
+  if (!owner && (input.visibility !== undefined || input.forkable !== undefined || input.tags !== undefined)) {
+    fail(403, 'owner_only', 'Only the world’s owner can change who sees it or remixes it.');
+  }
   // A world embedded from another site keeps its page there: its owner edits only how it's listed.
   if (row.kind !== 'native' && (input.code !== undefined || input.tree !== undefined || input.forkable !== undefined)) {
     fail(400, 'not_editable', 'This world lives on another site and cannot be edited here.');
@@ -928,9 +948,69 @@ export async function updateWorld(db: Db, viewer: Viewer, id: string, body: unkn
 }
 
 export async function deleteWorld(db: Db, viewer: Viewer, id: string): Promise<void> {
-  await access(db, viewer, await loadMeta(db, id), true);
+  await access(db, viewer, await loadMeta(db, id), 'own');
   // Versions, likes and store rows cascade. Remixes keep their forked_from id (shown as no source).
   await db.query(`delete from orb_worlds where id = $1`, [id]);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Making a world together (SPEC §2): its owner's invite lets accounts in to change it too.
+
+/** How many people a world's owner can let in. */
+const EDITORS_MAX = 20;
+
+/** Who else may change the world (its owner aside), in the order they came in. */
+export async function editorsOf(db: Db, id: string): Promise<WorldEditor[]> {
+  const rows = await db.query<WorldEditor>(
+    `select u.id, u.name, h.handle from orb_world_editors e join orb_users u on u.id = e.user_id
+       left join orb_handles h on h.owner_user = u.id
+     where e.world_id = $1 order by e.added_at`,
+    [id],
+  );
+  return rows.map((r) => ({ id: r.id, name: r.name, handle: r.handle ?? null }));
+}
+
+/** How making the world together stands, for those who may change it: its version, and who else may. */
+export async function togetherOf(db: Db, viewer: Viewer, id: string): Promise<{ version: number; editors: WorldEditor[] }> {
+  await access(db, viewer, await loadMeta(db, id), 'edit');
+  const [row] = await db.query<{ version: number }>(`select version from orb_worlds where id = $1`, [id]);
+  return { version: Number(row?.version) || 0, editors: await editorsOf(db, id) };
+}
+
+/** The owner's invite: made (or kept) when `on`, else turned off (whoever it let in stays) → its token, or null. */
+export async function setInvite(db: Db, viewer: Viewer, id: string, on: boolean): Promise<string | null> {
+  const { row } = await access(db, viewer, await loadMeta(db, id), 'own');
+  if (row.kind !== 'native') fail(400, 'bad_request', 'Only worlds made on Orb can be made together.');
+  const rows = await db.query<{ edit_invite: string | null }>(
+    on ? `update orb_worlds set edit_invite = coalesce(edit_invite, $2) where id = $1 returning edit_invite` : `update orb_worlds set edit_invite = null where id = $1 returning edit_invite`,
+    on ? [id, randomId(24)] : [id],
+  );
+  return rows[0]?.edit_invite ?? null;
+}
+
+/** An account comes in with the owner's invite: from now on the world is theirs to change too. */
+export async function joinWorld(db: Db, viewer: Viewer, id: string, token: string): Promise<WorldFull> {
+  const user = await sessionUser(db, viewer);
+  if (!user) fail(401, 'account_required', 'Sign in to make this world together.');
+  const rows = isWorldId(id) ? await db.query<MetaRow & { edit_invite: string | null }>(`select ${META_COLS}, edit_invite from orb_worlds where id = $1`, [id]) : [];
+  const row = rows[0];
+  if (!row || !row.edit_invite || !sameString(row.edit_invite, token)) fail(404, 'invite_invalid', 'This invite doesn’t work anymore. Ask for a new link.');
+  if (!(await isOwner(db, viewer, row))) {
+    const [{ n }] = await db.query<{ n: number }>(`select count(*)::int as n from orb_world_editors where world_id = $1`, [id]);
+    if (Number(n) >= EDITORS_MAX) fail(409, 'too_many', `${EDITORS_MAX} people already make this world together.`);
+    await db.query(`insert into orb_world_editors (world_id, user_id) values ($1, $2) on conflict do nothing`, [id, user]);
+  }
+  return viewWorld(db, viewer, id);
+}
+
+/** Someone stops making the world: its owner takes anyone off, anyone else only leaves. */
+export async function removeEditor(db: Db, viewer: Viewer, id: string, userId: string): Promise<void> {
+  const { owner } = await access(db, viewer, await loadMeta(db, id), 'edit');
+  if (!owner) {
+    const linked = viewer.deviceHash ? (await db.query<{ user_id: string | null }>(`select user_id from orb_devices where hash = $1`, [viewer.deviceHash]))[0]?.user_id : null;
+    if (userId !== viewer.userId && userId !== linked) fail(403, 'owner_only', 'Only the world’s owner can take someone off it.');
+  }
+  await db.query(`delete from orb_world_editors where world_id = $1 and user_id = $2`, [id, userId]);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -942,7 +1022,7 @@ export async function listVersions(db: Db, viewer: Viewer, id: string): Promise<
     `select version, prompt, created_at from orb_world_versions where world_id = $1 order by version desc limit $2::int`,
     [id, LIMITS.versionsKept],
   );
-  // Prompts can be personal; only the owner sees them.
+  // Prompts can be personal; only those who may change the world see them.
   return rows.map((r) => ({ version: Number(r.version), prompt: owner ? r.prompt : null, createdAt: iso(r.created_at) }));
 }
 
@@ -1155,7 +1235,7 @@ async function creditRemix(db: Db, remixId: string): Promise<void> {
 export async function forkWorld(db: Db, viewer: Viewer, id: string, body: unknown): Promise<WorldFull> {
   requireIdentity(viewer);
   const input = body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
-  const { row: src, canEdit: owner } = await access(db, viewer, await loadMeta(db, id));
+  const { row: src, owner } = await access(db, viewer, await loadMeta(db, id));
   if (src.kind !== 'native') fail(400, 'not_forkable', 'This world lives on another site and cannot be remixed here.');
   // Owners may always duplicate their own world; everyone else needs remixing to be allowed.
   if (!src.forkable && !owner) fail(403, 'not_forkable', 'The creator turned off remixing for this world.');
@@ -1213,7 +1293,7 @@ export function thumbContentType(header: string | null): ThumbType | null {
 }
 
 export async function putThumb(db: Db, viewer: Viewer, id: string, bytes: Uint8Array, declared: ThumbType): Promise<number> {
-  const { row } = await access(db, viewer, await loadMeta(db, id), true);
+  const { row } = await access(db, viewer, await loadMeta(db, id), 'edit');
   if (row.kind !== 'native') fail(400, 'not_editable', 'This world lives on another site.');
   if (bytes.length === 0) fail(400, 'bad_image', 'The image is empty.');
   if (bytes.length > LIMITS.thumbBytes) fail(413, 'too_large', 'Thumbnail is too large (max 500 KB).');

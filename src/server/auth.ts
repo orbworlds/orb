@@ -162,7 +162,7 @@ export interface Ownable {
 }
 
 /** Ownership rule — see SPEC §6. */
-export async function canEdit(db: Db, viewer: Viewer, world: Ownable): Promise<boolean> {
+export async function isOwner(db: Db, viewer: Viewer, world: Ownable): Promise<boolean> {
   if (viewer.userId && world.owner_user && viewer.userId === world.owner_user) return true;
   if (viewer.deviceHash && world.owner_device && viewer.deviceHash === world.owner_device) return true;
   if (viewer.deviceHash && world.owner_user) {
@@ -170,6 +170,22 @@ export async function canEdit(db: Db, viewer: Viewer, world: Ownable): Promise<b
     if (rows[0]?.user_id && rows[0].user_id === world.owner_user) return true;
   }
   return false;
+}
+
+/** Whether the viewer's account is one the world's owner let in to change it too (SPEC §2 "Making a world together"). */
+export async function isEditor(db: Db, viewer: Viewer, worldId: string): Promise<boolean> {
+  if (!viewer.userId && !viewer.deviceHash) return false;
+  const rows = await db.query(
+    `select 1 from orb_world_editors e where e.world_id = $1
+       and e.user_id in ($2::text, (select d.user_id from orb_devices d where d.hash = $3::text)) limit 1`,
+    [worldId, viewer.userId, viewer.deviceHash],
+  );
+  return rows.length > 0;
+}
+
+/** Who may change a world: its owner, and the people they let in. */
+export async function canEdit(db: Db, viewer: Viewer, world: Ownable & { id: string }): Promise<boolean> {
+  return (await isOwner(db, viewer, world)) || (await isEditor(db, viewer, world.id));
 }
 
 export function isAdmin(req: Request): boolean {

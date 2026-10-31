@@ -1,10 +1,11 @@
 'use client';
-// Share sheet: link + copy (+ native share on phones), inviting friends, visibility (public /
-// private — private needs an account, offered inline), "Allow remixing", GitHub link and
-// "Download .zip". Changes are reported through onChange(patch); the caller persists them.
+// Share sheet: link + copy (+ native share on phones), inviting friends, making it together (an
+// invite link to change it too), visibility (public / private — private needs an account, offered
+// inline), "Allow remixing", GitHub link and "Download .zip". Changes are reported through
+// onChange(patch); the caller persists them.
 
 import { track } from '@/lib/analytics';
-import { worldHref } from '@/lib/api';
+import { api, worldHref } from '@/lib/api';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { Visibility, WorldFull } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +16,7 @@ import { Switch } from '@/components/ui/Switch';
 import { showFriends, useFriends } from '@/state/friends';
 import { copyText, downloadZip, shareUrl } from '@/state/share';
 import { apiMessage, toast } from '@/state/toast';
+import { useWorld } from '@/state/world';
 import { AccountCard, useMe } from '../orb/AccountCard';
 import { PersonAvatar, whereIs } from '../orb/People';
 import { groupClass } from '../orb/WorldCard';
@@ -51,7 +53,8 @@ function ShareBody({ world, onChange }: { world: WorldFull; onChange(patch: Part
   const [pendingPrivate, setPendingPrivate] = useState(false);
   const repo = world.repo?.repo;
   const native = world.kind === 'native';
-  const owner = world.canEdit;
+  // Those its owner let in change the world; how it's shared stays its owner's.
+  const owner = world.canEdit && !world.invited;
 
   useEffect(() => {
     if (!copied) return;
@@ -118,6 +121,8 @@ function ShareBody({ world, onChange }: { world: WorldFull; onChange(patch: Part
 
       {signedIn && <InviteFriends world={world} />}
 
+      {native && world.canEdit && <MakeTogether world={world} />}
+
       {owner && (
         <>
           {/* Visibility */}
@@ -172,7 +177,7 @@ function ShareBody({ world, onChange }: { world: WorldFull; onChange(patch: Part
         </>
       )}
 
-      {!owner && (
+      {!world.canEdit && (
         <p className="px-1 text-[13px] leading-snug text-ink-2">
           Made by <span className="font-medium text-ink">{world.authorName || 'someone'}</span>.{' '}
           {native && world.forkable ? 'Remix it to make your own version.' : ''}
@@ -200,6 +205,108 @@ function ShareBody({ world, onChange }: { world: WorldFull; onChange(patch: Part
             </a>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Making it together (SPEC §2): its owner's invite link, who else may change it, and leaving
+
+function MakeTogether({ world }: { world: WorldFull }) {
+  const { me } = useMe();
+  const [busy, setBusy] = useState(false);
+  const owner = !world.invited;
+  // Everyone else who may change it (the line above names its owner).
+  const editors = (world.editors ?? []).filter((e) => e.id !== me?.user?.id);
+  const link = (token: string) => `${window.location.origin}/w/${encodeURIComponent(world.id)}?edit=${token}`;
+  /** The world on screen, as it is now. */
+  const update = (patch: Partial<WorldFull>) => {
+    const w = useWorld.getState().world;
+    if (w?.id === world.id) useWorld.setState({ world: { ...w, ...patch } });
+  };
+  const run = async (what: () => Promise<void>, failed: string) => {
+    setBusy(true);
+    try {
+      await what();
+    } catch (e) {
+      toast(apiMessage(e, failed), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyInvite = () =>
+    run(async () => {
+      const token = world.invite ?? (await api.inviteToEdit(world.id, true)).invite;
+      if (!token) return;
+      update({ invite: token });
+      track('together_invite', { world_id: world.id });
+      if (await copyText(link(token))) toast('Invite link copied', 'success');
+      else toast(link(token));
+    }, 'Couldn’t make an invite link. Try again in a moment.');
+  const stopInvite = () =>
+    run(async () => {
+      await api.inviteToEdit(world.id, false);
+      update({ invite: null });
+      toast('The invite link doesn’t let anyone in anymore');
+    }, 'Couldn’t turn the link off. Try again in a moment.');
+  const remove = (id: string) =>
+    run(async () => {
+      await api.removeEditor(world.id, id);
+      update({ editors: editors.filter((e) => e.id !== id) });
+    }, 'Couldn’t take them off. Try again in a moment.');
+  const leave = () =>
+    run(async () => {
+      if (!me?.user) return;
+      await api.removeEditor(world.id, me.user.id);
+      track('together_leave', { world_id: world.id });
+      toast(`You left “${world.name}”`);
+      await useWorld.getState().loadWorld(world.id);
+    }, 'Couldn’t leave right now. Try again in a moment.');
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-1.5 px-1 text-[13px] font-medium text-ink-2">
+        <Icon name="users" size={15} />
+        Make it together
+      </div>
+      {owner ? (
+        <>
+          <p className="px-1 text-[13px] leading-snug text-ink-2">Whoever opens your invite link can change this world with you, once signed in. They build with their own credits.</p>
+          <Button variant="glass" icon="link" onClick={() => void copyInvite()} disabled={busy} className="mt-2.5 w-full">
+            Copy invite link
+          </Button>
+        </>
+      ) : (
+        <div className="flex items-center justify-between gap-3 px-1">
+          <p className="text-[13px] leading-snug text-ink-2">
+            You’re making it with <span className="font-medium text-ink">{world.authorName || 'its maker'}</span>.
+          </p>
+          <Button size="sm" variant="ghost" onClick={() => void leave()} disabled={busy} className="shrink-0">
+            Leave
+          </Button>
+        </div>
+      )}
+      {editors.length > 0 && (
+        <ul aria-label="Who else can change it" className={`${groupClass} mt-2.5 p-1.5`}>
+          {editors.map((e) => (
+            <li key={e.id} className="flex items-center gap-3 px-2 py-1.5">
+              <PersonAvatar person={e} size={28} />
+              <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink">{e.name}</span>
+              {owner && (
+                <Button size="sm" variant="ghost" onClick={() => void remove(e.id)} disabled={busy} className="shrink-0" aria-label={`Remove ${e.name}`}>
+                  Remove
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {owner && world.invite && (
+        <button type="button" onClick={() => void stopInvite()} disabled={busy} className="mt-1.5 px-1 text-[12.5px] font-medium text-ink-2 hover:text-ink disabled:opacity-50">
+          Turn off the invite link
+        </button>
       )}
     </div>
   );

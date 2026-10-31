@@ -111,6 +111,19 @@ If you change a contract, update this file in the same change.
   maker's site has none. On your own world the ⋯ menu has **Rename** (or click the name) and its copy
   is **Duplicate**, and Download .zip is in its Share sheet. Share on a phone opens its share sheet,
   or copies the link and says so.
+- **Making a world together**: a world's owner lets others change it too. Its Share sheet's **Make
+  it together** copies an invite link (`/w/<id>?edit=<token>`, the token kept until its owner turns
+  the link off); whoever opens it signed in comes in at once ("You can change “Garden” now, together
+  with Ana."), and signed out signs in or makes an account first (the address loses the token as
+  the page opens). Those let in change the world like its owner: their chat builds (with their own
+  credits), Rename, New chat, History, clips; deleting it, who sees it, remixing, its tags, its shop,
+  GitHub and who's let in stay the owner's (403 `owner_only`), and they leave from its Share sheet,
+  which lists everyone (its owner removes people there). The world is among their worlds, and its
+  line says so ("by you and Ben", "by Ana and you"). One person's build at a time: while someone
+  else's runs (and has moved in the last 10 minutes), a build is turned down (409 `busy`, "Ana is
+  changing this world right now…") and the others' chats say so ("Ana is changing this world…").
+  A page with such a world on screen looks again every 15 s while it's visible and not building:
+  a new version comes in where it is ("Ana changed the world"). At most 20 people besides its owner.
 - **New world** (Explore, You, a missing world's page) opens the start canvas with the Orb's chat
   open and its composer focused, not the start screen. The Orb's first line there ("What should we
   make?") also offers "Or start from an existing world": three popular remixable worlds
@@ -542,6 +555,9 @@ visit), `path` (no query string or fragment), `world_id`, `props` (jsonb: flat, 
 `referrer` (another site, on a tab's first page view), `country` (Vercel's geo header), `mobile`.
 Indexed on `at`, `(name, at)` and `(device, at)`.
 
+Making a world together: `orb_world_editors` `(world_id, user_id, added_at)`, the accounts a
+world's owner let in; `orb_worlds.edit_invite` the invite link's token (null: none).
+
 Friends (`src/server/friends.ts`): `orb_friends` is one row per pair of accounts, `(a, b)` with
 the smaller id first in byte order (as JavaScript compares strings; the check uses `collate "C"`),
 `requested_by`, `status` ('pending'|'friends'). `orb_presence`: per account, the `world_id` on
@@ -613,8 +629,11 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `POST /api/worlds` | `CreateWorldInput` | `{ world: WorldFull }` |
 | `GET /api/worlds/:id` | | `{ world: WorldFull }` (404 if private & not owner; `remixes`: its changed public remixes; `size`: bytes of its files, for a multi-file world: over 25 MB, the world says while it opens that it can take a minute, its preview playing behind its name) |
 | `GET /api/worlds/:id/remixes` | | `{ worlds: WorldCard[] }`: its public remixes their makers changed (version > 1), newest first, ≤ 24 |
-| `PATCH /api/worlds/:id` | `UpdateWorldInput` | `{ world: WorldFull }` (owner only) |
-| `DELETE /api/worlds/:id` | | `{ ok: true }` |
+| `PATCH /api/worlds/:id` | `UpdateWorldInput` | `{ world: WorldFull }` (owner, or someone it let in: not `visibility`, `forkable` or `tags`, 403 `owner_only`) |
+| `DELETE /api/worlds/:id` | | `{ ok: true }` (owner only) |
+| `GET /api/worlds/:id/editors` | (those who may change it) | `{ version, building, editors }`: making it together, as it stands (`building`: someone else's build running now, their name) |
+| `POST /api/worlds/:id/editors` | owner: `{ invite: true \| false }`; an account: `{ token }` | `{ invite }`: the invite link's token, made or kept (null: turned off); with a token, `{ world: WorldFull }`, now theirs to change too. 401 `account_required`, 404 `invite_invalid`, 409 `too_many` |
+| `DELETE /api/worlds/:id/editors?user=` | | `{ ok }`: its owner takes someone off; anyone else only leaves |
 | `GET /api/worlds/:id/zip` | | `application/zip`: the world's files (its index.html when it has no tree), for the owner or when it can be remixed; else 404. A visitor's world menu and the owner's Share sheet offer it ("Download .zip") (Orb has no code panel: a world's files change through its builds) |
 | `GET /api/worlds/:id/versions` | | `{ versions: WorldVersionInfo[] }` |
 | `GET /api/worlds/:id/versions/:v` | | `{ version: number, code: string }` |
@@ -687,8 +706,11 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `POST /api/admin/credits` | header `x-admin-token`; `{ handle, credits, ref }` | `{ given, wallet }`: gifts the account (or the guest, by its device's handle) bonus credits (they build but can't be cashed out), once per `ref` |
 | `POST /api/events` | `{ sent, mobile?, device?, events: [{ name, t, session, path?, world?, props?, ref? }] }` (≤ 50 events; `t` and `sent` are the browser's epoch ms) | always 200 `{ accepted }` (see Analytics below) |
 
-Ownership rule (`canEdit`): viewer's session user owns the world, or the viewer's device hash
-owns it, or the viewer's device is linked to the world's owner user.
+Ownership rule (`isOwner`): viewer's session user owns the world, or the viewer's device hash
+owns it, or the viewer's device is linked to the world's owner user. Who may change it (`canEdit`):
+its owner, and the accounts it let in (§2 "Making a world together"; the session user or the
+device's linked user). `WorldFull` tells those who may change it `editors` (`{ id, name, handle }`),
+those let in `invited: true`, and its owner `invite` (the token, or null).
 
 Builds on Orb's AI check the builder's credits first (402 `out_of_credits` when none are left;
 `message` says what next for their plan) and are charged as they go, for what each model call
