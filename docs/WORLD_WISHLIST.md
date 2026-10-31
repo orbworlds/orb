@@ -157,6 +157,16 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   **Dekoboko** (one motion demo in a list of them), **Pure Particles** (pureart-xyz: never got past
   its loader here). Not looked at yet: **Tiberava** (tiberava.online, a Roman city game on Show
   HN; its page never finished drawing for a screenshot on 25 October).
+- **Scouted on 31 October 2026** (three.js forum, Show HN): Rækk du ferga? went in, embedded (no
+  code found). **The Light that Remains** (thelightremains.vercel.app: a narrative sailing game
+  made in memory of its maker's mother, among the most moving found) frames fine and its opening
+  draws in Orb, dusk falling over a lighthouse island, but on software WebGL the sailing never
+  began after two minutes: check it on a real GPU and add it. Left out: **Catcopter**
+  (catcopter.com: lively live multiplayer, but its arena drew flat and 2D here), **Balk**
+  (balk.club: asks for a sign-in), **M / DRIVE** (bmw-motorsport.vercel.app: a racer built round
+  one car maker's models), and **Salon Noir** (a casino).
+  Not looked at yet: **Cinderwake** (cinderwake.io, a survivors-style game on three.js's WebGPU
+  renderer).
 
 ## Embeds we would add if their sites allowed it
 

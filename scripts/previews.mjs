@@ -669,6 +669,8 @@ const SHOTS = {
   'ext-forestride': { wait: 45000, steps: [{ click: [320, 250], wait: 2000 }], hold: ['w'], crf: [56, 36] },
   // Camp Nou: the stadium turning slowly on its own (Auto orbit), every seat in the club's colours, the page's own
   // titles and buttons hidden
+  // Rækk du ferga?: past its title (Kjør!), the green car with a kayak on its roof driving the coast road of the island
+  'ext-rekk-du-ferga': { wait: 40000, steps: [{ click: [484, 338], wait: 8000 }], hold: ['ArrowUp'] },
   'ext-camp-nou': {
     wait: 40000, crf: [52, 33],
     setup: async () => {

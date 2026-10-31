@@ -3091,5 +3091,30 @@
       "author_url": "https://x.com/thebuggeddev",
       "made_with": "GPT-6 Astra, three.js"
     }
+  },
+  {
+    "id": "ext-rekk-du-ferga",
+    "name": "Rækk du ferga?",
+    "description": "Race down the island roads of Ytterøy in Norway to catch the ferry before it leaves, crashing through houses and dodging exploding sheep.",
+    "kind": "external",
+    "external_url": "https://www.rekkerduferga.no/",
+    "source_url": null,
+    "author_name": "Tor Martin Norvik",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/ext-rekk-du-ferga.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/a-funny-driving-game-with-a-lot-of-personality-and-exploding-sheep/96171",
+      "platform": "three.js forum",
+      "views": 60,
+      "likes": 2,
+      "posted_at": "2026-10-30",
+      "handle": "@Tor_Martin_Norvik",
+      "author_url": "https://www.rekkerduferga.no/",
+      "made_with": "three.js"
+    }
   }
 ]
