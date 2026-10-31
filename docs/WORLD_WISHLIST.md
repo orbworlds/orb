@@ -167,6 +167,12 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   one car maker's models), and **Salon Noir** (a casino).
   Not looked at yet: **Cinderwake** (cinderwake.io, a survivors-style game on three.js's WebGPU
   renderer).
+- **Football, looked for on 31 October 2026**: Sunday League went in, embedded (its code is on
+  GitHub but all rights reserved, so it can't be hosted). Others found: **DISCBALL3D**
+  (discball3d.com: 3D multiplayer soccer with discs, bots and a shop; frames fine, a good second
+  pick), **Pixel Ball** (pixelball.live: 4v4; didn't load here), **0-0.io** (top-down 2D),
+  **outlol** (refuses a frame, and sells pitch plots), **Krashout** and **Car Soccer** (refuse a
+  frame) and **Efectazo** (see 25 October).
 
 ## Embeds we would add if their sites allowed it
 

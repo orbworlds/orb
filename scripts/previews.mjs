@@ -671,6 +671,28 @@ const SHOTS = {
   // titles and buttons hidden
   // Rækk du ferga?: past its title (Kjør!), the green car with a kayak on its roof driving the coast road of the island
   'ext-rekk-du-ferga': { wait: 40000, steps: [{ click: [484, 338], wait: 8000 }], hold: ['ArrowUp'] },
+  // Sunday League: past its language and title cards, a scrappy kickabout in a car park at dusk (the match its menu
+  // plays behind it; the setup's clicks only get it there)
+  'ext-sunday-league': {
+    wait: 15000, crf: [46, 31],
+    setup: async () => {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const button = (re) => [...document.querySelectorAll('button')].filter((b) => b.offsetParent).reverse().find((b) => re.test(b.innerText));
+      const type = (el, v) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); };
+      button(/^English$/)?.click();
+      await sleep(4000);
+      for (const t of ['pointerdown', 'mousedown', 'click']) document.body.dispatchEvent(new MouseEvent(t, { bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+      await sleep(4000);
+      for (const re of [/^Start career$/, /^Start career$/, /^Register the club/, /^Kick-off/]) {
+        const [first, last] = document.querySelectorAll('input');
+        if (first && !first.value) { type(first, 'Kim'); if (last) type(last, 'Berg'); }
+        button(re)?.click();
+        await sleep(6000);
+      }
+      await sleep(20000);
+    },
+  },
   'ext-camp-nou': {
     wait: 40000, crf: [52, 33],
     setup: async () => {

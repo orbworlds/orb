@@ -3116,5 +3116,30 @@
       "author_url": "https://www.rekkerduferga.no/",
       "made_with": "three.js"
     }
+  },
+  {
+    "id": "ext-sunday-league",
+    "name": "Sunday League",
+    "description": "Manage and play for an amateur Sunday-morning side, from backyard tarmac and cinder pitches up the local league, in rain, with seven spectators.",
+    "kind": "external",
+    "external_url": "https://mrpavian.github.io/sunday-league/",
+    "source_url": "https://github.com/MrPavian/sunday-league",
+    "author_name": "MrPavian",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-sunday-league.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/sunday-league-a-football-and-club-management-game/94945",
+      "platform": "three.js forum",
+      "views": 106,
+      "likes": 0,
+      "posted_at": "2026-10-02",
+      "handle": "@MrPavian",
+      "author_url": "https://github.com/MrPavian",
+      "made_with": "three.js, HD pixel art"
+    }
   }
 ]
