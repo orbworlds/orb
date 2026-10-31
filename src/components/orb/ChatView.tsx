@@ -266,7 +266,15 @@ function EmptyState({
       </OrbLine>
     );
   }
-  if (world && isExternal) return <OrbLine text={`${world.name} runs on its maker's site, so I can't look inside it. Describe a world of your own and I'll make it.`} onPick={onPick} />;
+  if (world && isExternal) {
+    // Orb can't see inside it, but it can make one like it, from its name and what it says it is.
+    const like = `Make something like “${world.name}”${world.description ? `: ${world.description.slice(0, 240)}` : ''}`;
+    return (
+      <OrbLine text={`${world.name} runs on its maker's site, so I can't change it here. Want one like it of your own?`} onPick={onPick}>
+        <Chips items={['Make something like this']} onPick={() => onPick(like)} className="mt-3" />
+      </OrbLine>
+    );
+  }
   if (world && visitor) return <OrbLine text={`You’re in ${world.name}${world.authorName ? ` by ${world.authorName}` : ''}. Ask me anything about it.`} chips={VISITOR_CHIPS} onPick={onPick} />;
   return <OrbLine text="What should we change?" chips={template?.suggestions ?? CHANGE_CHIPS} onPick={onPick} />;
 }

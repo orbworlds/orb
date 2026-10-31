@@ -42,7 +42,8 @@ If you change a contract, update this file in the same change.
 - **External world**: a curated showcase entry that embeds an existing website by URL
   (e.g. Hikari Dream House). `kind: 'external'`. Not editable here and has no Remix (its menu links to
   its source repository, if any). Orb can't read its code, so what's
-  typed in its chat starts a new world of one's own from that text. A curated world whose code is
+  typed in its chat starts a new world of one's own from that text; its chat offers **Make something
+  like this** (a world of one's own from its name and description). A curated world whose code is
   open source (`native` in `seeds.json`) is imported from its repository instead and runs from
   Orb's copy, remixable (a start page from `src/data/seed-pages.ts` when its repository has none
   a world can run).
