@@ -1,17 +1,17 @@
 'use client';
-// Recording a clip (a small pill with the seconds left), then the clip: a preview, Share… (the
-// phone's share sheet, with the video file) and Download. See src/state/clips.ts.
+// Recording a clip (a small pill with how long it has run, and Stop), then the clip: a preview,
+// Share… (the phone's share sheet, with the video file) and Download. See src/state/clips.ts.
 import { useEffect, useMemo, useState } from 'react';
 import { track } from '@/lib/analytics';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { useClip, CLIP_MS } from '@/state/clips';
+import { useClip, CLIP_MAX_MS } from '@/state/clips';
 import { saveFile, shareUrl, slugify } from '@/state/share';
 import { toast } from '@/state/toast';
 import { useWorld } from '@/state/world';
 
 export function ClipSheet() {
-  const { status, startedAt, blob, url, world, record, close } = useClip();
+  const { status, startedAt, blob, url, world, record, stop, close } = useClip();
   const file = useMemo(() => (blob && world ? new File([blob], `${slugify(world.name)}-on-orb.${blob.type === 'video/mp4' ? 'mp4' : 'webm'}`, { type: blob.type }) : null), [blob, world]);
   const canShare = !!file && typeof navigator !== 'undefined' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
 
@@ -32,7 +32,7 @@ export function ClipSheet() {
 
   return (
     <>
-      {status === 'recording' && <Recording startedAt={startedAt} />}
+      {(status === 'recording' || status === 'stopping') && <Recording startedAt={startedAt} stopping={status === 'stopping'} onStop={stop} />}
       <Modal open={status === 'ready'} onClose={close} title="Your clip" width={520}>
         {url && (
           <div className="flex flex-col gap-4">
@@ -69,21 +69,34 @@ export function ClipSheet() {
   );
 }
 
-function Recording({ startedAt }: { startedAt: number }) {
+function Recording({ startedAt, stopping, onStop }: { startedAt: number; stopping: boolean; onStop(): void }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(t);
   }, []);
-  const left = Math.max(0, Math.ceil((CLIP_MS - (now - startedAt)) / 1000));
+  const ran = Math.min(CLIP_MAX_MS, Math.max(0, now - startedAt));
+  const done = stopping || ran >= CLIP_MAX_MS;
+  const s = Math.floor(ran / 1000);
   return (
     <div
       role="status"
-      className="glass fixed z-50 flex h-10 items-center gap-2 rounded-full px-4 text-[13.5px] font-medium text-ink"
+      className="glass fixed z-50 flex h-10 items-center gap-2 rounded-full pr-1.5 pl-4 text-[13.5px] font-medium text-ink"
       style={{ top: 'calc(var(--safe-t) + 14px)', left: '50%', transform: 'translateX(-50%)' }}
     >
-      <span aria-hidden="true" className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#ff4d6d]" />
-      {left > 0 ? `Recording a clip · ${left}` : 'Making your clip…'}
+      <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full bg-[#ff4d6d] ${done ? '' : 'animate-pulse'}`} />
+      {done ? (
+        <span className="pr-2.5">Making your clip…</span>
+      ) : (
+        <>
+          <span className="tabular-nums">
+            Recording · {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
+          </span>
+          <button type="button" onClick={onStop} className="ml-1 h-7 rounded-full bg-ink px-3 text-[13px] font-medium text-paper transition-transform active:scale-95">
+            Stop
+          </button>
+        </>
+      )}
     </div>
   );
 }

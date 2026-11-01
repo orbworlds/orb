@@ -24,6 +24,8 @@ export interface WorldFrameHandle {
   capture(): Promise<string | null>;
   /** Record `ms` of the world on screen as a video with `label` drawn in, or why not (see WorldBridge.recordClip). */
   recordClip(ms: number, label: string): Promise<{ blob: Blob } | { error: string }>;
+  /** End the clip being recorded now. */
+  stopClip(): void;
   /** Re-run the current world from scratch. */
   reload(): void;
   /** Focus the world (keyboard input goes to it). */
@@ -202,6 +204,10 @@ class FrameStack {
 
   recordClip(ms: number, label: string): Promise<{ blob: Blob } | { error: string }> {
     return this.current ? this.current.bridge.recordClip(ms, label) : Promise.resolve({ error: 'not_ready' });
+  }
+
+  stopClip(): void {
+    this.current?.bridge.stopClip();
   }
 
   /**
@@ -424,6 +430,7 @@ export default function WorldFrame({ html, externalUrl, ctx, onReady, onError, o
     () => ({
       capture: () => (external ? Promise.resolve(null) : (stackRef.current?.capture() ?? Promise.resolve(null))),
       recordClip: (ms, label) => (external ? Promise.resolve({ error: 'external' }) : (stackRef.current?.recordClip(ms, label) ?? Promise.resolve({ error: 'not_ready' }))),
+      stopClip: () => stackRef.current?.stopClip(),
       reload: () => (external ? setExternalKey((k) => k + 1) : stackRef.current?.reload()),
       focus: () => (external ? externalRef.current?.focus() : stackRef.current?.focus()),
       probe: (req, signal) =>

@@ -293,7 +293,7 @@ const CAPTURE_MIN_INTERVAL_MS = 8000; // unsolicited orb.capture() → onCapture
 const TOAST_WINDOW_MS = 5000;
 const TOAST_MAX_PER_WINDOW = 3;
 const MAX_DATA_URL = 3_000_000;
-const MAX_CLIP_BYTES = 40_000_000;
+const MAX_CLIP_BYTES = 250_000_000;
 /** How long after its length a clip may take to come back (encoding, handing the bytes over). */
 const CLIP_GRACE_MS = 15_000;
 const ROOM_JOINS_PER_30S = 8; // new rooms per frame; beyond that a room is solo (each one is a realtime channel)
@@ -363,6 +363,11 @@ export class WorldBridge {
   recordClip(ms: number, label: string): Promise<{ blob: Blob } | { error: string }> {
     if (this.destroyed || !this.iframe.contentWindow) return Promise.resolve({ error: 'gone' });
     return this.request(this.clips, ms + CLIP_GRACE_MS, { error: 'timeout' }, { type: 'clip-request', ms, label });
+  }
+
+  /** End the clip being recorded now (it comes back as recordClip's answer). */
+  stopClip(): void {
+    if (!this.destroyed && this.iframe.contentWindow) this.post({ type: 'clip-stop' });
   }
 
   /** Ask the world for a thumbnail (~640x400 webp/jpeg data URL); null if none within the timeout. */

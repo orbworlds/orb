@@ -6,3 +6,6 @@ export const SITE = (process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE).replace(/
 
 /** Orb on GitHub (the org: Orb and its games), linked from the home page's footer. */
 export const GITHUB_URL = 'https://github.com/orbworlds';
+
+/** Orb's YouTube channel, linked beside GitHub in the home page's footer. */
+export const YOUTUBE_URL = 'https://www.youtube.com/@orbworlds';

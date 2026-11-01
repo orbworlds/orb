@@ -1138,6 +1138,7 @@ const RUNTIME_SOURCE = String.raw`
     if (d.type === 'store-result' || d.type === 'invite-result' || d.type === 'shop-result') { var cb = pending[d.reqId]; if (cb) { cb(d); } }
     else if (d.type === 'capture-request') { post({ type: 'capture', reqId: d.reqId, dataUrl: safeGrab() }); }
     else if (d.type === 'clip-request') { try { recordClip(d); } catch (err) { clipping = false; post({ type: 'clip-result', reqId: d.reqId, error: 'failed' }); } }
+    else if (d.type === 'clip-stop') { if (clipStop) { clipStop(); } }
     else if (d.type === 'probe') { probe(d); }
     else if (d.type === 'room-event') { var rm = rooms[typeof d.room === 'string' ? d.room : '']; if (rm) { rm.dispatch(d.event); } }
   }, true);
@@ -1938,11 +1939,13 @@ const RUNTIME_SOURCE = String.raw`
     });
   }
 
-  /* ===== Clips: a few seconds of the world as a video to share (parent sends 'clip-request') ===== */
+  /* ===== Clips: the world as a video to share (parent sends 'clip-request', and 'clip-stop' to end it) ===== */
   /* The main canvas, redrawn every frame onto a canvas of at most 1280 px with the visitors' name
      tags and a small label (the world's address); recorded with MediaRecorder, mp4 where the
-     browser can, else webm. The world's own HTML on top of its canvas isn't in it. */
-  var clipTags = [], clipping = false;
+     browser can, else webm, for the time asked (at most 10 minutes) or until 'clip-stop'. The
+     world's own HTML on top of its canvas isn't in it. */
+  var clipTags = [], clipping = false, clipStop = null;
+  var CLIP_MAX_MS = 600000;
   var CLIP_TYPES = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
   function clipType() {
     var MR = W.MediaRecorder;
@@ -1993,7 +1996,7 @@ const RUNTIME_SOURCE = String.raw`
     var src = bestCanvas(), type = clipType();
     if (!src) { fail('no_canvas'); return; }
     if (type === null || typeof HTMLCanvasElement.prototype.captureStream !== 'function') { fail('unsupported'); return; }
-    var ms = Math.max(1000, Math.min(15000, Number(d.ms) || 8000));
+    var ms = Math.max(1000, Math.min(CLIP_MAX_MS, Number(d.ms) || 8000));
     var r = src.getBoundingClientRect(), k = Math.min(1, 1280 / (Math.max(r.width, r.height) || 1));
     var cw = Math.max(2, Math.round((r.width * k) / 2) * 2), ch = Math.max(2, Math.round((r.height * k) / 2) * 2);
     var out = D.createElement('canvas'), g, stream, rec, chunks = [], stopped = false, t0;
@@ -2002,7 +2005,8 @@ const RUNTIME_SOURCE = String.raw`
     if (!g) { fail('unsupported'); return; }
     try {
       stream = out.captureStream(30);
-      rec = type ? new W.MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 4000000 }) : new W.MediaRecorder(stream);
+      /* A long clip at a lower bitrate, so ten minutes stay under 200 MB. */
+      rec = type ? new W.MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: ms > 30000 ? 2500000 : 4000000 }) : new W.MediaRecorder(stream);
     } catch (e) { fail('unsupported'); return; }
     var label = typeof d.label === 'string' ? clip(d.label, 80) : '';
     var sx = cw / (r.width || cw), sy = ch / (r.height || ch);
@@ -2012,14 +2016,20 @@ const RUNTIME_SOURCE = String.raw`
       for (var i = 0; i < clipTags.length; i++) { drawClipTag(g, clipTags[i], (clipTags[i].x - r.left) * sx, (clipTags[i].y - r.top) * sy, sx); }
       if (label) { drawClipLabel(g, label, cw, ch); }
     }
+    function end() {
+      if (stopped) { return; }
+      stopped = true;
+      clipStop = null;
+      try { rec.stop(); } catch (e) { fail('recorder'); }
+    }
     function frame() {
       if (stopped) { return; }
       draw();
-      if (nowMs() - t0 >= ms) { stopped = true; try { rec.stop(); } catch (e) { fail('recorder'); } return; }
+      if (nowMs() - t0 >= ms) { end(); return; }
       raf(frame);
     }
     rec.ondataavailable = function (e) { if (e.data && e.data.size) { chunks.push(e.data); } };
-    rec.onerror = function () { if (!stopped) { stopped = true; fail('recorder'); } };
+    rec.onerror = function () { if (!stopped) { stopped = true; clipStop = null; fail('recorder'); } };
     rec.onstop = function () {
       try { stream.getTracks().forEach(function (tr) { tr.stop(); }); } catch (e) { /* ignore */ }
       var blob = new Blob(chunks, { type: String(rec.mimeType || type || 'video/webm').split(';')[0] });
@@ -2031,6 +2041,7 @@ const RUNTIME_SOURCE = String.raw`
     };
     draw();
     t0 = nowMs();
+    clipStop = end;
     rec.start(250);
     raf(frame);
   }

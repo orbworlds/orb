@@ -1413,6 +1413,15 @@ async function testClips(context) {
     return b.error ?? 'ok';
   });
   check('one clip at a time (a second one meanwhile → busy)', busy === 'busy', busy);
+  const stopped = await page.evaluate(async () => {
+    const t0 = performance.now();
+    const asked = window.__orbHarness.clip(60_000, 'orb.test/clips');
+    await new Promise((r) => setTimeout(r, 1500));
+    window.__orbHarness.stopClip();
+    const r = await asked;
+    return { ms: Math.round(performance.now() - t0), error: r.error, size: r.size };
+  });
+  check('a clip runs until it’s stopped (asked for a minute, stopped after 1.5 s)', !stopped.error && stopped.size > 2000 && stopped.ms < 8000, stopped);
   await load(page, doc('<h1>No canvas here</h1>'));
   const none = await page.evaluate(() => window.__orbHarness.clip(1000));
   check('a world without a canvas → no_canvas', none.error === 'no_canvas', none);

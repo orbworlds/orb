@@ -90,7 +90,7 @@ If you change a contract, update this file in the same change.
   its worlds (the lead and four rows, at every width), **More** (`/explore`: all of them,
   in place, as a page of its own: the browser's back returns home) and a footer (orbworlds, Plans,
   the Orb kit on npm, `/llms.txt` (how to make worlds, for AI agents), GitHub (the org:
-  `GITHUB_URL`) and Back to top). Sending from the composer hands over to the chat on the canvas;
+  `GITHUB_URL`), YouTube (`YOUTUBE_URL`, @orbworlds) and Back to top). Sending from the composer hands over to the chat on the canvas;
   the world it makes gets its own address as a new page (the browser's back returns home). Once
   Explore's header reaches the top it stays there, opaque over a hairline, with the Orb at its end.
   There is one Explore, and it is this page: a world's way back, "See all", `/explore` and a missing
@@ -843,7 +843,7 @@ iframe → parent: `ready`; `error {message, stack?, line?, col?, source?}`;
 `room {op:'join'|'send'|'state'|'leave', room?, data?}` (`room` = the room's name, '' for the world's own);
 `invite {reqId, room}`; `shop {reqId, op:'items'|'owned'|'buy', item?}`; `toast {text}`; `title {text}`; `drop {files}` (pictures dropped on the world that it didn't take itself: they go with the person's next message, the chat open); `probe-result {reqId, result?: ProbeResult, error?}`;
 `clip-result {reqId, mime, data: ArrayBuffer (transferred)} | {reqId, error}`.
-parent → iframe: `capture-request {reqId}`; `clip-request {reqId, ms, label}`; `store-result {reqId, ok, value?, error?}`; `invite-result {reqId, url}`;
+parent → iframe: `capture-request {reqId}`; `clip-request {reqId, ms, label}`; `clip-stop` (end the clip now: it comes back as `clip-result`); `store-result {reqId, ok, value?, error?}`; `invite-result {reqId, url}`;
 `shop-result {reqId, ok, value?, error?}`;
 `room-event {room, event: RoomEvent}`; `probe {reqId, actions: ProbeAction[], opts: {size?, shots?}}`.
 A world is in at most 4 rooms at once (a page in at most 8 networked rooms; joining too fast gives solo rooms).
@@ -861,12 +861,15 @@ one connection holds its presence key (peer ids aren't secret; a stranger reusin
 friend left, or alongside them, is no friend). The world bar counts who's in the world's own
 room, you included (`onPeople` counts the others: one other person there makes 2, beside a green
 dot, or friends' faces when friends are among them).
-A **clip** (the world bar's "Record a clip", `src/state/clips.ts`) is `ms` (1–15 s; the app asks
-for 8) of the world's main canvas, redrawn each frame onto a canvas of at most 1280 px with the
-visitors' name tags and `label` (the world's address) drawn in, recorded with MediaRecorder (mp4
-where the browser can, else webm, 4 Mbit/s). One at a time (`busy`); a world without a canvas
-answers `no_canvas`. The world's HTML on top of its canvas isn't in it. The finished clip opens in
-a sheet: a preview, Share… (the phone's share sheet with the file) and Download.
+A **clip** (the world bar's "Record a clip", `src/state/clips.ts`) is `ms` (1 s to 10 minutes; the
+app asks for the 10 minutes and ends it with `clip-stop`) of the world's main canvas, redrawn each
+frame onto a canvas of at most 1280 px with the visitors' name tags and `label` (the world's
+address) drawn in, recorded with MediaRecorder (mp4 where the browser can, else webm; 4 Mbit/s,
+2.5 for clips asked longer than 30 s, so ten minutes stay under 200 MB). While it records, a pill
+at the top says for how long ("Recording · 0:12") with **Stop**; at 10 minutes it stops by itself.
+One at a time (`busy`); a world without a canvas answers `no_canvas`. The world's HTML on top of
+its canvas isn't in it. The finished clip opens in a sheet: a preview, Share… (the phone's share
+sheet with the file) and Download.
 `orb.visitors` rides on a room (the world's own unless `room` is given): a player's pose is `_p`
 in its room state, next to whatever the world gave `room.setState` (an object; a non-object state
 leaves no room for it). The runtime samples the pose every 100 ms and sends it when it changes:

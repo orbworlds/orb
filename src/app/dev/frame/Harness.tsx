@@ -29,6 +29,7 @@ interface HarnessApi {
   setWears(wears: string[]): void;
   /** Record a clip of the world: its type, size and an object URL to play it, or why not. */
   clip(ms: number, label?: string): Promise<{ type: string; size: number; url: string } | { error: string }>;
+  stopClip(): void;
   /** What "the player" answers when the world asks to sell something (orb.shop.buy), after `shopDelay` ms. */
   shopAnswer: { ok: boolean; reason?: string };
   shopDelay: number;
@@ -223,6 +224,7 @@ export default function Harness({ params }: { params: Record<string, string> }) 
       inject: (h) => injectRuntime(h, ctxRef.current),
       setFriendPeers: (peers, askedAt = Date.now()) => setFriendPeers(peers, askedAt),
       setWears: (wears) => setRoomIdentity({ ...ctxRef.current.me, wears }),
+      stopClip: () => frame.current?.stopClip(),
       clip: async (ms, label = 'orb.test/harness') => {
         const r = (await frame.current?.recordClip(ms, label)) ?? { error: 'no frame' };
         return 'error' in r ? r : { type: r.blob.type, size: r.blob.size, url: URL.createObjectURL(r.blob) };

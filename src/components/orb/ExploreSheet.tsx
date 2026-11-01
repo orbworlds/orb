@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { track } from '@/lib/analytics';
 import { api } from '@/lib/api';
-import { GITHUB_URL } from '@/lib/site';
+import { GITHUB_URL, YOUTUBE_URL } from '@/lib/site';
 import { onPhone, touchFirst } from '@/lib/keyboard';
 import type { WorldCard as WorldCardData } from '@/lib/types';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -377,7 +377,7 @@ function ExploreOverlay({ open, hidden, intro, building, start, onOpenWorld, onR
   );
 }
 
-/** The home page's foot, past the last world: Orb's name, its plans, the kit, llms.txt for agents, GitHub and a way back up. */
+/** The home page's foot, past the last world: Orb's name, its plans, the kit, llms.txt for agents, GitHub, YouTube and a way back up. */
 function Footer({ onTop }: { onTop(): void }) {
   const link = 'rounded-full px-2.5 py-1.5 text-ink-2 transition-colors hover:text-ink';
   return (
@@ -395,6 +395,9 @@ function Footer({ onTop }: { onTop(): void }) {
         </a>
         <a className={`${link} inline-flex items-center gap-1.5`} href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
           <Icon name="github" size={14} /> GitHub
+        </a>
+        <a className={`${link} inline-flex items-center gap-1.5`} href={YOUTUBE_URL} target="_blank" rel="noopener noreferrer">
+          <Icon name="youtube" size={14} /> YouTube
         </a>
         <button type="button" className={`${link} inline-flex items-center gap-1`} onClick={onTop}>
           Back to top <Icon name="arrow-up" size={13} />
