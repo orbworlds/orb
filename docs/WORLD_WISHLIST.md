@@ -173,6 +173,13 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   pick), **Pixel Ball** (pixelball.live: 4v4; didn't load here), **0-0.io** (top-down 2D),
   **outlol** (refuses a frame, and sells pitch plots), **Krashout** and **Car Soccer** (refuse a
   frame) and **Efectazo** (see 25 October).
+- **Scouted on 1 November 2026**, a quiet day: nothing added. **Architect 01**
+  (danielalshriky.com/my-3d-worlds, by Daniel Alshriky, maker of Tiny Boat, Big Lake: a robot in
+  a sunlit forest of stone ruins, a portfolio you walk rather than read; beautiful) frames fine
+  and draws in Orb, and touching its star starts its opening, but on software WebGL the walk never
+  began: check it on a real GPU with Tiny Boat. For a later day: **Survive the Horde**
+  (babylon-fps.vercel.app, Babylon.js, on GitHub without a licence file: a substantial zombie
+  shooter with an offline solo mode, but grey and modelled on PUBG; not beautiful enough yet).
 
 ## Embeds we would add if their sites allowed it
 
