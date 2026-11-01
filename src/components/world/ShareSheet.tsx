@@ -273,7 +273,7 @@ function MakeTogether({ world }: { world: WorldFull }) {
       </div>
       {owner ? (
         <>
-          <p className="px-1 text-[13px] leading-snug text-ink-2">Whoever opens your invite link can change this world with you, once signed in. They build with their own credits.</p>
+          <p className="px-1 text-[13px] leading-snug text-ink-2">Whoever opens your invite link can change this world with you, once signed in, all at the same time. They build with their own credits.</p>
           <Button variant="glass" icon="link" onClick={() => void copyInvite()} disabled={busy} className="mt-2.5 w-full">
             Copy invite link
           </Button>
@@ -289,7 +289,7 @@ function MakeTogether({ world }: { world: WorldFull }) {
         </div>
       )}
       {editors.length > 0 && (
-        <ul aria-label="Who else can change it" className={`${groupClass} mt-2.5 p-1.5`}>
+        <ul aria-label="Who else can change it" className={`${groupClass} mt-2.5 max-h-64 overflow-y-auto overscroll-contain p-1.5`}>
           {editors.map((e) => (
             <li key={e.id} className="flex items-center gap-3 px-2 py-1.5">
               <PersonAvatar person={e} size={28} />

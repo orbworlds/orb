@@ -102,6 +102,25 @@ export interface WorldEditor {
   handle: string | null;
 }
 
+/** Someone making a world with you right now: it's on their screen, or their build is changing it. */
+export interface WorldMaker {
+  /** Their account ('owner': the build of a world's owner without one). */
+  id: string;
+  name: string;
+  /** Their blob: its color (null: Orb picks one) and what it wears. */
+  look: { color: string | null; wear: string[] };
+  /** What they asked Orb for, while their build changes the world (else null). */
+  building: string | null;
+}
+
+/** How a world made together stands now (GET /api/worlds/:id/editors). */
+export interface TogetherNow {
+  version: number;
+  editors: WorldEditor[];
+  /** The others making it right now, those building first. */
+  makers: WorldMaker[];
+}
+
 /** A world kept in sync with a branch of a GitHub repository. */
 export interface WorldRepo {
   /** owner/name */
@@ -169,6 +188,11 @@ export interface UpdateWorldInput {
   prompt?: string;
   /** Multi-file worlds: switch to this (existing) file tree, e.g. to restore a version. */
   tree?: string;
+  /**
+   * With `tree`: the tree that change is from. What changed from it to `tree` goes onto the world as
+   * it is now, others' changes since kept (undoing one build of a world made together).
+   */
+  base?: string;
 }
 
 export interface WorldVersionInfo {
@@ -450,6 +474,8 @@ export interface BuildInfo {
   fromVersion?: number;
   /** World version saved after this build. */
   toVersion?: number;
+  /** The build's own files when it saved (others' changes made meanwhile aside): undo takes back only what it changed. */
+  ownTree?: string;
   suggestions?: string[];
   /** Ask mode: they asked to change someone else's world, so the page offers Remix (their own copy). */
   remix?: boolean;

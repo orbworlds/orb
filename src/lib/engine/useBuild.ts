@@ -27,7 +27,7 @@ import { getModelSettings, listChats, loadChatMessages, saveChatMessages, saveCh
 import { BuildError, DETACH, loadTreeEntry, resumeBuild as defaultResumeBuild, runBuild as defaultRunBuild, sendLookAnswer, type AgentLook, type AgentVersion, type BuildHooks } from './client';
 import { treePath, withTree } from '../tree';
 import { ProtocolParser, type ProtocolEvent } from './protocol';
-import { BUILD_LIMITS, isBuildImage, PHOTOS_ONLY, VIDEO_ONLY } from './prompt';
+import { BUILD_LIMITS, isBuildImage, PHOTOS_ONLY, REPAIR_REQUEST, VIDEO_ONLY } from './prompt';
 import { keepSent, sentPhotos, type Photo } from '../photos';
 
 export interface BuildHost {
@@ -56,8 +56,8 @@ export interface BuildHost {
   onBackgroundDone?(info: BackgroundBuild & { status: BuildInfo['status']; error?: string }): void;
   /** The server saved a new version of the world (show it if it's on screen). */
   adoptVersion?(v: AgentVersion & { code: string }): void;
-  /** Restore a previous version (undo). */
-  restore(version: number): Promise<void>;
+  /** Restore a previous version (undo); with `base`, only what changed from `base` to it is taken back, others' changes since kept. */
+  restore(version: number, base?: string): Promise<void>;
   /** Screenshot of the current world for the model (optional). */
   getImage?(): Promise<string | null>;
   /** Run the world on screen (once it shows `tree`), play it and report what it looks like (the agent's looks). */
@@ -206,7 +206,6 @@ function newJob(host: BuildHost, f: Pick<Job, 'threadId' | 'assistantId' | 'user
 /** A look request waits this long before it is answered: replayed output brings its 'looked' frame right after. */
 const LOOK_REPLAY_MS = 400;
 const EMPTY: Snapshot = { threads: [], threadId: '', messages: [], isBuilding: false, retryAfter: null, progress: null, background: [] };
-const REPAIR_REQUEST = 'Automatic check: some of those changes did not work (see <errors>). Please fix just these problems with minimal edits — nothing new.';
 
 function uid(): string {
   try {
@@ -980,6 +979,7 @@ export class BuildEngine {
       job.changed = true;
       this.patchAssistant(job, (d) => {
         d.build.toVersion = v.version;
+        if (v.own) d.build.ownTree = v.own;
       });
       try {
         job.host.adoptVersion?.({ ...v, code });
@@ -1131,7 +1131,7 @@ export class BuildEngine {
     const b = list[i]?.build;
     if (i === -1 || !b || b.undone || b.fromVersion == null) return;
     this.cancelWatch();
-    await host.restore(b.fromVersion);
+    await host.restore(b.fromVersion, b.ownTree);
     this.lastPreviewCode = null;
     // Restoring an older version also removes everything built after it.
     const next = list.map((m, k) => (k >= i && m.build && !m.build.undone && (k === i || m.build.toVersion != null) ? { ...m, build: { ...m.build, undone: true } } : m));

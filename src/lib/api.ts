@@ -16,9 +16,9 @@ import type {
   ShopBought,
   ShopView,
   StoreRequest,
+  TogetherNow,
   UpdateWorldInput,
   WorldCard,
-  WorldEditor,
   WorldFull,
   WorldVersionInfo,
 } from './types';
@@ -91,7 +91,7 @@ export const api = {
   keepWorldsOnGitHub: (auto: boolean) => call<GitHubConnection>('/api/me/github', { method: 'POST', body: JSON.stringify({ auto }) }),
   disconnectGitHub: () => call<{ login: null }>('/api/me/github', { method: 'DELETE' }),
   /** Making a world together (SPEC §2): how it stands, for those who may change it (`building`: someone else changing it now). */
-  together: (id: string) => call<{ version: number; building: string | null; editors: WorldEditor[] }>(`/api/worlds/${enc(id)}/editors`),
+  together: (id: string) => call<TogetherNow>(`/api/worlds/${enc(id)}/editors`),
   /** Its owner's invite to make it together: made (or kept) → its token, or turned off → null. */
   inviteToEdit: (id: string, on: boolean) => call<{ invite: string | null }>(`/api/worlds/${enc(id)}/editors`, { method: 'POST', body: JSON.stringify({ invite: on }) }),
   /** Come in with an owner's invite (an account): the world is theirs to change too. */

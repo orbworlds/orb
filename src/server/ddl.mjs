@@ -286,6 +286,9 @@ alter table orb_agent_jobs add column if not exists ext jsonb;
 alter table orb_agent_jobs add column if not exists inbox text;
 create index if not exists orb_agent_jobs_running on orb_agent_jobs(status, lease_until);
 create index if not exists orb_agent_jobs_world on orb_agent_jobs(world_id, created_at desc);
+-- The build's own files when it last saved (committed_tree is what the world became then, with
+-- what others changed meanwhile): its next save puts what it changed since onto the world as it is.
+alter table orb_agent_jobs add column if not exists saved_tree text;
 -- The agent looking at the world in a page that watches the job (its look tool): when a page last
 -- followed the job, and each look's request and what the page saw (screenshots included).
 alter table orb_agent_jobs add column if not exists watched_at timestamptz;

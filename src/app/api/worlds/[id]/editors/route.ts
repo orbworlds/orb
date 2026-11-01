@@ -1,12 +1,12 @@
 // Making a world together (SPEC §2 "Making a world together").
-// GET /api/worlds/:id/editors — (those who may change it) how it stands → { version, building, editors }:
-//   `building` is someone else changing it right now (their name), or null
+// GET /api/worlds/:id/editors — (those who may change it) how it stands → TogetherNow
+//   { version, editors, makers }: `makers` are the others at it right now (it's on their screen, or
+//   their build is changing it: `building`, what they asked for), with their blob's look
 // POST /api/worlds/:id/editors { invite: true | false } — (its owner) the invite: made, or kept →
 //   { invite }; turned off → { invite: null } (whoever it let in stays)
 // POST /api/worlds/:id/editors { token } — (an account) come in with the owner's invite → { world }
 // DELETE /api/worlds/:id/editors?user=<id> — its owner takes someone off; anyone else leaves → { ok }
 
-import { otherBuilder } from '@/server/agent/runner';
 import { getViewer } from '@/server/auth';
 import { clientIp, fail, handle, json, readJson } from '@/server/http';
 import { ready } from '@/server/schema';
@@ -16,8 +16,7 @@ export const GET = handle(async (req: Request, ctx: IdContext) => {
   const id = await worldIdParam(ctx);
   const viewer = getViewer(req);
   const db = await ready();
-  const now = await togetherOf(db, viewer, id);
-  return json({ ...now, building: await otherBuilder(db, id, viewer) });
+  return json(await togetherOf(db, viewer, id));
 });
 
 export const POST = handle(async (req: Request, ctx: IdContext) => {

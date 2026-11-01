@@ -123,11 +123,20 @@ If you change a contract, update this file in the same change.
   credits), Rename, New chat, History, clips; deleting it, who sees it, remixing, its tags, its shop,
   GitHub and who's let in stay the owner's (403 `owner_only`), and they leave from its Share sheet,
   which lists everyone (its owner removes people there). The world is among their worlds, and its
-  line says so ("by you and Ben", "by Ana and you"). One person's build at a time: while someone
-  else's runs (and has moved in the last 10 minutes), a build is turned down (409 `busy`, "Ana is
-  changing this world right now…") and the others' chats say so ("Ana is changing this world…").
-  A page with such a world on screen looks again every 15 s while it's visible and not building:
-  a new version comes in where it is ("Ana changed the world"). At most 20 people besides its owner.
+  line says so ("by you and Ben", "by Ana and you"). Everyone builds at the same time, nobody
+  waits: each build works on the world as it was when it began, and each time it saves, what it
+  changed since its last save goes onto the world as it is then, merged line by line with what
+  others saved meanwhile (`src/server/merge.ts`: changes in different places are all kept; where two
+  changed the same lines, the later save's stay; lines two added at the same place are all kept).
+  While it builds, the page (and the agent's look) shows its changes on the world as it is now.
+  **Undo** takes back only that build's changes, others' since staying (`base`, §6). A world takes
+  at most 12 builds at once (429, "Lots of people are changing this world right now…"). The others
+  at it right now show as their blobs (their color and what they wear): a few in the world bar
+  (glowing while they build), and over the chat's box who is building and what ("Ana is building:
+  a pond"). A page with such a world on screen looks again every 10 s while it's visible: who is
+  at it (its makers with it on their screen, and whoever's build is changing it), and a new version
+  comes in where it is ("Ana changed the world"), unless the page is building (its own build shows
+  the others' changes as it goes). At most 100 people besides its owner.
 - **New world** (Explore, You, a missing world's page) opens the start canvas with the Orb's chat
   open and its composer focused, not the start screen. The Orb's first line there ("What should we
   make?") also offers "Or start from an existing world": three popular remixable worlds
@@ -561,7 +570,9 @@ visit), `path` (no query string or fragment), `world_id`, `props` (jsonb: flat, 
 Indexed on `at`, `(name, at)` and `(device, at)`.
 
 Making a world together: `orb_world_editors` `(world_id, user_id, added_at)`, the accounts a
-world's owner let in; `orb_worlds.edit_invite` the invite link's token (null: none).
+world's owner let in; `orb_worlds.edit_invite` the invite link's token (null: none);
+`orb_agent_jobs.saved_tree`, a build's own files when it last saved (`committed_tree` is what the
+world became then, others' changes merged in): its next save puts what changed since onto the world.
 
 Friends (`src/server/friends.ts`): `orb_friends` is one row per pair of accounts, `(a, b)` with
 the smaller id first in byte order (as JavaScript compares strings; the check uses `collate "C"`),
@@ -634,9 +645,9 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `POST /api/worlds` | `CreateWorldInput` | `{ world: WorldFull }` |
 | `GET /api/worlds/:id` | | `{ world: WorldFull }` (404 if private & not owner; `remixes`: its changed public remixes; `size`: bytes of its files, for a multi-file world: over 25 MB, the world says while it opens that it can take a minute, its preview playing behind its name) |
 | `GET /api/worlds/:id/remixes` | | `{ worlds: WorldCard[] }`: its public remixes their makers changed (version > 1), newest first, ≤ 24 |
-| `PATCH /api/worlds/:id` | `UpdateWorldInput` | `{ world: WorldFull }` (owner, or someone it let in: not `visibility`, `forkable` or `tags`, 403 `owner_only`) |
+| `PATCH /api/worlds/:id` | `UpdateWorldInput` | `{ world: WorldFull }` (owner, or someone it let in: not `visibility`, `forkable` or `tags`, 403 `owner_only`). With `tree` and `base` (another tree): what changed from `base` to `tree` goes onto the world as it is, others' changes since kept (a build's undo: `base` its own files, `tree` the version before it) |
 | `DELETE /api/worlds/:id` | | `{ ok: true }` (owner only) |
-| `GET /api/worlds/:id/editors` | (those who may change it) | `{ version, building, editors }`: making it together, as it stands (`building`: someone else's build running now, their name) |
+| `GET /api/worlds/:id/editors` | (those who may change it) | `TogetherNow` `{ version, editors, makers }`: making it together, as it stands. `makers`: the others at it right now, those building first, each `{ id, name, look: { color, wear }, building }` (`building`: what they asked for, while their build runs) |
 | `POST /api/worlds/:id/editors` | owner: `{ invite: true \| false }`; an account: `{ token }` | `{ invite }`: the invite link's token, made or kept (null: turned off); with a token, `{ world: WorldFull }`, now theirs to change too. 401 `account_required`, 404 `invite_invalid`, 409 `too_many` |
 | `DELETE /api/worlds/:id/editors?user=` | | `{ ok }`: its owner takes someone off; anyone else only leaves |
 | `GET /api/worlds/:id/zip` | | `application/zip`: the world's files (its index.html when it has no tree), for the owner or when it can be remixed; else 404. A visitor's world menu and the owner's Share sheet offer it ("Download .zip") (Orb has no code panel: a world's files change through its builds) |
@@ -664,7 +675,7 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `GET /api/looks` | | `LooksView`: Orb's things for the blob (`items`: id, name, `slot` head\|face, price), what the account `owned` and its `look` (`color`, `wear`), its `credits` (null signed out), `signedIn` |
 | `PATCH /api/looks` | `{ color?, wear? }` (signed in) | `LooksView`. `color`: one of the palette or null (the device's own); `wear`: things the account has, one per slot. 400 `invalid_color`, 403 `not_owned` |
 | `POST /api/looks/buy` | `{ item, price }` (signed in) | `LooksView`, with the thing bought and put on (in its slot). Orb keeps the sale; otherwise as buying in a world (401, 404 `unknown_item`, 409 `price_changed`, 402 `no_credits`, 429 `daily_limit`, the same 30 tries in 10 minutes) |
-| `POST /api/agent/jobs` | `BuildRequest` (`worldId` required); the person's own key: `x-orb-agent-provider` (anthropic\|openai\|openrouter\|cursor), `x-orb-agent-key`, `x-orb-agent-model`, `x-orb-agent-effort` | starts a build (every build is an agent job) and streams its output (§8), the job's handle first. 400 `bad_request` (no world) or `bad_key`; 404; 429 `{error:'rate_limited', retryAfter}` (also with 3 builds running); 503 `{error:'ai_unavailable'}`; on Orb's AI: 403 `{error:'bot_detected'}`, 402 `{error:'out_of_credits', plan}` |
+| `POST /api/agent/jobs` | `BuildRequest` (`worldId` required); the person's own key: `x-orb-agent-provider` (anthropic\|openai\|openrouter\|cursor), `x-orb-agent-key`, `x-orb-agent-model`, `x-orb-agent-effort` | starts a build (every build is an agent job) and streams its output (§8), the job's handle first. 400 `bad_request` (no world) or `bad_key`; 404; 429 `{error:'rate_limited', retryAfter}` (also with 3 builds of yours running, or 12 changing the world); 503 `{error:'ai_unavailable'}`; on Orb's AI: 403 `{error:'bot_detected'}`, 402 `{error:'out_of_credits', plan}` |
 | `GET /api/agent/jobs/:id` | `?from=N` | the job's output from character N, then live (after a reload, a dropped connection or a request's time limit). This, Stop and answering its looks are only for whoever started the job (its device, or account); anyone else gets 404 |
 | `POST /api/agent/jobs/:id/cancel` | | Stop: `{ ok }`; the job ends within a moment and keeps what it saved |
 | `GET /api/billing` | | `BillingInfo`: the viewer's `plan` (guest\|free\|pro), `credits` (`left`, `monthly`, `used`, `topup`, `periodEnd`, `cancelAt`, `pastDue`; the app shows them to accounts only), `payments` (Stripe set up), `manage` (has a Stripe customer), `earnings` (accounts: `credits` earned in their worlds' shops and not yet used, `total` ever, and `payouts` once they're open: `account` none\|pending\|ready, `payable`, `minimum`, `holdDays`, `buyers` and `minBuyers`, `requested`, `paid`, `currency`, `usdPer`, `country` from the connection), and the `plans` (Free's and Pro's credits, Pro's price, packs, `typicalBuild`, `shopShare`: what makers earn of paid credits spent in their worlds) |
@@ -977,12 +988,13 @@ control frames (`\u001e` + JSON + newline) that the page strips:
 <orb:error>…</orb:error> (the build failed: what to tell the person)
 ```
 Frames: `handle` (the job, to reconnect to), `step` (a file change: pending, its label, done or
-failed), `progress` (the change being written; the page doesn't show it), `tree` (the files changed:
-preview them), `version` (a version saved), `status` (thinking…), `look` / `looked` (the agent
+failed), `progress` (the change being written; the page doesn't show it), `tree` (the files changed,
+on the world as it is now: preview them), `version` (a version saved: `tree` the world's, `own` the
+build's own files then, for undo), `status` (thinking…), `look` / `looked` (the agent
 wants to see the world run: the page showing it plays it and answers), `credits` (what the build
 used so far), `repo`, `resume` (continue in a new request).
 - The page previews the newest tree (debounced, cross-faded), takes over each saved version
-  (undo goes back to the version before the build) and shows the steps as a checklist, where they
+  (undo goes back to the version before the build, taking back only the build's own changes) and shows the steps as a checklist, where they
   came in the output (text before a frame is shown before it).
 - Runtime errors in the first ~4 s after a build saved the world trigger one automatic repair
   round in the same message.

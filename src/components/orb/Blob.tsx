@@ -3,6 +3,7 @@
 // view, its height = 100 units, ground at y = 100) with what it wears (src/lib/looks.ts).
 
 import { useId } from 'react';
+import { lookItem } from '@/lib/looks';
 
 /** `color` moved toward `to` by `t` (0–1). */
 function mix(color: string, to: string, t: number): string {
@@ -12,12 +13,16 @@ function mix(color: string, to: string, t: number): string {
   return `#${[0, 2, 4].map((i) => Math.round(ch(c, i) + (ch(d, i) - ch(c, i)) * t).toString(16).padStart(2, '0')).join('')}`;
 }
 
-/** `head`: only the head and what's on it, bigger (for small tiles). */
-export function Blob({ color, wear, size = 88, label, head = false }: { color: string; wear: readonly string[]; size?: number; label?: string; head?: boolean }) {
+/**
+ * `head`: only the head and what's on it, bigger (for small tiles); `face`: as close as that, with
+ * room above only for something worn on the head (for someone's blob beside their name).
+ */
+export function Blob({ color, wear, size = 88, label, head = false, face = false }: { color: string; wear: readonly string[]; size?: number; label?: string; head?: boolean; face?: boolean }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const on = (x: string) => wear.includes(x);
   const url = (k: string) => `url(#${id}${k})`;
-  const [vb, aspect] = head ? ['14 -24 72 80', 80 / 72] : ['0 -26 100 134', 1.34];
+  const [vb, aspect] =
+    face && !wear.some((w) => lookItem(w)?.slot === 'head') ? ['16 8 68 58', 58 / 68] : head || face ? ['14 -24 72 80', 80 / 72] : ['0 -26 100 134', 1.34];
   return (
     <svg viewBox={vb} width={size} height={Math.round(size * aspect)} role="img" aria-label={label ?? 'Blob'} className="block overflow-hidden">
       <defs>

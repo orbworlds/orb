@@ -7,8 +7,10 @@
 // load), "mockerror" (the provider fails), "mocklong" (many steps, to span several ticks),
 // "mockchain" (even more of them, each tick ending early, to exercise the hand-over), "mockcutoff"
 // (a reply cut off at the output limit), "mocklook" (plays the world with the look tool and says
-// what it saw), "mockfirstlook" (a big new world's first look, ending with a question). A visitor's
-// request (guide mode) gets an answer, and with "mockchange" the offer of their own copy.
+// what it saw), "mockfirstlook" (a big new world's first look, ending with a question),
+// "mockphoto" (the world uses the person's photo or video), "mockadd:<word>" / "mocktop:<word>" (a
+// file written again whole, with a line of its own). A visitor's request (guide mode) gets an
+// answer, and with "mockchange" the offer of their own copy.
 
 import type { LanguageModel } from 'ai';
 
@@ -150,6 +152,14 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
     return { text: said, calls: [{ name: 'suggest_next', input: { ideas: ['Make it sunset', 'Add fireflies', 'Add soft music'] } }] };
   }
   const hue = /hue: (\d+)/.exec(results);
+  // "mockadd:<word>" / "mocktop:<word>": src/config.js written again whole, as it was read, with a
+  // line of its own at its end / on top (builds of a world made together at the same time merge).
+  const add = /mock(add|top):(\w+)/.exec(request);
+  if (step === 2 && hasWorld && hue && add && !repair) {
+    const was = CONFIG_JS(Number(hue[1]));
+    const line = `// ${add[2]}\n`;
+    return { text: 'Adding a line.', calls: [{ name: 'write_file', input: { label: 'Adding a line', path: 'src/config.js', content: add[1] === 'top' ? line + was : was + line } }] };
+  }
   if (step === 2 && hasWorld && hue && !repair) {
     const next = (Number(hue[1]) + 40) % 360;
     return { text: 'Shifting the colors a little.', calls: [{ name: 'edit_file', input: { label: 'Shifting the colors', path: 'src/config.js', old_string: `hue: ${hue[1]}`, new_string: `hue: ${next}` } }] };

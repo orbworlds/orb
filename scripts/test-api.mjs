@@ -1484,18 +1484,32 @@ async function run() {
 
     check('made private, the world still opens for whoever its owner let in (and nobody else)', (await patch(MAKER_DEV, w.id, { visibility: 'private' }, maker.cookie)).status === 200 && (await get(PAL_DEV, w.id, pal.cookie)).status === 200 && (await get(STRANGER_DEV, w.id, stranger.cookie)).status === 404);
 
-    // One person's build at a time: the second one waits for the first.
-    const slow = build(maker, w.id, 'a slow garden mockslow');
-    await new Promise((r) => setTimeout(r, 1500));
+    // Building at the same time: nobody waits, and each build's changes go onto the others'.
+    const garden = await build(maker, w.id, 'a garden');
+    check('its owner builds the world', garden.status === 200 && /"t":"version"/.test(garden.text), garden.status);
+    await request('POST', '/api/friends/sync', { ...as(pal), body: { worldId: w.id, rooms: [] } });
+    const start = (await get(MAKER_DEV, w.id, maker.cookie)).json.world;
+    const mira = build(maker, w.id, 'mockslow mockadd:mira');
+    await new Promise((r) => setTimeout(r, 300));
+    const palBuild = build(pal, w.id, 'mockslow mocktop:pal');
+    await new Promise((r) => setTimeout(r, 1200));
     const now = (await request('GET', `/api/worlds/${w.id}/editors`, as(pal))).json;
-    check('how it stands, for those who may change it: who else is building it right now, and who may', now?.building === `Mira ${RUN}` && now.editors?.some((e) => e.id === pal.id) && now.version >= 2, now);
+    const miraNow = now?.makers?.find((m) => m.id === maker.id);
+    check('how it stands, for those who may change it: who else is at it right now (with their blob), what they build, and who may', !!miraNow && miraNow.name === `Mira ${RUN}` && /mockadd:mira/.test(miraNow.building ?? '') && Array.isArray(miraNow.look?.wear) && now.editors?.some((e) => e.id === pal.id) && now.version >= 2 && !now.makers.some((m) => m.id === pal.id), now);
+    const forMira = (await request('GET', `/api/worlds/${w.id}/editors`, as(maker))).json;
+    check('…someone with the world on screen is there too, building or not', forMira?.makers?.some((m) => m.id === pal.id), forMira?.makers);
     check('…not for others → 404 (it’s private)', (await request('GET', `/api/worlds/${w.id}/editors`, as(stranger))).status === 404);
-    const busy = await build(pal, w.id, 'add a pond');
-    check('while its owner builds, theirs is turned down → 409 busy, saying who', busy.status === 409 && busy.json.error === 'busy' && busy.json.message.includes(`Mira ${RUN}`), busy.json);
-    const first = await slow;
-    check('…the owner’s build saves', first.status === 200 && /"t":"version"/.test(first.text), first.status);
-    const second = await build(pal, w.id, 'add a pond');
-    check('then theirs builds and saves into the same world', second.status === 200 && /"t":"version"/.test(second.text), second.status + ' ' + second.text.slice(0, 200));
+    const [a, b] = await Promise.all([mira, palBuild]);
+    check('two builds at once both run and save', a.status === 200 && b.status === 200 && /"t":"version"/.test(a.text) && /"t":"version"/.test(b.text), [a.status, b.status, b.text.slice(0, 200)]);
+    const both = (await get(MAKER_DEV, w.id, maker.cookie)).json.world;
+    const config = (await request('GET', `/api/tree/${both.tree}/src/config.js`)).text;
+    check('…the world has both changes, though both wrote the same file again whole', /^\/\/ pal\n/.test(config) && /\/\/ mira\n$/.test(config) && /hue: \d+/.test(config), config);
+    const own = [...a.text.matchAll(/"own":"([a-f0-9]{64})"/g)].pop()?.[1];
+    const was = (await request('GET', `/api/worlds/${w.id}/versions/${start.version}`, as(maker))).json;
+    const undo = await patch(MAKER_DEV, w.id, { tree: was.tree, base: own, prompt: 'Undo' }, maker.cookie);
+    const undone = undo.json?.world?.tree ? (await request('GET', `/api/tree/${undo.json.world.tree}/src/config.js`)).text : '';
+    check('undoing one build takes back only its own changes (the other’s stay)', undo.status === 200 && !!own && /^\/\/ pal\n/.test(undone) && !undone.includes('// mira'), { status: undo.status, own: !!own, undone });
+    check('…a base that isn’t a tree → 400', (await patch(MAKER_DEV, w.id, { tree: was.tree, base: 'nope' }, maker.cookie)).status === 400);
 
     const off = await request('DELETE', `/api/worlds/${w.id}/editors?user=${pal.id}`, as(maker));
     check('its owner takes them off: they can’t open the private world anymore', off.status === 200 && (await get(PAL_DEV, w.id, pal.cookie)).status === 404);

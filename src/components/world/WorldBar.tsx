@@ -12,6 +12,7 @@ import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/api';
 import type { WorldFull, WorldRepo } from '@/lib/types';
 import { PersonAvatar } from '@/components/orb/People';
+import { MakersHere } from './Makers';
 import { formatCount, platformName } from '@/components/orb/WorldCard';
 import { useFriends } from '@/state/friends';
 import { useClip } from '@/state/clips';
@@ -255,6 +256,7 @@ export function WorldBar({ visible, actions }: { visible: boolean; actions: Worl
                 </button>
               </>
             )}
+            {canEdit && <MakersHere />}
             {others > 0 && (
               <span className="flex shrink-0 items-center gap-1 font-medium text-ink-2 tabular-nums" title={hereTitle}>
                 {here.length > 0 ? (

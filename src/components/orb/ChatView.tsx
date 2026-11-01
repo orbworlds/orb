@@ -10,7 +10,7 @@ import type { Photo } from '@/lib/photos';
 import { getModelSettings } from '@/lib/local';
 import { TEMPLATE_BY_ID } from '@/lib/templates';
 import { creditsText, useCredits } from '@/state/billing';
-import { useTogether } from '@/state/together';
+import { BuildingNote } from '@/components/world/Makers';
 import { trackPrompt } from '@/state/tracking';
 import { useIsMobile, useUi } from '@/state/ui';
 import { CHANGE_CHIPS, useWorld } from '@/state/world';
@@ -117,13 +117,9 @@ export function ChatView({
   };
 
   const freeTier = getModelSettings().provider === 'free';
-  // Making it together: one person's build at a time.
-  const other = useTogether((s) => s.building);
   const blocked = confirming
     ? 'Loading this world…'
-    : other && canEdit && !isBuilding
-      ? `${other} is changing this world…`
-      : retryAfter != null && retryAfter > 0 && freeTier
+    : retryAfter != null && retryAfter > 0 && freeTier
       ? `Free building resumes in ${formatCountdown(retryAfter)}`
       : null;
 
@@ -196,6 +192,7 @@ export function ChatView({
         </button>
       </div>
       <div className="shrink-0 px-3 pt-1 pb-3">
+        {canEdit && <BuildingNote />}
         {freeTier && <CreditsNote />}
         <Composer
           value={draft}

@@ -290,6 +290,17 @@ button:disabled {
 .animate-pop {
   animation: orb-pop var(--t-med) var(--ease-spring) both;
 }
+/* Someone making the world with you, building right now: their blob glows like the Orb does. */
+.maker-building::before {
+  content: '';
+  position: absolute;
+  inset: 0 -1px -2px;
+  z-index: -1;
+  border-radius: 50%;
+  background: var(--iris-conic);
+  filter: blur(3px);
+  animation: orb-glow 1.6s var(--ease) infinite;
+}
 .shimmer-text {
   background: linear-gradient(90deg, var(--ink-3) 0%, var(--ink-3) 30%, var(--ink) 50%, var(--ink-3) 70%, var(--ink-3) 100%);
   background-size: 200% 100%;

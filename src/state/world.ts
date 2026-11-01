@@ -79,7 +79,8 @@ interface WorldState {
   createForBuild(threadId: string): Promise<{ worldId: string; version: number } | null>;
   /** A build saved a new version on the server: show it if that world is on screen. */
   adoptVersion(v: { worldId: string; version: number; tree: string; code: string; name?: string }): void;
-  restore(version: number): Promise<void>;
+  /** Back to `version` (with `base`: only what changed from `base` to it is undone, others' changes since kept). */
+  restore(version: number, base?: string): Promise<void>;
   rename(name: string): Promise<void>;
   /** Read the world on screen again, keeping its frame (signing in or out changes its address, maker and who may change it). */
   refresh(): Promise<void>;
@@ -445,14 +446,15 @@ export const useWorld = create<WorldState>((set, get, store) => {
           .catch(() => {});
     },
 
-    async restore(version) {
+    async restore(version, base) {
       const s = get();
       if (!s.world || !s.canEdit) return;
       const id = s.world.id;
       try {
         const old = await api.version(id, version);
-        const code = old.code;
-        const { world } = await api.updateWorld(id, old.tree ? { tree: old.tree, prompt: `Restored version ${version}` } : { code, prompt: `Restored version ${version}` });
+        const prompt = `Restored version ${version}`;
+        const { world } = await api.updateWorld(id, old.tree ? { tree: old.tree, ...(base ? { base } : {}), prompt } : { code: old.code, prompt });
+        const code = world.code ?? old.code;
         track('history_restore', { world_id: id, version });
         if (get().world?.id !== id) return;
         set({ world: { ...world, canEdit: true }, baseCode: code, previewCode: code });

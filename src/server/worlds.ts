@@ -13,7 +13,9 @@ import { cache } from 'react';
 import { CURATED_ORDER, PLAYS_THAT_COUNT } from '@/lib/curation';
 import { KEYBOARD_TAG } from '@/lib/keyboard';
 import { TEMPLATES } from '@/lib/templates';
-import type { CreateWorldInput, StoreRequest, UpdateWorldInput, Visibility, WorldCard, WorldEditor, WorldFull, WorldKind, WorldOrigin, WorldRepo, WorldVersionInfo } from '@/lib/types';
+import { PHOTOS_ONLY, REPAIR_REQUEST, VIDEO_ONLY } from '@/lib/engine/prompt';
+import { cleanLook } from '@/lib/looks';
+import type { CreateWorldInput, StoreRequest, TogetherNow, UpdateWorldInput, Visibility, WorldCard, WorldEditor, WorldFull, WorldKind, WorldMaker, WorldOrigin, WorldRepo, WorldVersionInfo } from '@/lib/types';
 import { canEdit, isEditor, isOwner, randomId, sameString, touchDevice, type Viewer } from './auth';
 import { isUniqueViolation, type Db } from './db';
 import { fail, HttpError } from './http';
@@ -21,6 +23,7 @@ import { rateLimit } from './ratelimit';
 import { assignPath } from './paths';
 import { originsConfig } from './origins';
 import { ENTRY, entryOf, FileError, getTree, isSha, putBlob, putTree, treeFromCode, type Tree } from './files';
+import { mergeWorldTrees } from './merge';
 import { ready } from './schema';
 
 // ---------------------------------------------------------------------------------------------
@@ -909,9 +912,18 @@ export async function updateWorld(db: Db, viewer: Viewer, id: string, body: unkn
   if (input.tree !== undefined) {
     // Switch to another (existing) file tree, e.g. restoring a version: its index.html is the code.
     if (!isSha(input.tree)) fail(400, 'bad_request', 'tree must be a file tree id.');
-    const files = await getTree(db, input.tree);
+    let files = await getTree(db, input.tree);
     if (!files) fail(400, 'bad_request', 'That file tree does not exist.');
     tree = input.tree;
+    // Taking back one change (from `base` to `tree`) while others changed the world since: theirs stay.
+    if (input.base !== undefined && input.base !== row.tree && row.tree) {
+      if (!isSha(input.base)) fail(400, 'bad_request', 'base must be a file tree id.');
+      const [base, now] = await Promise.all([getTree(db, input.base), getTree(db, row.tree)]);
+      if (base && now) {
+        files = await mergeWorldTrees(db, base, files, now);
+        tree = await putTree(db, files);
+      }
+    }
     code = await entryOf(db, files);
   } else if (code !== undefined && row.tree && code !== row.code) {
     // A multi-file world's page was edited by hand: same files, new page.
@@ -957,7 +969,7 @@ export async function deleteWorld(db: Db, viewer: Viewer, id: string): Promise<v
 // Making a world together (SPEC §2): its owner's invite lets accounts in to change it too.
 
 /** How many people a world's owner can let in. */
-const EDITORS_MAX = 20;
+const EDITORS_MAX = 100;
 
 /** Who else may change the world (its owner aside), in the order they came in. */
 export async function editorsOf(db: Db, id: string): Promise<WorldEditor[]> {
@@ -970,11 +982,55 @@ export async function editorsOf(db: Db, id: string): Promise<WorldEditor[]> {
   return rows.map((r) => ({ id: r.id, name: r.name, handle: r.handle ?? null }));
 }
 
-/** How making the world together stands, for those who may change it: its version, and who else may. */
-export async function togetherOf(db: Db, viewer: Viewer, id: string): Promise<{ version: number; editors: WorldEditor[] }> {
+/** What someone's build is doing, as the others see it: what they asked for. */
+function buildingFor(prompt: string | null): string {
+  const asked = (prompt ?? '').replace(/\s+/g, ' ').trim();
+  if (asked === REPAIR_REQUEST) return 'a quick fix';
+  if (!asked || asked === PHOTOS_ONLY || asked === VIDEO_ONLY) return 'a change';
+  return asked.length > 140 ? `${asked.slice(0, 139)}…` : asked;
+}
+
+/**
+ * The others making the world right now, those building first: its makers (owner and editors)
+ * with it on their screen (their heartbeat, ./friends.ts, in the last 90 s), and whoever's build is
+ * changing it (one stalled for 10 minutes doesn't count), with what they asked for.
+ */
+async function makersOf(db: Db, viewer: Viewer, id: string): Promise<WorldMaker[]> {
+  const [here, builds] = await Promise.all([
+    db.query<{ id: string; name: string; look: unknown }>(
+      `select u.id, u.name, u.look from orb_presence p join orb_users u on u.id = p.user_id
+       where p.world_id = $1 and not p.away and p.at > now() - interval '90 seconds'
+         and (exists (select 1 from orb_world_editors e where e.world_id = $1 and e.user_id = u.id)
+              or exists (select 1 from orb_worlds w where w.id = $1 and w.owner_user = u.id))
+       limit 120`,
+      [id],
+    ),
+    db.query<{ owner_user: string | null; owner_device: string | null; name: string; look: unknown; prompt: string | null }>(
+      `select j.owner_user, j.owner_device, coalesce(u.name, w.author_name, 'Someone') as name, u.look, j.prompt
+       from orb_agent_jobs j join orb_worlds w on w.id = j.world_id left join orb_users u on u.id = j.owner_user
+       where j.world_id = $1 and j.mode = 'build' and j.status = 'running' and j.updated_at > now() - interval '10 minutes'
+       order by j.created_at
+       limit 60`,
+      [id],
+    ),
+  ]);
+  const mine = (user: string | null, device: string | null) => (!!user && user === viewer.userId) || (!!device && device === viewer.deviceHash);
+  const makers = new Map<string, WorldMaker>();
+  for (const b of builds) {
+    if (mine(b.owner_user, b.owner_device)) continue;
+    // A build without an account can only be its owner's (only accounts are let in).
+    const key = b.owner_user ?? 'owner';
+    makers.set(key, { id: key, name: b.name, look: cleanLook(b.look), building: buildingFor(b.prompt) });
+  }
+  for (const h of here) if (!mine(h.id, null) && !makers.has(h.id)) makers.set(h.id, { id: h.id, name: h.name, look: cleanLook(h.look), building: null });
+  return [...makers.values()];
+}
+
+/** How making the world together stands, for those who may change it: its version, who else may, and who is at it right now. */
+export async function togetherOf(db: Db, viewer: Viewer, id: string): Promise<TogetherNow> {
   await access(db, viewer, await loadMeta(db, id), 'edit');
-  const [row] = await db.query<{ version: number }>(`select version from orb_worlds where id = $1`, [id]);
-  return { version: Number(row?.version) || 0, editors: await editorsOf(db, id) };
+  const [[row], editors, makers] = await Promise.all([db.query<{ version: number }>(`select version from orb_worlds where id = $1`, [id]), editorsOf(db, id), makersOf(db, viewer, id)]);
+  return { version: Number(row?.version) || 0, editors, makers };
 }
 
 /** The owner's invite: made (or kept) when `on`, else turned off (whoever it let in stays) → its token, or null. */

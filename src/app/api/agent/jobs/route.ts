@@ -31,7 +31,7 @@ import { followJob } from '@/server/agent/follow';
 import { buildPhotos, buildVideo, photoNote, videoNote } from '@/server/agent/photos';
 import { cursorOrbPrompt } from '@/server/agent/prompt';
 import { AGENT_EFFORTS, AGENT_PROVIDERS, type AgentEffort, type AgentProvider } from '@/server/agent/models';
-import { createAgentJob, MAX_RUNNING, otherBuilder, runningJobs, runTick, kick } from '@/server/agent/runner';
+import { createAgentJob, MAX_RUNNING, runningJobs, runTick, kick, WORLD_BUILDS_MAX, worldBuilds } from '@/server/agent/runner';
 
 export const maxDuration = 300;
 
@@ -140,9 +140,10 @@ export const POST = handle(async (req: Request): Promise<Response> => {
   const owner = w ? await canEdit(db, viewer, w) : false;
   if (!w || w.kind !== 'native' || (w.visibility === 'private' && !owner)) return error(404, 'not_found', 'This world does not exist.');
   const mode = build.mode === 'ask' || !owner ? 'ask' : 'build';
-  // A world made together changes one person's build at a time.
-  const busy = mode === 'build' ? await otherBuilder(db, build.worldId, viewer) : null;
-  if (busy) return error(409, 'busy', `${busy} is changing this world right now. Try again when that’s done.`);
+  // A world made together takes many builds at once (each saves its changes onto the others'), up to a point.
+  if (mode === 'build' && (await worldBuilds(db, build.worldId)) >= WORLD_BUILDS_MAX) {
+    return error(429, 'rate_limited', 'Lots of people are changing this world right now. Try again in a minute.', { retryAfter: 30 });
+  }
 
   let charged: LimitCheck[] = [];
   let billing: Billing | null = null;

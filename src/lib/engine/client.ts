@@ -41,6 +41,8 @@ export interface AgentVersion {
   worldId: string;
   version: number;
   tree: string;
+  /** The build's own files then (the world's `tree` has others' changes too): what undo takes back. */
+  own?: string;
   name?: string;
 }
 
@@ -295,7 +297,7 @@ async function* readBuildStream(res: Response, signal: AbortSignal, onHandle: (h
         hooks.onStep?.({ id: str('id'), kind: f.kind === 'write' ? 'write' : 'edit', label: str('label').slice(0, 80) || 'A change', status: f.status, ...(str('error') ? { error: str('error').slice(0, 200) } : {}) });
       else if (f.t === 'tree' && /^[a-f0-9]{64}$/.test(str('tree'))) hooks.onTree?.(str('tree'));
       else if (f.t === 'version' && str('worldId') && /^[a-f0-9]{64}$/.test(str('tree')) && Number.isInteger(f.version))
-        hooks.onVersion?.({ worldId: str('worldId'), version: Number(f.version), tree: str('tree'), ...(str('name') ? { name: str('name').slice(0, 120) } : {}) });
+        hooks.onVersion?.({ worldId: str('worldId'), version: Number(f.version), tree: str('tree'), ...(/^[a-f0-9]{64}$/.test(str('own')) ? { own: str('own') } : {}), ...(str('name') ? { name: str('name').slice(0, 120) } : {}) });
       else if (f.t === 'status' && f.phase === 'thinking') hooks.onStatus?.(str('text').slice(0, 200) || undefined);
       else if (f.t === 'look' && /^[\w-]{6,40}$/.test(str('id')) && /^[\w-]{10,64}$/.test(str('job')) && /^[a-f0-9]{64}$/.test(str('tree')))
         hooks.onLook?.({

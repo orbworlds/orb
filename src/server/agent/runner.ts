@@ -16,7 +16,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { streamText, type ModelMessage, type TextStreamPart, type ToolSet } from 'ai';
 import type { Db } from '../db';
 import { control, newJobId, sweepJobs } from '../buildjobs';
-import { getTree, mergeTrees, putTree, type Tree } from '../files';
+import { getTree, putTree, type Tree } from '../files';
+import { mergeWorldTrees } from '../merge';
 import { commitTree, worldTree } from '../worlds';
 import { pushRepo } from '../reposync';
 import { rateLimit } from '../ratelimit';
@@ -89,6 +90,7 @@ interface JobRow {
   base_tree: string | null;
   tree: string | null;
   committed_tree: string | null;
+  saved_tree: string | null;
   prompt: string | null;
   title: string | null;
   steps: number;
@@ -210,21 +212,18 @@ export async function runningJobs(db: Db, owner: Viewer): Promise<number> {
 }
 
 /**
- * Someone else's build changing this world right now (SPEC §2 "Making a world together": one at a
- * time, so nobody's changes are lost): their name, or null. A build that has stalled for a while
- * doesn't count.
+ * How many builds are changing a world at once, at most (SPEC §2 "Making a world together": many
+ * people may build at the same time, their changes merge as each saves).
  */
-export async function otherBuilder(db: Db, worldId: string, viewer: Viewer): Promise<string | null> {
-  const rows = await db.query<{ name: string }>(
-    `select coalesce(u.name, w.author_name, 'Someone') as name
-     from orb_agent_jobs j join orb_worlds w on w.id = j.world_id left join orb_users u on u.id = j.owner_user
-     where j.world_id = $1 and j.mode = 'build' and j.status = 'running' and j.updated_at > now() - interval '10 minutes'
-       and (j.owner_device = $2::text) is not true and (j.owner_user = $3::text) is not true
-       and (j.owner_user = (select d.user_id from orb_devices d where d.hash = $2::text)) is not true
-     order by j.created_at limit 1`,
-    [worldId, viewer.deviceHash, viewer.userId],
+export const WORLD_BUILDS_MAX = 12;
+
+/** The builds changing this world right now (one stalled for 10 minutes doesn't count). */
+export async function worldBuilds(db: Db, worldId: string): Promise<number> {
+  const rows = await db.query<{ n: number }>(
+    `select count(*)::int as n from orb_agent_jobs where world_id = $1 and mode = 'build' and status = 'running' and updated_at > now() - interval '10 minutes'`,
+    [worldId],
   );
-  return rows[0]?.name ?? null;
+  return Number(rows[0]?.n) || 0;
 }
 
 /** What a watching page needs to know about a job. */
@@ -514,6 +513,8 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
   const ws = new Workspace(db, files);
   let tree = job.tree;
   let committedTree = job.committed_tree;
+  /** This build's own files when it last saved (others' changes aside): what it changed since goes onto the world. */
+  let savedTree = job.saved_tree ?? job.committed_tree;
   let committedAt = job.committed_at ? new Date(job.committed_at).getTime() : new Date(job.created_at).getTime();
   let steps = Number(job.steps) || 0;
   let failures = Number(job.failures) || 0;
@@ -539,34 +540,46 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
     await db.query(`update orb_agent_jobs set ${sets.join(', ')} where id = $1`, params);
   };
 
-  /** Save the files as a new version of the world (merged with changes made meanwhile). */
+  /**
+   * `files` (this build's own) onto the world as it is now: what the build changed since it last
+   * saved, merged line by line with what others changed meanwhile (people making the world with
+   * its maker, building at the same time; a hand edit; GitHub).
+   */
+  const ontoWorld = async (files: Tree, now: { tree: string | null; files: Tree }): Promise<string> =>
+    now.tree === savedTree || !savedTree ? putTree(db, files) : putTree(db, await mergeWorldTrees(db, (await getTree(db, savedTree)) ?? {}, files, now.files));
+
+  /** Save the files as a new version of the world (with what others changed meanwhile). */
   const commit = async (): Promise<void> => {
-    if (job.mode !== 'build' || !tree || tree === committedTree) return;
+    if (job.mode !== 'build' || !tree || tree === savedTree) return;
     const photos = Array.isArray(ext.photos) ? (ext.photos as string[]) : [];
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 8; attempt++) {
       const now = await worldTree(db, job.world_id);
       if (!now) return;
-      let target = tree;
-      if (now.tree !== committedTree && committedTree) {
-        // The world changed while we worked (a hand edit, another build): keep both.
-        const base: Tree = (await getTree(db, committedTree)) ?? {};
-        target = await putTree(db, mergeTrees(base, ws.files, now.files));
-      }
       // The person's photos are saved only where the world uses them.
-      target = await withoutUnusedPhotos(db, target, photos);
+      const target = await withoutUnusedPhotos(db, await ontoWorld(ws.files, now), photos);
       if (target === now.tree) return; // nothing new to save (yet)
       const res = await commitTree(db, ownerOf(job), job.world_id, target, { prompt: job.prompt, name: meta.name ?? null, category: meta.category ?? null, expect: { tree: now.stored } });
       if (res) {
         committedTree = target;
+        savedTree = tree;
         committedAt = Date.now();
-        out.control({ t: 'version', worldId: job.world_id, version: res.version, tree: target, name: res.name });
+        out.control({ t: 'version', worldId: job.world_id, version: res.version, tree: target, own: tree, name: res.name });
         trace.commit({ version: res.version, tree: target, name: res.name });
-        await save({ committed_tree: target, committed_at: new Date(committedAt) });
+        await save({ committed_tree: target, saved_tree: tree, committed_at: new Date(committedAt) });
         await pushRepo(db, job.world_id);
         return;
       }
-      if ((await worldTree(db, job.world_id))?.tree === target) return; // nothing to save
+      // Someone saved in between: again, onto theirs.
+      await new Promise((r) => setTimeout(r, 50 + Math.random() * 150 * (attempt + 1)));
     }
+  };
+
+  /** What the watching pages see of the build's files: its changes on the world as it is now. */
+  const shownOf = async (mine: string): Promise<string> => {
+    if (job.mode !== 'build') return mine;
+    const now = await worldTree(db, job.world_id);
+    if (!now || now.tree === savedTree || !savedTree) return mine;
+    return ontoWorld((await getTree(db, mine)) ?? {}, now);
   };
 
   const ext: Record<string, unknown> = (typeof job.ext === 'string' ? JSON.parse(job.ext) : job.ext) ?? {};
@@ -673,7 +686,7 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
       setTree: async (next) => {
         tree = next;
         ws.files = (await getTree(db, next)) ?? {};
-        out.control({ t: 'tree', tree: next });
+        out.control({ t: 'tree', tree: await shownOf(next) });
         await save();
       },
       commit,
@@ -717,7 +730,8 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
     const refused = await lookRefusal(db, id, looks);
     if (refused) return refused;
     await ws.settled();
-    const shown = await ws.snapshot();
+    // It looks at the world as it is: its own changes, and others' made meanwhile.
+    const shown = await shownOf(await ws.snapshot());
     if (shown !== shownTree) {
       shownTree = shown;
       out.control({ t: 'tree', tree: shown });
@@ -904,8 +918,9 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
           const next = await ws.snapshot();
           if (next !== tree) {
             tree = next;
-            if (tree !== shownTree) out.control({ t: 'tree', tree });
-            shownTree = tree;
+            const view = await shownOf(tree);
+            if (view !== shownTree) out.control({ t: 'tree', tree: view });
+            shownTree = view;
           }
         }
         if (finishReason === 'length') {

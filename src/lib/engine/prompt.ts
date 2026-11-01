@@ -42,6 +42,8 @@ export const isBuildPhoto = (img: unknown): img is string => typeof img === 'str
 export const PHOTOS_ONLY = '(I sent photos without words.)';
 /** What a message of a video alone asks. */
 export const VIDEO_ONLY = '(I sent a video without words.)';
+/** What the automatic repair round asks (src/lib/engine/useBuild.ts). */
+export const REPAIR_REQUEST = 'Automatic check: some of those changes did not work (see <errors>). Please fix just these problems with minimal edits — nothing new.';
 /** Video files a build may put in a world (POST /api/uploads takes these). */
 export const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'] as const;
 
