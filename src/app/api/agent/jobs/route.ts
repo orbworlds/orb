@@ -14,7 +14,7 @@ import { after } from 'next/server';
 import type { ModelMessage, TextPart, FilePart } from 'ai';
 import { BUILD_LIMITS, imagePart, normalizeHistory, validateBuildRequest } from '@/lib/engine/prompt';
 import type { BuildRequest } from '@/lib/types';
-import { aiConfigured, freeOnCursor, mockAi, serverCursorKey } from '@/server/ai';
+import { aiConfigured, freeOnCursor, lightModel, mockAi, serverCursorKey } from '@/server/ai';
 import { canEdit, getViewer, isAdmin } from '@/server/auth';
 import { botCheck } from '@/server/botid';
 import { buildCost, checkByoLimits, checkCredits, checkRateLimits, refundQuota, type Billing } from '@/server/buildlimits';
@@ -150,7 +150,7 @@ export const POST = handle(async (req: Request): Promise<Response> => {
     const credits = await checkCredits(req);
     if ('response' in credits) return credits.response;
     billing = credits.billing;
-    const quota = await checkRateLimits(req, buildCost(build), freeTierConfig(process.env, mockAi(), viaCursor), billing?.paid);
+    const quota = await checkRateLimits(req, buildCost(build), freeTierConfig(process.env, mockAi(), viaCursor), billing?.paid, billing?.light);
     if ('response' in quota) return quota.response;
     charged = quota.charged;
   } else if (!mock) {
@@ -174,8 +174,9 @@ export const POST = handle(async (req: Request): Promise<Response> => {
       ? [cursorMessage(build, world.name, mode, photos?.parts ?? [])]
       : [...normalizeHistory(build.messages.slice(0, -1)), await firstMessage(db, { ...world.files, ...photos?.files }, build.worldName ?? world.name, build, photos?.parts ?? [])];
   const { origin } = requestOrigin(req);
-  // Orb's AI builds with one model for everyone; Pro only has more credits.
-  const freeModel = viaCursor ? DEFAULT_CURSOR_MODEL : null;
+  // Orb's AI builds with one model for everyone (Pro only has more credits), and with the lighter
+  // one once someone's credits are used up.
+  const freeModel = viaCursor ? DEFAULT_CURSOR_MODEL : billing?.light ? lightModel() : null;
   const ext: Record<string, unknown> = viaCursor
     ? { backend: 'cursor', params: await serverCursorParams(serverCursorKey()!, freeModel!, req.signal) }
     : provider === 'cursor'

@@ -62,6 +62,16 @@ export function modelLabel(): string {
   return env('ORB_MODEL') || DEFAULT_GATEWAY_MODEL;
 }
 
+/**
+ * The cheaper model builds use once their makers' credits are used up (ORB_LIGHT_MODEL; Claude Haiku
+ * 5.5), or null when there's none: Orb's own agent only, not the Cursor agents.
+ */
+export function lightModel(): string | null {
+  if (mockAi()) return 'mock';
+  if (freeOnCursor()) return null;
+  return env('ORB_LIGHT_MODEL') || (anthropicDirect() ? 'claude-haiku-5-5' : 'anthropic/claude-haiku-5.5');
+}
+
 /** Which backend the free tier talks to. */
 export function aiBackend(): 'mock' | 'anthropic' | 'gateway' {
   if (mockAi()) return 'mock';

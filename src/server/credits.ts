@@ -377,12 +377,19 @@ export async function markSynced(db: Db, payer: string): Promise<void> {
 const day = (isoDate: string) => new Date(isoDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 
-/** Why a build can't start (or goes on no further) for lack of credits, in the builder's terms. */
-export function outOfCredits(w: Wallet, cfg: PlansConfig, payments: boolean, pause = false): string {
+/**
+ * Why a build can't start (or goes on no further) for lack of credits, in the builder's terms. With
+ * `light`, an account keeps building on the lighter model: a build that pauses says so.
+ */
+export function outOfCredits(w: Wallet, cfg: PlansConfig, payments: boolean, pause = false, light = false): string {
   // Without an account: no word of how much or until when (that allowance may change).
   if (w.plan === 'guest') {
     const offer = `free account (You → Account) to keep going — it comes with ${fmt(cfg.free)} credits a month!`;
     return pause ? `That's all the building without an account for now, so I'll pause here — what I made so far is saved. Create a ${offer}` : `To keep building, create a ${offer}`;
+  }
+  if (pause && light) {
+    const more = w.plan === 'pro' ? (payments ? ' — or top up in You → Plan' : '') : payments ? ` — or go Pro for ${fmt(cfg.pro.credits)} credits a month` : '';
+    return `You're out of credits, so I'll pause here — what I made so far is saved. Say “keep going” and I'll go on with my lighter model${more}.`;
   }
   // What happened (a build that pauses says so instead), then what to do.
   const say = (used: string, rest: string) => `${pause ? "You're out of credits, so I'll pause here — what I made so far is saved." : used} ${rest}`;

@@ -11,6 +11,7 @@
 // model writes (see CursorTokens), and for a model call cut short (a stopped build pays for what it
 // used, see cutCallUsd). Spend per day is in orb_spend and on the Pulse page.
 
+import { lightModel } from './ai';
 import { numberEnv } from './credits';
 import type { Db } from './db';
 import { utcDay } from './freetier';
@@ -23,6 +24,8 @@ export interface Price {
   write: number;
   read: number;
   output: number;
+  /** What a prompt over 100k tokens costs instead, when that's more. */
+  long?: Price;
 }
 
 /** Anthropic's list prices (October 2026), which Cursor charges for its agents too. */
@@ -31,21 +34,23 @@ const PRICES: Record<string, Price> = {
   'claude-opus-5': { input: 5, write: 6.25, read: 0.5, output: 25 },
   'claude-sonnet-5-5': { input: 2, write: 2.5, read: 0.1, output: 10 },
   'claude-sonnet-5': { input: 2, write: 2.5, read: 0.2, output: 10 },
-  // Haiku 5.5 costs five times as much for prompts over 100k tokens: priced at that, to be safe.
-  'claude-haiku-5-5': { input: 0.5, write: 0.625, read: 0.05, output: 2.5 },
+  'claude-haiku-5-5': { input: 0.1, write: 0.125, read: 0.01, output: 0.5, long: { input: 0.5, write: 0.625, read: 0.05, output: 2.5 } },
 };
+/** Prompts longer than this many tokens cost a model's `long` price. */
+const LONG_PROMPT = 100_000;
 const BY_LENGTH = Object.keys(PRICES).sort((a, b) => b.length - a.length);
 
 /** Any other model is priced like the dearest Claude (Fable 5.1), so the budget errs on the safe side. */
 export const UNKNOWN_PRICE: Price = { input: 10, write: 12.5, read: 1, output: 50 };
 const NO_COST: Price = { input: 0, write: 0, read: 0, output: 0 };
 
-/** "anthropic/claude-sonnet-5.5", "claude-sonnet-5-5-20260928" → Sonnet 5.5's price. The mock costs nothing. */
-export function priceOf(model: string | null | undefined): Price {
+/** "anthropic/claude-sonnet-5.5", "claude-sonnet-5-5-20260928" → Sonnet 5.5's price (for a prompt of `prompt` tokens). The mock costs nothing. */
+export function priceOf(model: string | null | undefined, prompt = 0): Price {
   const id = (model ?? '').toLowerCase().trim().replace(/^[\w-]+\//, '').replace(/\./g, '-');
   if (id === 'mock') return NO_COST;
   const key = BY_LENGTH.find((k) => id === k || id.startsWith(`${k}-`));
-  return key ? PRICES[key] : UNKNOWN_PRICE;
+  const price = key ? PRICES[key] : UNKNOWN_PRICE;
+  return price.long && prompt > LONG_PROMPT ? price.long : price;
 }
 
 const count = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0);
@@ -61,10 +66,10 @@ interface UsageLike {
 /** What model calls cost (US$), from the usage the AI SDK reports. */
 export function usageUsd(model: string | null | undefined, u: UsageLike | null | undefined): number {
   if (!u) return 0;
-  const p = priceOf(model);
   const read = count(u.inputTokenDetails?.cacheReadTokens);
   const write = count(u.inputTokenDetails?.cacheWriteTokens);
   const plain = u.inputTokenDetails?.noCacheTokens !== undefined ? count(u.inputTokenDetails.noCacheTokens) : Math.max(0, count(u.inputTokens) - read - write);
+  const p = priceOf(model, plain + read + write);
   return (plain * p.input + write * p.write + read * p.read + count(u.outputTokens) * p.output) / 1e6;
 }
 
@@ -100,7 +105,7 @@ export function promptTokens(system: string, messages: unknown): number {
  * `input` tokens, of which `cached` were in the prompt cache — and the characters it had written.
  */
 export function cutCallUsd(model: string | null | undefined, t: { input: number; cached: number; written: number }): number {
-  const p = priceOf(model);
+  const p = priceOf(model, count(t.input));
   const read = Math.min(count(t.input), count(t.cached));
   const fresh = count(t.input) - read;
   return (fresh * p.write + read * p.read + tokensOfText(t.written) * p.output) / 1e6;
@@ -179,6 +184,8 @@ export interface Spent {
   anon: number;
   /** Builds paid for with credits people bought (Pro, top-ups): outside the budget. */
   paid: number;
+  /** Builds on the lighter model, once their makers' credits were used up: outside the budget too. */
+  light: number;
 }
 
 /** Which part of the budget is spent for this builder: everyone's, the part without an account, or neither. */
@@ -198,6 +205,7 @@ const toSpent = (rows: Array<{ scope: string; micros: string | number }>): Spent
   all: Number(rows.find((r) => r.scope === 'free')?.micros ?? 0) / MICROS,
   anon: Number(rows.find((r) => r.scope === 'free:anon')?.micros ?? 0) / MICROS,
   paid: Number(rows.find((r) => r.scope === 'paid')?.micros ?? 0) / MICROS,
+  light: Number(rows.find((r) => r.scope === 'light')?.micros ?? 0) / MICROS,
 });
 
 export async function spentToday(db: Db, now: Date = new Date()): Promise<Spent> {
@@ -224,6 +232,40 @@ export async function chargeFree(db: Db, usd: number, anonymous: boolean, now: D
 /** Add what a build paid for with bought credits cost (US$) to today's spend, outside the budget. */
 export function chargePaid(db: Db, usd: number, now: Date = new Date()): Promise<void> {
   return addSpend(db, ['paid'], usd, now);
+}
+
+// -- the lighter model --------------------------------------------------------------------------
+// An account whose credits are used up keeps building on Orb's lighter model (../ai.ts lightModel)
+// for free. All such builds together may cost at most ORB_LIGHT_USD_PER_HOUR (default US$2; 0 turns
+// it off), spread over 5-minute windows: a build waits for the next window when its own is spent.
+
+const LIGHT_WINDOW_MS = 5 * 60_000;
+
+/** US$ an hour for builds on the lighter model (0: none, out of credits is out). */
+export function lightUsdPerHour(env: Record<string, string | undefined> = process.env): number {
+  return Math.max(0, numberEnv(env, 'ORB_LIGHT_USD_PER_HOUR', 2));
+}
+
+/** Whether an account whose credits are used up keeps building, on the lighter model. */
+export const lightOn = (): boolean => lightUsdPerHour() > 0 && lightModel() !== null;
+
+/** The 5-minute window `now` is in: its spend's scope, and when it ends. */
+function lightWindow(now: Date): { scope: string; ends: number } {
+  const n = Math.floor(now.getTime() / LIGHT_WINDOW_MS);
+  return { scope: `light:${n}`, ends: (n + 1) * LIGHT_WINDOW_MS };
+}
+
+/** How long a build on the lighter model waits before its next model call (ms; 0: go now). */
+export async function lightWait(db: Db, now: Date = new Date()): Promise<number> {
+  const { scope, ends } = lightWindow(now);
+  const rows = await db.query<{ micros: string | number }>(`select micros from orb_spend where day = $1::date and scope = $2`, [utcDay(now), scope]);
+  const spent = Number(rows[0]?.micros ?? 0) / MICROS;
+  return spent < (lightUsdPerHour() * LIGHT_WINDOW_MS) / 3_600_000 ? 0 : Math.max(1000, ends - now.getTime());
+}
+
+/** Add what a build on the lighter model cost (US$): to its window, and to the day's ('light'). */
+export function chargeLight(db: Db, usd: number, now: Date = new Date()): Promise<void> {
+  return addSpend(db, ['light', lightWindow(now).scope], usd, now);
 }
 
 /** Free spend per UTC day (US$), for the Pulse page. */

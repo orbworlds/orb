@@ -19,6 +19,7 @@ Everything is set in Vercel's environment for the project `orb`.
 | `ORB_CURSOR_MODEL`, `ORB_CURSOR_EFFORT` | Optional Cursor model of those builds (default `claude-opus-5-5`; `claude-sonnet-5-5` costs half as much) and its effort (default `low`) |
 | `ORB_FREE_DAILY_PER_ACCOUNT` | Optional daily free build units per account (default 30, or 25 on Cursor; a unit is a build with up to 100k characters of input) |
 | `ORB_FREE_DAILY_PER_DEVICE`, `ORB_FREE_DAILY_PER_IP` | Optional daily free build units without an account, per device (default 12, or 10 on Cursor) and per IP address (default 40, or 25 on Cursor; an IP's accounts together get three times that) |
+| `ORB_LIGHT_USD_PER_HOUR` | Optional: US$ an hour for builds on the lighter model, when an account's credits are used up (default 2; `0` turns it off). `ORB_LIGHT_MODEL` picks another model (default Claude Haiku 5.5) |
 | `ORB_FREE_DAILY_USD` | Optional budget in US$ for all free builds together per UTC day (default 20; `0` turns free building off). Once it's spent, the free builder is back tomorrow (see [Free builder budget](#free-builder-budget)) |
 | `ORB_FREE_DAILY_USD_ANON` | Optional part of that budget for builds without an account (default half): once it's spent, people are asked to sign in, and those signed in keep building |
 | `ORB_FREE_MAX_OUTPUT_TOKENS` | Optional longest reply of one free build (default 12000) |
@@ -62,7 +63,10 @@ only makes people sign in, and those signed in keep building. Pulse shows each d
 the budget, and each Cursor build's trace its estimated cost (`costUsd`): compare them with the
 Cursor dashboard's Usage now and then. Builds paid for with bought credits (Pro, packs) are outside
 the budget and the daily caps; how much each person builds in a month is their
-[credits](#plans-and-credits).
+[credits](#plans-and-credits). An account whose credits are used up keeps building on the lighter
+model (Claude Haiku 5.5) for free; those builds have their own cap, `ORB_LIGHT_USD_PER_HOUR` ($2
+an hour by default, in 5-minute windows: when a window is spent, builds wait for the next), shown
+on Pulse beside the budget.
 
 With the AI Gateway, also cap it there: buy credits with auto top-up off, and give the project a daily budget with
 spend alerts (AI Gateway → Budgets → Projects, or

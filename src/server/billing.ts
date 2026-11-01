@@ -25,6 +25,7 @@ import {
   type Wallet,
 } from './credits';
 import { webhookUrl } from './billingurls';
+import { lightOn } from './budget';
 import { connectReady, rememberCard, reverseBuyer, withPayouts } from './payouts';
 import { shopShare } from './shop';
 import { ensureWebhook, envSecret, paymentsOn, portalConfiguration, proPrice, registeredWebhook, stripe, StripeError, stripeTestMode } from './stripe';
@@ -95,6 +96,7 @@ export function billingInfo(w: Wallet | null, cfg: PlansConfig = plansConfig(), 
     manage: !!w?.stripeCustomer && paymentsOn(),
     earnings: w && w.payer.startsWith('u:') ? { credits: Math.round(w.earned * 100) / 100, total: Math.round(w.earnedTotal * 100) / 100 } : null,
     plans: { free: cfg.free, pro: cfg.pro, topups: cfg.topups, typicalBuild: TYPICAL_BUILD_CREDITS, shopShare: shopShare() },
+    light: plan !== 'guest' && lightOn(),
   };
 }
 

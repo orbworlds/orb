@@ -364,6 +364,7 @@ Browser (Next.js client)                              Vercel Functions (Node)   
 | `ORB_CURSOR_MODEL`, `ORB_CURSOR_EFFORT` | optional; their Cursor model (default `claude-opus-5-5`) and effort (default `low`; with the model's smaller context, thinking on where it has the option) |
 | `ORB_FREE_DAILY_PER_ACCOUNT` | optional; free build units per UTC day per account (default 30; 25 on Orb's Cursor key) |
 | `ORB_FREE_DAILY_PER_DEVICE`, `ORB_FREE_DAILY_PER_IP` | optional; free build units per UTC day without an account, per device (default 12; 10 on Cursor) / per IP (default 40; 25 on Cursor; ×3 for the IP's accounts together). An IPv6 address counts as its /64. With `ORB_MOCK_AI=1` the daily caps are off unless set |
+| `ORB_LIGHT_USD_PER_HOUR` | optional; US$ an hour for all builds on the lighter model together (accounts out of credits; default 2; 0 = none). `ORB_LIGHT_MODEL` overrides the model (default `claude-haiku-5-5`, on the gateway `anthropic/claude-haiku-5.5`) |
 | `ORB_FREE_DAILY_USD` | optional; budget in US$ per UTC day for all free builds together (default 20; 0 = no free building), charged as builds go (exact from provider usage, estimated for Cursor agents and for a model call cut short; `src/server/budget.ts`, table `orb_spend`). Spent → running builds pause at their next model call, new ones get 503 `ai_unavailable` until UTC midnight |
 | `ORB_FREE_DAILY_USD_ANON` | optional; the part of it builds without an account may spend (default half). Spent → those builds are asked to sign in (429), signed-in builds go on |
 | `ORB_FREE_MAX_OUTPUT_TOKENS` | optional; longest reply of one free build (default 12000) |
@@ -713,7 +714,8 @@ device's linked user). `WorldFull` tells those who may change it `editors` (`{ i
 those let in `invited: true`, and its owner `invite` (the token, or null).
 
 Builds on Orb's AI check the builder's credits first (402 `out_of_credits` when none are left;
-`message` says what next for their plan) and are charged as they go, for what each model call
+`message` says what next for their plan; an account goes on with the lighter model instead, below)
+and are charged as they go, for what each model call
 used: after each call, or when it is cut short (Stop, a time limit, a failure after it started
 writing) at an estimate of the prompt it read and what it wrote (`cutCallUsd` in
 `src/server/budget.ts`; Cursor agents are estimated from their stream all along). So a stopped
@@ -721,7 +723,16 @@ build costs what it used. The job's output carries a control frame `{ t: 'credit
 (what the build used so far) after each charge and at the end; the chat doesn't show it (the
 plan in the You tab has the balance). Builds have no time limit: Cursor runs that hit Cursor's 30 minutes are continued, and a
 build ends when it's done, paused when the credits or the day's free budget run out. Every build
-on Orb's AI uses the same model, Free or Pro.
+on Orb's AI uses the same model, Free or Pro, until the credits are used up: then an account's
+builds go on with Orb's **lighter model** (`ORB_LIGHT_MODEL`, Claude Haiku 5.5, Orb's own agent only,
+not Cursor's), free of credits (`Billing.light`, the job's `ext.billing.light`). A build whose
+credits run out pauses ("Say “keep going” and I'll go on with my lighter model…"); the chat's
+credits line says "Out of credits: Orb builds with a lighter model" (`BillingInfo.light`). All such
+builds together cost at most `ORB_LIGHT_USD_PER_HOUR` (default US$2; 0 turns it off and out of
+credits is out again), counted in 5-minute windows (`orb_spend` scopes `light:<window>`, and the
+day's `light`, outside the free budget): a build whose window is spent waits for the next one
+before its next model call ("Lots of people are building right now — yours goes on in a
+moment…"), and Pulse shows the day's spend. Devices without an account still ask for one.
 
 Builds (`/api/agent/jobs`) also send `x-orb-trace-group: <chat message id>`,
 so a build and its repair round share a trace group. The lab's trace pages (key: `ORB_LAB_KEY`,

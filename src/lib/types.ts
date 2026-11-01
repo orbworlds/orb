@@ -371,6 +371,8 @@ export interface BillingInfo {
     /** What part of the paid credits spent in a world's shop its maker earns (1: all of it). */
     shopShare: number;
   };
+  /** Once their credits are used up, they keep building, with Orb's lighter model. */
+  light: boolean;
 }
 
 export type StoreOp = 'get' | 'set' | 'incr' | 'push' | 'merge' | 'list';

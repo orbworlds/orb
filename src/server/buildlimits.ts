@@ -5,7 +5,7 @@
 import type { BuildRequest } from '@/lib/types';
 import { getViewer } from './auth';
 import { currentWallet, paidWallet, paymentsForPayer } from './billing';
-import { ANON_SPENT, BUDGET_SPENT, budgetConfig, chargeFree, chargePaid, overBudget, spentToday } from './budget';
+import { ANON_SPENT, BUDGET_SPENT, budgetConfig, chargeFree, chargeLight, chargePaid, lightOn, overBudget, spentToday } from './budget';
 import { chargeCredits, outOfCredits, payerOf, plansConfig, type Wallet } from './credits';
 import type { Db } from './db';
 import { clientIp, error, json, retryLater } from './http';
@@ -30,9 +30,10 @@ export type Quota = { response: Response } | { charged: LimitCheck[] };
 
 /**
  * Free-tier quotas (see ./freetier.ts): burst, hourly and daily per person; then the day's budget
- * (./budget.ts). A builder who pays for their credits (`paid`) skips the daily caps and the budget.
+ * (./budget.ts). A builder who pays for their credits (`paid`) skips the daily caps and the budget;
+ * one on the lighter model (`light`) skips the budget, the lighter model having its own.
  */
-export async function checkRateLimits(req: Request, cost: number, cfg: FreeTierConfig, paid = false): Promise<Quota> {
+export async function checkRateLimits(req: Request, cost: number, cfg: FreeTierConfig, paid = false, light = false): Promise<Quota> {
   const viewer = getViewer(req);
   const checks = freeTierChecks({ deviceHash: viewer.deviceHash, ip: clientIp(req), userId: viewer.userId }, cost, cfg, new Date(), paid);
   const charged: LimitCheck[] = [];
@@ -47,7 +48,7 @@ export async function checkRateLimits(req: Request, cost: number, cfg: FreeTierC
       }
       if (c.cost) charged.push(c);
     }
-    const over = paid ? null : overBudget(await spentToday(db), budgetConfig(), !viewer.userId);
+    const over = paid || light ? null : overBudget(await spentToday(db), budgetConfig(), !viewer.userId);
     if (over) {
       await refundQuota(charged);
       const retryAfter = secondsUntilUtcMidnight();
@@ -66,11 +67,14 @@ export interface Billing {
   payer: string;
   plan: Wallet['plan'];
   paid: boolean;
+  /** Their credits are used up: the build runs on the lighter model, free (./budget.ts lightWait). */
+  light?: boolean;
 }
 
 /**
- * The builder's credits: who pays for a build on Orb's AI, or the answer that turns it away when
- * their credits are used up (402 out_of_credits). Null billing: no one to charge (no device key).
+ * The builder's credits: who pays for a build on Orb's AI. When they're used up, an account builds
+ * on the lighter model; anyone else is turned away (402 out_of_credits). Null billing: no one to
+ * charge (no device key).
  */
 export async function checkCredits(req: Request): Promise<{ billing: Billing | null } | { response: Response }> {
   const payer = payerOf(getViewer(req));
@@ -79,7 +83,10 @@ export async function checkCredits(req: Request): Promise<{ billing: Billing | n
     const cfg = plansConfig();
     const db = await ready();
     const wallet = await currentWallet(db, payer, cfg);
-    if (wallet.left < 1) return { response: json({ error: 'out_of_credits', message: outOfCredits(wallet, cfg, await paymentsForPayer(db, payer)), plan: wallet.plan }, { status: 402 }) };
+    if (wallet.left < 1) {
+      if (wallet.plan !== 'guest' && lightOn()) return { billing: { payer, plan: wallet.plan, paid: false, light: true } };
+      return { response: json({ error: 'out_of_credits', message: outOfCredits(wallet, cfg, await paymentsForPayer(db, payer)), plan: wallet.plan }, { status: 402 }) };
+    }
     return { billing: { payer, plan: wallet.plan, paid: paidWallet(wallet) } };
   } catch (e) {
     console.error('[orb] credits check failed', e);
@@ -94,6 +101,10 @@ export async function checkCredits(req: Request): Promise<{ billing: Billing | n
  */
 export async function chargeBuild(db: Db, billing: Billing | null, usd: number, anonymous: boolean): Promise<{ wallet: (Wallet & { fromTopup: number }) | null; over: 'all' | 'anon' | null }> {
   if (!(usd > 0)) return { wallet: null, over: null };
+  if (billing?.light) {
+    await chargeLight(db, usd);
+    return { wallet: null, over: null };
+  }
   const wallet = billing ? await chargeCredits(db, billing.payer, Math.round(usd * 1e6)) : null;
   if (billing?.paid) {
     await chargePaid(db, usd);

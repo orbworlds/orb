@@ -2,7 +2,7 @@
 // plans and recent problems (orb_errors). Who the visitors are and what they do: ./analytics.
 
 import { aiBackend, modelLabel } from './ai';
-import { budgetConfig, spendByDay, type BudgetConfig, type Spent } from './budget';
+import { budgetConfig, lightUsdPerHour, spendByDay, type BudgetConfig, type Spent } from './budget';
 import { toCredits } from './credits';
 import type { Db } from './db';
 import { paymentsOn, stripeTestMode } from './stripe';
@@ -40,7 +40,7 @@ export interface Pulse {
   now: number;
   days: PulseDay[];
   totals: { worlds: number; accounts: number; devices: number; plays: number; likes: number };
-  builder: { backend: string; model: string; lastDown: { at: string; message: string } | null; budget: BudgetConfig; today: Spent };
+  builder: { backend: string; model: string; lastDown: { at: string; message: string } | null; budget: BudgetConfig; today: Spent; lightPerHour: number };
   /** The server's own problems and builder outages, apart from what browsers report (pages). */
   problems: { server: PulseProblem[]; pages: PulseProblem[] };
   /** Plans (./billing.ts): Stripe set up, Pro accounts (and how many of them end), credit packs sold. */
@@ -95,7 +95,8 @@ export async function pulse(db: Db): Promise<Pulse> {
       model: modelLabel(),
       lastDown: down[0] ? { at: iso(down[0].last_at), message: down[0].message } : null,
       budget: budgetConfig(),
-      today: spend.get(days[0]?.day ?? '') ?? { all: 0, anon: 0, paid: 0 },
+      lightPerHour: lightUsdPerHour(),
+      today: spend.get(days[0]?.day ?? '') ?? { all: 0, anon: 0, paid: 0, light: 0 },
     },
     problems: { server: server.map(toProblem), pages: pages.map(toProblem) },
     plans: { payments: paymentsOn(), testMode: stripeTestMode(), pro: Number(plans[0]?.pro) || 0, ending: Number(plans[0]?.ending) || 0, packs: Number(plans[0]?.packs) || 0, packCredits: toCredits(Number(plans[0]?.micros) || 0) },

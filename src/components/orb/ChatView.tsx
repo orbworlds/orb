@@ -224,7 +224,7 @@ function CreditsNote() {
   const out = info.credits.left < 1;
   return (
     <p className="animate-fade-up flex flex-wrap items-center gap-x-1.5 px-2 pb-1.5 text-[12.5px] text-ink-2" role="status">
-      <span className="tabular-nums">{out ? 'You’re out of credits' : `${creditsText(info.credits.left)} left`}</span>
+      <span className="tabular-nums">{out ? (info.light ? 'Out of credits: Orb builds with a lighter model' : 'You’re out of credits') : `${creditsText(info.credits.left)} left`}</span>
       <span aria-hidden="true">·</span>
       <button type="button" className="font-medium text-ink underline decoration-ink-4 underline-offset-[3px] hover:decoration-ink" onClick={() => useUi.getState().setPlans(true)}>
         {info.plan === 'pro' ? 'Top up' : 'See plans'}

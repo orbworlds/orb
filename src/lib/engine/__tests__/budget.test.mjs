@@ -28,6 +28,17 @@ describe('prices', () => {
   });
 });
 
+describe('Haiku 5.5, the lighter model', () => {
+  test('prompts up to 100k tokens at its base price, longer ones at five times that', () => {
+    const short = { inputTokens: 60_000, outputTokens: 2_000, inputTokenDetails: { cacheReadTokens: 50_000, cacheWriteTokens: 5_000 } };
+    close(B.usageUsd('claude-haiku-5-5', short), (5_000 * 0.1 + 5_000 * 0.125 + 50_000 * 0.01 + 2_000 * 0.5) / 1e6);
+    close(B.usageUsd('anthropic/claude-haiku-5.5', short), B.usageUsd('claude-haiku-5-5', short), 'by any of its names');
+    const long = { inputTokens: 150_000, outputTokens: 2_000, inputTokenDetails: { cacheReadTokens: 140_000, cacheWriteTokens: 5_000 } };
+    close(B.usageUsd('claude-haiku-5-5', long), (5_000 * 0.5 + 5_000 * 0.625 + 140_000 * 0.05 + 2_000 * 2.5) / 1e6);
+    assert.ok(B.usageUsd('claude-haiku-5-5', short) * 30 < B.usageUsd('claude-opus-5-5', short), 'far cheaper than Opus 5.5');
+  });
+});
+
 describe('usageUsd', () => {
   test('uncached input, cache writes and reads, and output, each at its price', () => {
     const usage = { inputTokens: 100_000, outputTokens: 4_000, inputTokenDetails: { cacheReadTokens: 80_000, cacheWriteTokens: 15_000 } };
@@ -132,14 +143,28 @@ describe('charging the day (PGlite)', () => {
 
   test('charges add up per UTC day, builds without an account in both totals', async () => {
     const day = new Date('2026-03-01T10:00:00Z');
-    assert.deepEqual(await B.spentToday(db, day), { all: 0, anon: 0, paid: 0 });
-    assert.deepEqual(await B.chargeFree(db, 1.25, true, day), { all: 1.25, anon: 1.25, paid: 0 });
-    assert.deepEqual(await B.chargeFree(db, 2, false, day), { all: 3.25, anon: 1.25, paid: 0 });
-    assert.deepEqual(await B.chargeFree(db, 0.0000004, true, day), { all: 3.25, anon: 1.25, paid: 0 }, 'less than a millionth of a dollar is nothing');
-    assert.deepEqual(await B.chargeFree(db, 0.5, true, new Date('2026-03-01T23:59:59Z')), { all: 3.75, anon: 1.75, paid: 0 });
-    assert.deepEqual(await B.spentToday(db, new Date('2026-03-02T00:00:00Z')), { all: 0, anon: 0, paid: 0 }, 'a new day starts at UTC midnight');
+    assert.deepEqual(await B.spentToday(db, day), { all: 0, anon: 0, paid: 0, light: 0 });
+    assert.deepEqual(await B.chargeFree(db, 1.25, true, day), { all: 1.25, anon: 1.25, paid: 0, light: 0 });
+    assert.deepEqual(await B.chargeFree(db, 2, false, day), { all: 3.25, anon: 1.25, paid: 0, light: 0 });
+    assert.deepEqual(await B.chargeFree(db, 0.0000004, true, day), { all: 3.25, anon: 1.25, paid: 0, light: 0 }, 'less than a millionth of a dollar is nothing');
+    assert.deepEqual(await B.chargeFree(db, 0.5, true, new Date('2026-03-01T23:59:59Z')), { all: 3.75, anon: 1.75, paid: 0, light: 0 });
+    assert.deepEqual(await B.spentToday(db, new Date('2026-03-02T00:00:00Z')), { all: 0, anon: 0, paid: 0, light: 0 }, 'a new day starts at UTC midnight');
     await B.chargePaid(db, 4, day);
-    assert.deepEqual(await B.spentToday(db, day), { all: 3.75, anon: 1.75, paid: 4 }, 'builds paid with bought credits are counted apart from the budget');
+    assert.deepEqual(await B.spentToday(db, day), { all: 3.75, anon: 1.75, paid: 4, light: 0 }, 'builds paid with bought credits are counted apart from the budget');
+  });
+
+  test('the lighter model: US$2 an hour by default, in 5-minute windows; a spent window waits for the next', async () => {
+    assert.equal(B.lightUsdPerHour({}), 2);
+    assert.equal(B.lightUsdPerHour({ ORB_LIGHT_USD_PER_HOUR: '0' }), 0, '0 turns it off');
+    const at = new Date('2026-05-01T10:01:00Z');
+    assert.equal(await B.lightWait(db, at), 0, 'nothing spent: go');
+    await B.chargeLight(db, 0.1, at);
+    assert.equal(await B.lightWait(db, at), 0, 'under the window’s share (US$2 / 12): go');
+    await B.chargeLight(db, 0.07, at);
+    assert.equal(await B.lightWait(db, at), 4 * 60_000, 'spent: wait for the next window (10:05)');
+    assert.equal(await B.lightWait(db, new Date('2026-05-01T10:05:00Z')), 0, 'the next window: go');
+    assert.equal((await B.spentToday(db, at)).light, 0.17, 'the day’s total, apart from the budget');
+    assert.equal((await B.spentToday(db, at)).all, 0);
   });
 
   test('when builds without an account spend their part, they ask to sign in, and those signed in keep building to the whole budget', async () => {

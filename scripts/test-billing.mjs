@@ -58,7 +58,7 @@ function startServer(extraEnv = {}) {
     ORB_USD_PER_EUR: '1.25',
     ...extraEnv,
   };
-  return startNext({ port: PORT, unset: ['ORB_MOCK_AI', 'ANTHROPIC_API_KEY', 'AI_GATEWAY_API_KEY', 'CURSOR_API_KEY', 'ORB_BOTID_TEST', 'STRIPE_WEBHOOK_SECRET', 'ORB_FREE_DAILY_USD', 'ORB_FREE_DAILY_USD_ANON', 'ORB_TOPUPS'], env });
+  return startNext({ port: PORT, unset: ['ORB_MOCK_AI', 'ANTHROPIC_API_KEY', 'AI_GATEWAY_API_KEY', 'CURSOR_API_KEY', 'ORB_BOTID_TEST', 'STRIPE_WEBHOOK_SECRET', 'ORB_FREE_DAILY_USD', 'ORB_FREE_DAILY_USD_ANON', 'ORB_TOPUPS', 'ORB_LIGHT_USD_PER_HOUR', 'ORB_LIGHT_MODEL'], env });
 }
 
 const fakeCursor = await startFake();
@@ -377,6 +377,24 @@ try {
   const pro3 = await build(D3, w3.id, 'a little tree', { cookie: free3.cookie });
   const pro4 = await build(D3, w3.id, 'and a bench', { cookie: free3.cookie });
   check('Pro builds go on: outside the free budget and the daily caps', pro3.status === 200 && /"t":"version"/.test(pro3.text) && pro4.status === 200 && /"t":"version"/.test(pro4.text), pro3.json ?? pro4.json ?? pro4.text.slice(-200));
+
+  console.log('\nOut of credits, an account goes on with the lighter model');
+  await stopNext(server);
+  server = await startServer({ ORB_MOCK_AI: '1' });
+  const LIGHT = device('light-maker');
+  const STALL = device('light-seller');
+  const light = await signUp(LIGHT);
+  const stallKeeper = await signUp(STALL);
+  const stallPage = `<!doctype html><html><head><title>stall</title><script type="application/json" id="orb-shop">${JSON.stringify({ items: [{ id: 'lamp', name: 'Lamp', price: 20 }] })}</script></head><body>stall</body></html>`;
+  const lampStall = (await request('POST', '/api/worlds', { dev: STALL, cookie: stallKeeper.cookie, body: { name: 'Lamp Stall', code: stallPage } })).json.world;
+  const lamp = await request('POST', `/api/worlds/${lampStall.id}/shop`, { dev: LIGHT, cookie: light.cookie, body: { item: 'lamp', price: 20 } });
+  const spent = await billing(LIGHT, light.cookie);
+  check('an account spends its last credits (on a lamp in a world) → none left, and it’s told it goes on with the lighter model', lamp.status === 200 && spent?.credits.left === 0 && spent.light === true, { lamp: lamp.json, credits: spent?.credits, light: spent?.light });
+  check('…a device without an account isn’t', (await billing(device('light-guest'))).light === false);
+  const garden = await newWorld(LIGHT, light.cookie);
+  const onLight = await build(LIGHT, garden.id, 'a quiet garden', { cookie: light.cookie });
+  check('…its next build isn’t turned away: it builds and saves, on the lighter model', onLight.status === 200 && /"t":"version"/.test(onLight.text) && !/<orb:error>/.test(onLight.text), onLight.json ?? onLight.text.slice(-300));
+  check('…for free: no credits taken', (await billing(LIGHT, light.cookie)).credits.left === 0 && !/"t":"credits","used":[1-9]/.test(onLight.text));
 } catch (e) {
   check('unexpected exception', false, e?.stack?.split('\n').slice(0, 4).join(' | ') ?? String(e));
 } finally {

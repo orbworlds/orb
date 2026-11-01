@@ -20,7 +20,7 @@ import { getTree, mergeTrees, putTree, type Tree } from '../files';
 import { commitTree, worldTree } from '../worlds';
 import { pushRepo } from '../reposync';
 import { rateLimit } from '../ratelimit';
-import { ANON_PAUSE, BUDGET_PAUSE, cutCallUsd, promptTokens, usageUsd } from '../budget';
+import { ANON_PAUSE, BUDGET_PAUSE, cutCallUsd, lightOn, lightWait, promptTokens, usageUsd } from '../budget';
 import { chargeBuild, type Billing } from '../buildlimits';
 import { logBuild, outOfCredits, plansConfig, refundCredits, toCredits } from '../credits';
 import { paymentsForPayer } from '../billing';
@@ -48,6 +48,8 @@ const LEASE_S = 330;
 const STEP_START_MS = 200_000;
 /** …and stop whatever runs at this point (the function's limit is 300 s). */
 const HARD_MS = 268_000;
+/** A build on the lighter model waiting for its next window checks again this often. */
+const LIGHT_NAP_MS = 20_000;
 /** Save a version of the world at least this often while a long job works. */
 const CHECKPOINT_MS = 10 * 60_000;
 const FLUSH_MS = 350;
@@ -67,7 +69,7 @@ export const MAX_STEPS = 5000;
 /** Who pays for a free-builder job, as its maker's plan stood when it started (orb_agent_jobs.ext). */
 function billingOf(ext: Record<string, unknown> | null | undefined): Billing | null {
   const b = ext?.billing as Partial<Billing> | undefined;
-  return b && typeof b.payer === 'string' ? { payer: b.payer, plan: b.plan === 'pro' ? 'pro' : b.plan === 'guest' ? 'guest' : 'free', paid: !!b.paid } : null;
+  return b && typeof b.payer === 'string' ? { payer: b.payer, plan: b.plan === 'pro' ? 'pro' : b.plan === 'guest' ? 'guest' : 'free', paid: !!b.paid, light: !!b.light } : null;
 }
 /** Jobs one person may run at once. */
 export const MAX_RUNNING = 3;
@@ -623,13 +625,18 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
   const charge = async (usd: number): Promise<string | null> => {
     if (!(usd > 0)) return null;
     try {
+      // On the lighter model a build is free: what it costs only counts against that model's hour.
+      if (billing?.light) {
+        await chargeBuild(db, billing, usd, !job.owner_user);
+        return null;
+      }
       const sum = await db.query<{ charged_micros: string | number }>(`update orb_agent_jobs set charged_micros = charged_micros + $2::bigint where id = $1 returning charged_micros`, [id, Math.round(usd * 1e6)]);
       if (billing) showCredits(Number(sum[0]?.charged_micros) || 0);
       const { wallet, over } = await chargeBuild(db, billing, usd, !job.owner_user);
       if (wallet && wallet.fromTopup > 0) await db.query(`update orb_agent_jobs set charged_topup_micros = charged_topup_micros + $2::bigint where id = $1`, [id, wallet.fromTopup]);
       if (wallet && wallet.left <= 0) {
         creditsOut = true;
-        return outOfCredits(wallet, plansConfig(), await paymentsForPayer(db, billing!.payer), true);
+        return outOfCredits(wallet, plansConfig(), await paymentsForPayer(db, billing!.payer), true, lightOn());
       }
       return over === 'all' ? BUDGET_PAUSE : over === 'anon' ? ANON_PAUSE : null;
     } catch (e) {
@@ -736,6 +743,8 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
   let lastStepMs = 0;
   /** A free build that has spent the day's budget, or its maker's credits, pauses before its next step. */
   let budgetStop: string | null = null;
+  /** The person was told this build waits for the lighter model's next window. */
+  let lightWaited = false;
   /** A word to the model from Orb, between its steps. */
   const nudge = (text: string) => {
     messages = [...messages, { role: 'user', content: text }];
@@ -765,6 +774,20 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
         out.say(budgetStop);
         trace.note('pause', { text: budgetStop === BUDGET_PAUSE || budgetStop === ANON_PAUSE ? "Paused: the free builder's budget for today is used up." : "Paused: the maker's credits are used up." });
         return await finish('done');
+      }
+      // On the lighter model, all builds share an hourly budget: when this window's is spent, wait for the next.
+      if (billing?.light) {
+        const wait = await lightWait(db);
+        if (wait > 0) {
+          if (!lightWaited) {
+            lightWaited = true;
+            out.control({ t: 'status', phase: 'thinking', text: 'Lots of people are building right now — yours goes on in a moment…' });
+            trace.note('wait', { text: "Waiting for the lighter model's next window.", ms: wait });
+          }
+          if (Date.now() - startedAt + Math.min(wait, LIGHT_NAP_MS) > STEP_START_MS) break;
+          await sleep(Math.min(wait, LIGHT_NAP_MS));
+          continue;
+        }
       }
 
       const full = messages;
