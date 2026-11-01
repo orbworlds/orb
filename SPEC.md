@@ -353,6 +353,15 @@ Browser (Next.js client)                              Vercel Functions (Node)   
   are, without saving them, with what to do first (`POST /api/agent/jobs/:id/files/look`); the
   job's tick passes the look on to the page that watches the build (`src/server/agent/look.ts`),
   and the agent gets the report back with the screenshots as files in `.orb/seen/`.
+  Models, textures, skies and sounds come from the web: free files (CC0, CC-BY…) copied into the
+  world's files, so a world only ever loads its own files and the CDN. Orb's agent finds them with
+  Anthropic's web search and web fetch (on Anthropic's models, called directly) and copies each in
+  with its `add_asset` tool (`src/server/agent/assets.ts`): its direct https link on a public
+  address (checked as each connection is made), a file that is what its name says (.glb .gltf
+  .bin .png .jpg .webp .gif .ktx2 .hdr .mp3 .ogg .wav .m4a .woff2 .woff .ttf .otf, a web page
+  refused) of at most 10 MB, 40 files and 80 MB a tick of a build; its author and license go into
+  `CREDITS.md`, and a model's size and animations come back to the agent. A Cursor agent downloads
+  them into `assets/` itself. `ORB_WEB_ASSETS=0` turns this off (models and textures made in code).
   Free builds are guarded the way chatgpt.com's are: quotas per account, or per device and IP
   without one (`src/server/freetier.ts`), and Vercel BotID on free builds, signing up and signing
   in (`src/server/botid.ts`, `src/instrumentation-client.ts`; 403 `bot_detected`). What they may
@@ -373,6 +382,7 @@ Browser (Next.js client)                              Vercel Functions (Node)   
 | `ANTHROPIC_API_KEY` | optional; if set, free tier uses Anthropic directly instead of AI Gateway |
 | `ORB_MODEL` | optional; default `anthropic/claude-opus-5.5` (gateway id). Orb's AI is one model for everyone: Pro has more credits, not another model |
 | `ORB_AI_EFFORT` | optional; Orb's AI's reasoning effort (default `medium`; `low`, `high`, `xhigh`) |
+| `ORB_WEB_ASSETS` | optional; `0` keeps builds from bringing models, textures and sounds in from the web (web search and `add_asset`, §3) |
 | `ORB_CURSOR_KEY` | optional; Orb's own Cursor API key: without `ANTHROPIC_API_KEY`, free agent builds run as Cursor agents on it |
 | `ORB_CURSOR_MODEL`, `ORB_CURSOR_EFFORT` | optional; their Cursor model (default `claude-opus-5-5`) and effort (default `medium`; with the model's smaller context, thinking on where it has the option) |
 | `ORB_FREE_DAILY_PER_ACCOUNT` | optional; free build units per UTC day per account (default 30; 25 on Orb's Cursor key) |
@@ -964,18 +974,12 @@ the `{ sha, type }` of `POST /api/uploads`),
 runtime errors to repair, and `mode` build or ask
 (a guide in someone else's world: it answers, can offer a copy, and changes nothing). The agent
 reads the world's files itself; its system prompts are in `src/server/agent/prompt.ts`.
-- **Direction first.** Small and open requests are built right away, without questions. A big,
-  ambitious new world (a whole game, a film, game or art style to match) first gets a quick first
-  look in that style (palette, sky, light, materials, the main subject blocked out), saved, and
-  the build stops there with one short question about the direction (Orb's agent gives it with
-  its ideas, `suggest_next`'s `question`, and it is said last); its three suggestions are
-  the answers ("Keep going like this" and two other directions), and the next message builds the
-  rest. So a world going the wrong way costs a minute, not a whole build. When someone says the
-  look is wrong, the agent changes the look of the whole world rather than tweaking it.
-- The prompts are kept short (every build pays for each token, and Cursor adds its own): only
-  what the model can't know by itself (the `window.orb` SDK, the starter island, three.js r186's
-  pitfalls, saving and looking). No safety rules or audience of their own: the models' own
-  guidelines apply. Orb's AI thinks at medium effort (`ORB_AI_EFFORT`).
+- The prompts are as short as can be, with as few rules as can be (every build pays for each
+  token, and every rule steers): only what the model can't know by itself — how the world's files
+  load, three.js r186's pitfalls, where models and textures come from, Orb's frame (its button's
+  corner, sound after a tap), the starter island, the `window.orb` SDK, and looking at the world to
+  fix what's broken and what looks worst. No safety rules or audience of their own: the models'
+  own guidelines apply. Orb's AI thinks at medium effort (`ORB_AI_EFFORT`).
 
 The job's output is text in tagged blocks (namespaced, so they never collide with HTML) plus
 control frames (`\u001e` + JSON + newline) that the page strips:

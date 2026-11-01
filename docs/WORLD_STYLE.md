@@ -4,8 +4,11 @@ Shared by the hand-made templates and the AI system prompt. The bar: someone ope
 says "wow" within one second, on a phone or a laptop.
 
 ## Format
-- One self-contained HTML document. No build step, no local assets. Everything procedural
-  (geometry, textures via canvas, sound via WebAudio).
+- A small web project: index.html and the files it loads by relative paths. No build step.
+  Characters, animals, vehicles, buildings, props, textures, skies and sounds are free files from
+  the web (CC0 or CC-BY: Kenney, Quaternius, Poly Pizza, Poly Haven, ambientCG…), copied into the
+  world's `assets/` and credited in `CREDITS.md`; never loaded from other sites. Simple shapes and
+  effects are made in code. Materials are lit by the sky too (`scene.environment`).
 - Libraries only from jsDelivr, pinned. Default stack is three.js via an import map:
   ```html
   <script type="importmap">{"imports":{

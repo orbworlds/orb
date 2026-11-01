@@ -13,6 +13,7 @@
 // and can pick it up again from any offset, after a reload, on any device.
 
 import { setTimeout as sleep } from 'node:timers/promises';
+import { anthropic } from '@ai-sdk/anthropic';
 import { streamText, type ModelMessage, type TextStreamPart, type ToolSet } from 'ai';
 import type { Db } from '../db';
 import { control, newJobId, sweepJobs } from '../buildjobs';
@@ -26,13 +27,13 @@ import { chargeBuild, type Billing } from '../buildlimits';
 import { logBuild, outOfCredits, plansConfig, refundCredits, toCredits } from '../credits';
 import { paymentsForPayer } from '../billing';
 import { freeTierConfig, longBuildChecks } from '../freetier';
-import { mockAi, modelLabel, serverCursorKey } from '../ai';
+import { aiBackend, mockAi, modelLabel, serverCursorKey } from '../ai';
 import { recordError } from '../errors';
 import type { Viewer } from '../auth';
 import { DEFAULT_CURSOR_MODEL } from '../cursor';
 import { openTrace, startTrace, type Trace } from '../traces';
 import { agentModel, DEFAULT_AGENT_MODELS, PROVIDER_NAMES, reasoningFor, type AgentProvider } from './models';
-import { agentSystemPrompt } from './prompt';
+import { agentSystemPrompt, type WebAssets } from './prompt';
 import { jobToken, openKey, sealKey } from './secrets';
 import { filesUrl } from './sync';
 import { agentTools, closeToolCalls, isFinalStep, Workspace, type LookInput, type Meta, type StepEvent } from './workspace';
@@ -198,7 +199,7 @@ export async function createAgentJob(db: Db, j: NewJob): Promise<string> {
   startTrace(
     db,
     { id, group: j.trace?.group, kind: onCursor ? 'cursor' : 'agent', worldId: j.worldId, owner: j.owner, provider: j.provider, model: modelOf(j.provider, j.model, onCursor), mode: j.mode, prompt: j.prompt, meta: { ...shown, ...j.trace?.meta, plan: billingOf({ billing })?.plan, effort: reasoningFor(j.provider, j.ext ?? {}) } },
-    { system: onCursor ? null : agentSystemPrompt(j.mode), messages: j.messages, tree: world.tree },
+    { system: onCursor ? null : agentSystemPrompt(j.mode, j.mode === 'build' ? webAssets(j.provider) : null), messages: j.messages, tree: world.tree },
   );
   return id;
 }
@@ -480,8 +481,27 @@ export function compact(messages: ModelMessage[]): ModelMessage[] {
 /** What a reply cut off before it finished is asked to do next. */
 const SMALLER_PIECES = 'Work in smaller pieces: several smaller files, or a few edit_file calls instead of one huge write.';
 
-const FILE_TOOLS: Record<string, 'write' | 'edit'> = { write_file: 'write', edit_file: 'edit', delete_file: 'edit', move_file: 'edit' };
-const READ_TOOLS: Record<string, string> = { list_files: 'Looking around', read_file: 'Reading', search: 'Searching', read_docs: 'Reading the docs at' };
+const FILE_TOOLS: Record<string, 'write' | 'edit'> = { write_file: 'write', edit_file: 'edit', delete_file: 'edit', move_file: 'edit', add_asset: 'write' };
+const READ_TOOLS: Record<string, string> = { list_files: 'Looking around', read_file: 'Reading', search: 'Searching', read_docs: 'Reading the docs at', web_search: 'Looking on the web for', web_fetch: 'Reading' };
+
+/**
+ * What a build's agent may bring in from the web (SPEC §8): free files by their links, copied into
+ * the world (add_asset), and on Anthropic's models web search and fetch to find them. ORB_WEB_ASSETS=0:
+ * nothing (textures, models and sounds made in code).
+ */
+export function webAssets(provider: AgentProvider): WebAssets {
+  if (process.env.ORB_WEB_ASSETS === '0') return null;
+  return provider === 'anthropic' || (provider === 'free' && aiBackend() === 'anthropic') ? 'search' : 'links';
+}
+
+/** Anthropic's web search and fetch (they run on its side; the older ones on models without code-filtered results). */
+function webTools(modelId: string): ToolSet {
+  const older = /haiku/i.test(modelId);
+  return {
+    web_search: older ? anthropic.tools.webSearch_20250305({ maxUses: 5 }) : anthropic.tools.webSearch_20260209({ maxUses: 5 }),
+    web_fetch: older ? anthropic.tools.webFetch_20250910({ maxUses: 5, maxContentTokens: 20_000 }) : anthropic.tools.webFetch_20260209({ maxUses: 5, maxContentTokens: 20_000 }),
+  };
+}
 
 /** Pull a string field out of a partial JSON object (tool input still streaming). */
 function partialField(json: string, key: string): string | null {
@@ -709,7 +729,11 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
   } catch {
     return finish('failed', 'Your key is missing — add it in You → Model and try again.');
   }
-  const system = agentSystemPrompt(job.mode);
+  // What it may bring in from the web: files by link (add_asset), and on Anthropic's models (called
+  // directly) its web search and fetch to find them.
+  const web = job.mode === 'build' ? webAssets(job.provider) : null;
+  const searching = web === 'search' && typeof model === 'object' && String(model.provider).startsWith('anthropic');
+  const system = agentSystemPrompt(job.mode, web === 'search' && !searching ? 'links' : web);
   const instructions = { role: 'system' as const, content: system, providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' as const } } } };
   const reasoning = reasoningFor(job.provider, ext);
   const roomy = job.provider === 'anthropic' || job.provider === 'openai';
@@ -818,7 +842,7 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
       const stepEvent = (e: StepEvent) => {
         out.control({ t: 'step', id: e.id, kind: e.kind, label: e.label, status: e.ok ? 'done' : 'failed', ...(e.error ? { error: e.error } : {}) });
       };
-      const tools: ToolSet = agentTools(ws, job.mode, meta, stepEvent, lookAt);
+      const tools: ToolSet = { ...agentTools(ws, job.mode, meta, stepEvent, lookAt, !!web), ...(searching && typeof model === 'object' ? webTools(model.modelId) : {}) };
       const calls: string[] = [];
       let thought = '';
       let lastThought = 0;
@@ -880,8 +904,8 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
               calls.push(part.toolName);
               const reading = READ_TOOLS[part.toolName];
               if (reading) {
-                const input = part.input as { path?: string; pattern?: string; url?: string };
-                const what = input?.path || input?.pattern || (input?.url ? String(input.url).replace(/^https:\/\//, '') : '');
+                const input = part.input as { path?: string; pattern?: string; url?: string; query?: string };
+                const what = input?.path || input?.pattern || input?.query || (input?.url ? String(input.url).replace(/^https:\/\//, '') : '');
                 out.control({ t: 'status', phase: 'thinking', text: what ? `${reading} ${String(what).slice(0, 80)}…` : `${reading}…` });
               }
               break;

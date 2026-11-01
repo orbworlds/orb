@@ -15,6 +15,7 @@ Everything is set in Vercel's environment for the project `orb`.
 | `ANTHROPIC_API_KEY` | Optional. Without it, free building uses the Vercel AI Gateway (needs AI Gateway credits or a card on file) |
 | `ORB_MODEL` | Optional gateway model id (default `anthropic/claude-opus-5.5`; one model for everyone, Free and Pro) |
 | `ORB_AI_EFFORT` | Optional reasoning effort of Orb's AI: `medium` (default), `low`, `high` or `xhigh` — thinking is most of what a build costs |
+| `ORB_WEB_ASSETS` | Optional: `0` keeps builds from finding models, textures and sounds on the web and copying them into worlds (web search, `add_asset`) |
 | `ORB_CURSOR_KEY` | Optional Cursor API key (`crsr_…`, Cursor dashboard → Integrations). Without `ANTHROPIC_API_KEY`, free builds then run as Cursor agents on it (see [Free builder budget](#free-builder-budget)) |
 | `ORB_CURSOR_MODEL`, `ORB_CURSOR_EFFORT` | Optional Cursor model of those builds (default `claude-opus-5-5`; `claude-sonnet-5-5` costs half as much) and its effort (default `medium`) |
 | `ORB_FREE_DAILY_PER_ACCOUNT` | Optional daily free build units per account (default 30, or 25 on Cursor; a unit is a build with up to 100k characters of input) |

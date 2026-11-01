@@ -1511,6 +1511,12 @@ async function run() {
     check('undoing one build takes back only its own changes (the other’s stay)', undo.status === 200 && !!own && /^\/\/ pal\n/.test(undone) && !undone.includes('// mira'), { status: undo.status, own: !!own, undone });
     check('…a base that isn’t a tree → 400', (await patch(MAKER_DEV, w.id, { tree: was.tree, base: 'nope' }, maker.cookie)).status === 400);
 
+    // Files from the web come into a world by add_asset, never from this machine or a private network.
+    const near = await build(pal, w.id, 'a fox mockasset https://localhost/fox.glb');
+    check('a build can’t copy in a file from this machine (add_asset refuses it, saying why)', near.status === 200 && /"status":"failed"[^}]*public site/.test(near.text) && (await request('GET', `/api/tree/${(await get(MAKER_DEV, w.id, maker.cookie)).json.world.tree}/assets/fox.glb`)).status === 404, near.text.slice(-400));
+    const plain = await build(pal, w.id, 'a fox mockasset http://example.com/fox.glb');
+    check('…nor over plain http', plain.status === 200 && /"status":"failed"[^}]*https/.test(plain.text), plain.text.slice(-300));
+
     const off = await request('DELETE', `/api/worlds/${w.id}/editors?user=${pal.id}`, as(maker));
     check('its owner takes them off: they can’t open the private world anymore', off.status === 200 && (await get(PAL_DEV, w.id, pal.cookie)).status === 404);
     check('back in with the invite, they leave by themselves', (await editors(pal, w.id, { token })).status === 200 && (await request('DELETE', `/api/worlds/${w.id}/editors?user=${pal.id}`, as(pal))).status === 200 && (await get(PAL_DEV, w.id, pal.cookie)).status === 404);

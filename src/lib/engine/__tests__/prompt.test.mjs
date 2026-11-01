@@ -12,21 +12,36 @@ const req = (over = {}) => ({ worldId: 'w1', messages: [{ role: 'user', content:
 const opts = (over = {}) => ({ worldName: 'Cloud Castle', history: [], request: 'make it night', ...over });
 
 describe('the agents’ system prompts', () => {
-  test('carry Orb’s voice, direction, craft guide and SDK, for a world made of files', () => {
-    const prompts = { agent: agentSystemPrompt('build'), cursor: cursorOrbPrompt({ ...opts(), mode: 'build' }) };
+  test('short, and only what the model can’t know by itself: Orb’s voice, its world, three r186 and the SDK', () => {
+    const prompts = { agent: agentSystemPrompt('build', 'search'), cursor: cursorOrbPrompt({ ...opts(), mode: 'build' }) };
     for (const [name, p] of Object.entries(prompts)) {
-      for (const s of ['# How you talk', '# Get the direction right first', '# Craft: wow within one second', '# The Orb platform (window.orb)', "Orb's starter templates"]) assert.ok(p.includes(s), `${name}: ${s}`);
-      assert.match(p, /Keep going like this/, `${name}: a big new world stops at a first look`);
-      assert.match(p, /restyle all of it/, `${name}: a named style replaces the island's look`);
+      for (const s of ['# How you talk', '# The world', '# window.orb']) assert.ok(p.includes(s), `${name}: ${s}`);
       assert.doesNotMatch(p, /# Kind and safe|child|kids|five-year/i, `${name}: no safety rules or audience of its own`);
-      assert.ok(p.length < 9000, `${name}: short (${p.length} characters)`);
-      for (const s of ['three@0.186.1', 'cdn.jsdelivr.net', 'importmap', 'SRGBColorSpace', 'ACESFilmicToneMapping', 'PCFShadowMap', 'THREE.Timer', 'Fog', 'InstancedMesh']) assert.ok(p.includes(s), `${name}: ${s}`);
-      for (const s of ['const orb = window.orb', 'orb?.store.get', 'orb?.store.incr', 'orb?.store.push', 'orb?.room.join', 'room.setState', 'orb?.visitors.show', 'orb?.shop.buy', 'orb?.capture()', 'orb?.toast', 'orb?.me', 'localStorage']) assert.ok(p.includes(s), `${name}: ${s}`);
-      assert.ok(p.includes('The world is a small web project'), `${name}: the multi-file format`);
+      assert.doesNotMatch(p, /Get the direction right first|Keep going like this/, `${name}: no stopping at a first look`);
+      for (const s of ['three@0.186.1', 'importmap', 'SRGBColorSpace', 'ACESFilmicToneMapping', 'PCFShadowMap', 'THREE.Timer', 'sky island', 'YOUR WORLD']) assert.ok(p.includes(s), `${name}: ${s}`);
+      for (const s of ['const orb = window.orb', 'orb.store.get', 'orb.store.get(key) · set', 'orb.room.join', 'room.setState', 'orb.visitors.show', 'orb.shop.buy', 'orb.capture()', 'orb.toast', 'orb.me', 'localStorage', '90×90']) assert.ok(p.includes(s), `${name}: ${s}`);
       assert.ok(!/<orb:(write|edit|find)/.test(p), `${name}: nothing of the single-file protocol`);
     }
-    assert.match(prompts.agent, /write_file/);
+    assert.ok(prompts.agent.length < 4000, `Orb’s agent: short (${prompts.agent.length} characters)`);
+    assert.ok(prompts.cursor.length < 6500, `Cursor: short (${prompts.cursor.length} characters)`);
     assert.match(prompts.cursor, /sh \.orb\/save/);
+  });
+
+  test('models, textures and sounds: free files from the web copied into the world, or made in code without them', () => {
+    const search = agentSystemPrompt('build', 'search');
+    assert.match(search, /web_search/);
+    assert.match(search, /add_asset/);
+    assert.match(search, /Real assets beat boxes/);
+    assert.doesNotMatch(search, /made in code or as files you write/);
+    assert.match(agentSystemPrompt('build', 'links'), /copied into the world with add_asset/);
+    assert.doesNotMatch(agentSystemPrompt('build', 'links'), /web_search/);
+    assert.match(agentSystemPrompt('build'), /made in code or as files you write/, 'without assets from the web: in code');
+    assert.match(cursorOrbPrompt({ ...opts(), mode: 'build' }), /downloaded into assets\//);
+    assert.match(cursorOrbPrompt({ ...opts(), mode: 'build', web: false }), /made in code or as files you write/);
+    for (const p of [search, cursorOrbPrompt({ ...opts(), mode: 'build' })]) {
+      assert.match(p, /scene\.environment/, 'materials lit by the sky');
+      assert.match(p, /what looks worst, and look again/, 'a look that fixes what looks worst');
+    }
   });
 
   test('guides answer in place and offer a copy for changes', () => {
@@ -34,7 +49,7 @@ describe('the agents’ system prompts', () => {
     assert.match(agent, /# Mode: guide/);
     assert.match(agent, /offer_remix/);
     assert.doesNotMatch(agent, /# How you work/);
-    assert.doesNotMatch(agent, /# Craft|# Get the direction/, 'a guide changes nothing: no craft guide');
+    assert.doesNotMatch(agent, /# The world/, 'a guide changes nothing: no world guide');
     const cursor = cursorOrbPrompt({ ...opts(), mode: 'ask' });
     assert.match(cursor, /# Mode: guide/);
     assert.match(cursor, /Own copy: yes/);

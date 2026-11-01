@@ -7,6 +7,7 @@
 import { jsonSchema, tool, type JSONSchema7, type ModelMessage, type ToolResultPart, type ToolSet } from 'ai';
 import type { Db } from '../db';
 import { blobSizes, cleanPath, FILE_LIMITS, getBlob, isText, putBlob, putTree, type Tree } from '../files';
+import { assetProblem, fetchAsset, modelInfo, pathProblem } from './assets';
 import { problemsAfterChange } from './check';
 import { LOOK_ACTIONS } from './look';
 import { DOC_HOSTS, excerpt, fetchText, type Doc } from './web';
@@ -109,6 +110,17 @@ export class Workspace {
     this.files[path] = sha;
   }
 
+  /** Files the build copied in from the web (add_asset), and their bytes: a build takes so many. */
+  added = { files: 0, bytes: 0 };
+
+  /** A binary file (a model, a texture, a sound…). */
+  async put(path: string, bytes: Uint8Array): Promise<void> {
+    const { sha, size } = await putBlob(this.db, bytes);
+    this.sizes.set(sha, size);
+    if (this.files[path] !== sha) this.changed = true;
+    this.files[path] = sha;
+  }
+
   remove(path: string): boolean {
     if (!this.files[path]) return false;
     delete this.files[path];
@@ -185,6 +197,10 @@ function globToRe(glob: string): RegExp {
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
 
+/** Files from the web one tick of a build may add (add_asset), and their bytes. */
+const ASSETS_MAX = 40;
+const ASSET_BYTES_MAX = 80_000_000;
+
 export interface LookInput {
   actions?: unknown;
   viewport?: unknown;
@@ -238,7 +254,7 @@ async function readDoc(url: string): Promise<Doc | { error: string }> {
  * collects the world name, next ideas and remix offers; `look` runs the world in a page that
  * watches the job and sees it (./look.ts), giving the text for the model.
  */
-export function agentTools(ws: Workspace, mode: 'build' | 'ask', meta: Meta, onStep: (e: StepEvent) => void, look?: (input: LookInput, toolCallId: string, signal?: AbortSignal) => Promise<string>): ToolSet {
+export function agentTools(ws: Workspace, mode: 'build' | 'ask', meta: Meta, onStep: (e: StepEvent) => void, look?: (input: LookInput, toolCallId: string, signal?: AbortSignal) => Promise<string>, assets = false): ToolSet {
   const pathError = (p: unknown) => `"${String(p)}" is not a valid file path. Use relative paths like "src/main.js" (letters, digits, - _ . / only).`;
 
   const read = {
@@ -389,9 +405,54 @@ export function agentTools(ws: Workspace, mode: 'build' | 'ask', meta: Meta, onS
       }
     : {};
 
+  const fromWeb: ToolSet = assets
+    ? {
+        add_asset: tool({
+          description: `Copy a file from the web into the world by its direct https link: a 3D model (.glb, or a .gltf and the files it names), a texture or picture (.png .jpg .webp .ktx2), a sky (.hdr), a sound (.mp3 .ogg .wav .m4a) or a font (.woff2 .ttf). The world then loads it by its path (./assets/…), never from the other site. Only free-licensed files (CC0, CC-BY…): credit names the author and license, and goes into CREDITS.md. For a model it tells you its size and animations.`,
+          inputSchema: jsonSchema<{ label: string; url: string; path: string; credit: string }>({
+            type: 'object',
+            properties: {
+              label: { type: 'string', description: '2–5 friendly words describing the visible result' },
+              url: { type: 'string', description: 'The direct https link to the file' },
+              path: { type: 'string', description: 'Where it goes in the world, e.g. assets/fox.glb' },
+              credit: { type: 'string', description: 'Author and license, e.g. "Quaternius (CC0)"' },
+            },
+            required: ['label', 'url', 'path', 'credit'],
+            additionalProperties: false,
+          }),
+          execute: ({ label: l, url, path, credit }, { toolCallId: id, abortSignal }) =>
+            ws.track(async () => {
+              const p = cleanPath(path);
+              const lbl = label(l, 'Adding a model');
+              const failed = (error: string) => {
+                onStep({ id, kind: 'write', label: lbl, path: p ?? String(path), ok: false, error });
+                return error;
+              };
+              if (!p) return failed(pathError(path));
+              if (ws.added.files >= ASSETS_MAX || ws.added.bytes >= ASSET_BYTES_MAX) return failed('This build has added as many files from the web as it can.');
+              const bad = pathProblem(p);
+              if (bad) return failed(bad);
+              const got = await fetchAsset(String(url), abortSignal);
+              if ('error' in got) return failed(got.error);
+              const problem = assetProblem(p, got.bytes);
+              if (problem) return failed(problem);
+              await ws.put(p, got.bytes);
+              ws.added.files++;
+              ws.added.bytes += got.bytes.length;
+              const who = str(credit).replace(/\s+/g, ' ').trim().slice(0, 200) || 'unknown author';
+              const credits = (await ws.read('CREDITS.md').catch(() => null)) ?? '# Credits\n';
+              if (!credits.includes(`- ${p}:`)) await ws.write('CREDITS.md', `${credits.replace(/\n*$/, '\n')}- ${p}: ${who} — ${String(url).trim().slice(0, 300)}\n`);
+              onStep({ id, kind: 'write', label: lbl, path: p, ok: true });
+              return `Added ${p} (${Math.max(1, Math.round(got.bytes.length / 1024))} KB): load it from './${p}'.${modelInfo(p, got.bytes)}`;
+            }),
+        }),
+      }
+    : {};
+
   return {
     ...read,
     ...seeing,
+    ...fromWeb,
     write_file: tool({
       description: 'Create a file, or replace a whole file. Keep it under ~300 lines; split bigger code into several modules.',
       inputSchema: jsonSchema<{ path: string; content: string; label: string }>({
@@ -517,7 +578,8 @@ export function closeToolCalls(added: ModelMessage[], results: Map<string, strin
   for (const m of added) {
     if (m.role !== 'assistant' || typeof m.content === 'string') continue;
     for (const p of m.content) {
-      if (p.type !== 'tool-call' || answered.has(p.toolCallId)) continue;
+      // A tool Anthropic runs itself (web_search, web_fetch) has its result in the reply already.
+      if (p.type !== 'tool-call' || p.providerExecuted || answered.has(p.toolCallId)) continue;
       missing.push({ type: 'tool-result', toolCallId: p.toolCallId, toolName: p.toolName, output: { type: 'text', value: results.get(p.toolCallId) ?? 'Not run: your reply was cut off at the output limit.' } });
     }
   }

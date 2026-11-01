@@ -9,7 +9,7 @@
 // (a reply cut off at the output limit), "mocklook" (plays the world with the look tool and says
 // what it saw), "mockfirstlook" (a big new world's first look, ending with a question),
 // "mockphoto" (the world uses the person's photo or video), "mockadd:<word>" / "mocktop:<word>" (a
-// file written again whole, with a line of its own). A visitor's request (guide mode) gets an
+// file written again whole, with a line of its own), "mockasset <url>" (a file copied in from the web). A visitor's request (guide mode) gets an
 // answer, and with "mockchange" the offer of their own copy.
 
 import type { LanguageModel } from 'ai';
@@ -152,6 +152,9 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
     return { text: said, calls: [{ name: 'suggest_next', input: { ideas: ['Make it sunset', 'Add fireflies', 'Add soft music'] } }] };
   }
   const hue = /hue: (\d+)/.exec(results);
+  // "mockasset <url>": a file from the web copied into the world (add_asset).
+  const asset = request.includes('mockasset') ? /mockasset (\S+)/.exec(textOf(prompt[lastUser]))?.[1] : undefined;
+  if (step === 2 && hasWorld && asset && !repair) return { text: 'Adding a model.', calls: [{ name: 'add_asset', input: { label: 'Adding a fox', url: asset, path: 'assets/fox.glb', credit: 'Test (CC0)' } }] };
   // "mockadd:<word>" / "mocktop:<word>": src/config.js written again whole, as it was read, with a
   // line of its own at its end / on top (builds of a world made together at the same time merge).
   const add = /mock(add|top):(\w+)/.exec(request);

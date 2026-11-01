@@ -87,7 +87,7 @@ async function firstMessage(db: Db, files: Tree, name: string, req: BuildRequest
 function cursorMessage(build: BuildRequest, worldName: string, mode: 'build' | 'ask', photos: FilePart[]): ModelMessage {
   const history = build.messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }));
   const opts = { worldName: build.worldName || worldName, history, request: build.messages[build.messages.length - 1].content, errors: build.errors };
-  const text = cursorOrbPrompt({ ...opts, mode });
+  const text = cursorOrbPrompt({ ...opts, mode, web: process.env.ORB_WEB_ASSETS !== '0' });
   const img = build.image ? imagePart(build.image) : null;
   return { role: 'user', content: [{ type: 'text', text }, ...photos, ...(img ? [img] : [])] };
 }
