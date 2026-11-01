@@ -14,14 +14,14 @@ const { reasoningFor } = await import('../../../server/agent/models.ts');
 const { attachLookImages, resolveLookImages } = await import('../../../server/agent/look.ts');
 
 describe('reasoning effort', () => {
-  test('Anthropic and OpenAI keys run at high effort unless people choose another level; Orb\'s AI at low; others keep the default', () => {
+  test('Anthropic and OpenAI keys run at high effort unless people choose another level; Orb\'s AI at medium; others keep the default', () => {
     assert.equal(reasoningFor('anthropic', {}), 'high');
     assert.equal(reasoningFor('openai', { effort: 'xhigh' }), 'xhigh');
     assert.equal(reasoningFor('anthropic', { effort: 'medium' }), 'medium');
     assert.equal(reasoningFor('openai', { effort: 'low' }), 'low');
     assert.equal(reasoningFor('anthropic', { effort: 'max!!' }), 'high');
     for (const p of ['openrouter', 'mock', 'cursor']) assert.equal(reasoningFor(p, { effort: 'low' }), undefined);
-    assert.equal(reasoningFor('free', { effort: 'high' }), 'low', "Orb's AI thinks little, whatever was asked");
+    assert.equal(reasoningFor('free', { effort: 'high' }), 'medium', "Orb's AI thinks at medium effort, whatever was asked");
   });
 });
 

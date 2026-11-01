@@ -246,7 +246,7 @@ interface RawModel {
 }
 
 /** Reasoning effort of builds on Orb's own key (ORB_CURSOR_EFFORT). */
-const SERVER_EFFORT = (process.env.ORB_CURSOR_EFFORT || 'low').trim();
+const SERVER_EFFORT = (process.env.ORB_CURSOR_EFFORT || 'medium').trim();
 let catalog: { at: number; items: RawModel[] } | null = null;
 
 /**

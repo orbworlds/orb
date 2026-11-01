@@ -25,12 +25,12 @@ const isEffort = (v: unknown): v is AgentEffort => typeof v === 'string' && (AGE
 
 /**
  * Anthropic and OpenAI keys run at high effort unless people chose another level, like a coding
- * agent in their own hands. Orb's AI thinks little (ORB_AI_EFFORT, default low): the provider's
+ * agent in their own hands. Orb's AI thinks at medium effort (ORB_AI_EFFORT): the provider's
  * default is high, and thinking is most of what a build costs. OpenRouter keeps its default: its
  * OpenAI-style chat API can't carry thinking from one step to the next.
  */
 export function reasoningFor(provider: AgentProvider, ext: Record<string, unknown>): AgentEffort | undefined {
-  if (provider === 'free') return isEffort(process.env.ORB_AI_EFFORT) ? process.env.ORB_AI_EFFORT : 'low';
+  if (provider === 'free') return isEffort(process.env.ORB_AI_EFFORT) ? process.env.ORB_AI_EFFORT : 'medium';
   if (provider !== 'anthropic' && provider !== 'openai') return undefined;
   return isEffort(ext.effort) ? ext.effort : 'high';
 }

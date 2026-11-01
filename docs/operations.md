@@ -14,9 +14,9 @@ Everything is set in Vercel's environment for the project `orb`.
 | `ORB_ADMIN_TOKEN` | Admin API: `POST /api/admin/worlds/<id>` with header `x-admin-token` and `{"verified": true, "featured": 50}` |
 | `ANTHROPIC_API_KEY` | Optional. Without it, free building uses the Vercel AI Gateway (needs AI Gateway credits or a card on file) |
 | `ORB_MODEL` | Optional gateway model id (default `anthropic/claude-opus-5.5`; one model for everyone, Free and Pro) |
-| `ORB_AI_EFFORT` | Optional reasoning effort of Orb's AI: `low` (default), `medium`, `high` or `xhigh` — thinking is most of what a build costs |
+| `ORB_AI_EFFORT` | Optional reasoning effort of Orb's AI: `medium` (default), `low`, `high` or `xhigh` — thinking is most of what a build costs |
 | `ORB_CURSOR_KEY` | Optional Cursor API key (`crsr_…`, Cursor dashboard → Integrations). Without `ANTHROPIC_API_KEY`, free builds then run as Cursor agents on it (see [Free builder budget](#free-builder-budget)) |
-| `ORB_CURSOR_MODEL`, `ORB_CURSOR_EFFORT` | Optional Cursor model of those builds (default `claude-opus-5-5`; `claude-sonnet-5-5` costs half as much) and its effort (default `low`) |
+| `ORB_CURSOR_MODEL`, `ORB_CURSOR_EFFORT` | Optional Cursor model of those builds (default `claude-opus-5-5`; `claude-sonnet-5-5` costs half as much) and its effort (default `medium`) |
 | `ORB_FREE_DAILY_PER_ACCOUNT` | Optional daily free build units per account (default 30, or 25 on Cursor; a unit is a build with up to 100k characters of input) |
 | `ORB_FREE_DAILY_PER_DEVICE`, `ORB_FREE_DAILY_PER_IP` | Optional daily free build units without an account, per device (default 12, or 10 on Cursor) and per IP address (default 40, or 25 on Cursor; an IP's accounts together get three times that) |
 | `ORB_LIGHT_USD_PER_HOUR` | Optional: US$ an hour for builds on the lighter model, when an account's credits are used up (default 2; `0` turns it off). `ORB_LIGHT_MODEL` picks another model (default Claude Haiku 5.5) |

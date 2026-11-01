@@ -372,9 +372,9 @@ Browser (Next.js client)                              Vercel Functions (Node)   
 | `ORB_ADMIN_TOKEN` | admin API (verify/feature worlds) |
 | `ANTHROPIC_API_KEY` | optional; if set, free tier uses Anthropic directly instead of AI Gateway |
 | `ORB_MODEL` | optional; default `anthropic/claude-opus-5.5` (gateway id). Orb's AI is one model for everyone: Pro has more credits, not another model |
-| `ORB_AI_EFFORT` | optional; Orb's AI's reasoning effort (default `low`; `medium`, `high`, `xhigh`) |
+| `ORB_AI_EFFORT` | optional; Orb's AI's reasoning effort (default `medium`; `low`, `high`, `xhigh`) |
 | `ORB_CURSOR_KEY` | optional; Orb's own Cursor API key: without `ANTHROPIC_API_KEY`, free agent builds run as Cursor agents on it |
-| `ORB_CURSOR_MODEL`, `ORB_CURSOR_EFFORT` | optional; their Cursor model (default `claude-opus-5-5`) and effort (default `low`; with the model's smaller context, thinking on where it has the option) |
+| `ORB_CURSOR_MODEL`, `ORB_CURSOR_EFFORT` | optional; their Cursor model (default `claude-opus-5-5`) and effort (default `medium`; with the model's smaller context, thinking on where it has the option) |
 | `ORB_FREE_DAILY_PER_ACCOUNT` | optional; free build units per UTC day per account (default 30; 25 on Orb's Cursor key) |
 | `ORB_FREE_DAILY_PER_DEVICE`, `ORB_FREE_DAILY_PER_IP` | optional; free build units per UTC day without an account, per device (default 12; 10 on Cursor) / per IP (default 40; 25 on Cursor; ×3 for the IP's accounts together). An IPv6 address counts as its /64. With `ORB_MOCK_AI=1` the daily caps are off unless set |
 | `ORB_LIGHT_USD_PER_HOUR` | optional; US$ an hour for all builds on the lighter model together (accounts out of credits; default 2; 0 = none). `ORB_LIGHT_MODEL` overrides the model (default `claude-haiku-5-5`, on the gateway `anthropic/claude-haiku-5.5`) |
@@ -975,7 +975,7 @@ reads the world's files itself; its system prompts are in `src/server/agent/prom
 - The prompts are kept short (every build pays for each token, and Cursor adds its own): only
   what the model can't know by itself (the `window.orb` SDK, the starter island, three.js r186's
   pitfalls, saving and looking). No safety rules or audience of their own: the models' own
-  guidelines apply. Orb's AI thinks at low effort (`ORB_AI_EFFORT`).
+  guidelines apply. Orb's AI thinks at medium effort (`ORB_AI_EFFORT`).
 
 The job's output is text in tagged blocks (namespaced, so they never collide with HTML) plus
 control frames (`\u001e` + JSON + newline) that the page strips:

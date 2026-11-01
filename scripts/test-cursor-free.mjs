@@ -89,7 +89,7 @@ try {
   const agent = newest(fake);
   check('the build streams as an agent job', r.status === 200 && !!job, r.text.slice(0, 300));
   check('a Cursor agent on Orb’s own key', agent && agent.auth === `Basic ${Buffer.from(`${KEY}:`).toString('base64')}`, agent && { auth: agent.auth });
-  check('Opus 5.5 at low effort with the smaller context', JSON.stringify(agent?.model) === JSON.stringify({ id: 'claude-opus-5-5', params: [{ id: 'context', value: '300k' }, { id: 'reasoning_effort', value: 'low' }] }), agent?.model);
+  check('Opus 5.5 at medium effort with the smaller context', JSON.stringify(agent?.model) === JSON.stringify({ id: 'claude-opus-5-5', params: [{ id: 'context', value: '300k' }, { id: 'reasoning_effort', value: 'medium' }] }), agent?.model);
   const prompt = agent?.runs[0].prompt ?? '';
   check('its prompt has this job’s files link and how to save', new RegExp(`/api/agent/jobs/${job}/files\\?t=[\\w-]+`).test(prompt) && prompt.includes('sh .orb/save') && !prompt.includes('{{ORB_FILES_URL}}'));
   check('…and asks it to name the untitled world in its page’s title', /It has no name yet: in your first edit, set the <title> in index\.html/.test(prompt));
