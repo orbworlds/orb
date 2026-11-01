@@ -11,15 +11,15 @@ let signedIn = false;
 let unsubscribe: (() => void) | null = null;
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-/** The account keeps a chat of up to 600 KB (/api/chats/:id): the oldest messages' photos give way first. */
+/** The account keeps a chat of up to 600 KB (/api/chats/:id): the oldest messages' photos and videos give way first. */
 const MAX_SYNC = 560_000;
 function fitted(messages: ChatMessage[]): ChatMessage[] {
   const out = messages.slice(-120);
   let size = JSON.stringify(out).length;
   for (let i = 0; size > MAX_SYNC && i < out.length; i++) {
-    if (!out[i].photos) continue;
-    size -= JSON.stringify(out[i].photos).length;
-    out[i] = { ...out[i], photos: undefined };
+    if (!out[i].photos && !out[i].videos) continue;
+    size -= JSON.stringify(out[i].photos ?? []).length + JSON.stringify(out[i].videos ?? []).length;
+    out[i] = { ...out[i], photos: undefined, videos: undefined };
   }
   return out;
 }

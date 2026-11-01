@@ -491,7 +491,7 @@ export class WorldBridge {
         return;
       }
       case 'drop': {
-        const files = Array.isArray(d.files) ? d.files.filter((f): f is File => f instanceof File && /^image\//.test(f.type)).slice(0, 8) : [];
+        const files = Array.isArray(d.files) ? d.files.filter((f): f is File => f instanceof File && /^(image|video)\//.test(f.type)).slice(0, 8) : [];
         const now = Date.now();
         if (!files.length || now - this.lastDrop < 800) return; // one drop at a time
         this.lastDrop = now;

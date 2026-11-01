@@ -3,7 +3,7 @@
 // src/server/agent/prompt.ts), and the default models for people's own keys. Pure module: only
 // type imports, no runtime dependencies.
 import type { ModelMessage, FilePart } from 'ai';
-import type { BuildRequest, ModelMessage as ChatModelMessage } from '../types';
+import type { BuildRequest, BuildVideo, ModelMessage as ChatModelMessage } from '../types';
 
 // ---------------------------------------------------------------------------------------------
 // Request limits (validated by /api/agent/jobs; the client clamps to them before sending).
@@ -15,6 +15,10 @@ export const BUILD_LIMITS = {
   /** Photos the person attached to the message: how many, and each one's size (data URL characters). */
   photos: 4,
   photo: 700_000,
+  /** A video with the message: at most one, seen as this many frames of at most this size. */
+  videos: 1,
+  frames: 4,
+  frame: 300_000,
   errors: 12,
   errorChars: 4_000,
   worldName: 120,
@@ -36,6 +40,22 @@ export const isBuildImage = (img: unknown): img is string => typeof img === 'str
 export const isBuildPhoto = (img: unknown): img is string => typeof img === 'string' && img.length <= BUILD_LIMITS.photo && IMAGE_RE.test(img);
 /** What a message of photos alone asks. */
 export const PHOTOS_ONLY = '(I sent photos without words.)';
+/** What a message of a video alone asks. */
+export const VIDEO_ONLY = '(I sent a video without words.)';
+/** Video files a build may put in a world (POST /api/uploads takes these). */
+export const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'] as const;
+
+/** A video the person attached: its frames, its length, and its file on Orb if it has one. */
+function isBuildVideo(v: unknown): v is BuildVideo {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  const frames = o.frames;
+  if (!Array.isArray(frames) || !frames.length || frames.length > BUILD_LIMITS.frames || !frames.every((f) => typeof f === 'string' && f.length <= BUILD_LIMITS.frame && IMAGE_RE.test(f))) return false;
+  if (typeof o.seconds !== 'number' || !(o.seconds >= 0 && o.seconds <= 86_400)) return false;
+  if (o.file === undefined) return true;
+  const f = o.file as Record<string, unknown> | null;
+  return !!f && typeof f.sha === 'string' && /^[a-f0-9]{64}$/.test(f.sha) && (VIDEO_TYPES as readonly unknown[]).includes(f.type);
+}
 
 /** Validate and normalize an untrusted BuildRequest body. */
 export function validateBuildRequest(body: unknown): { ok: true; req: BuildRequest } | { ok: false; message: string } {
@@ -57,11 +77,17 @@ export function validateBuildRequest(body: unknown): { ok: true; req: BuildReque
       return { ok: false, message: `\`photos\` must be up to ${BUILD_LIMITS.photos} jpeg/png/webp/gif data URLs under ${Math.round(BUILD_LIMITS.photo / 1000)} KB each.` };
     if (b.photos.length) photos = b.photos as string[];
   }
+  let videos: BuildVideo[] | undefined;
+  if (b.videos != null) {
+    if (!Array.isArray(b.videos) || b.videos.length > BUILD_LIMITS.videos || !b.videos.every(isBuildVideo))
+      return { ok: false, message: `\`videos\` must be at most ${BUILD_LIMITS.videos}: up to ${BUILD_LIMITS.frames} jpeg frames under ${Math.round(BUILD_LIMITS.frame / 1000)} KB each, its seconds, and maybe its uploaded file.` };
+    if (b.videos.length) videos = (b.videos as BuildVideo[]).map((v) => ({ frames: v.frames, seconds: v.seconds, ...(v.file ? { file: { sha: v.file.sha, type: v.file.type } } : {}) }));
+  }
   const last = messages[messages.length - 1];
   if (last.role !== 'user') return { ok: false, message: 'The last message must be a non-empty user message.' };
   if (!last.content.trim()) {
-    if (!photos) return { ok: false, message: 'The last message must be a non-empty user message.' };
-    last.content = PHOTOS_ONLY;
+    if (!photos && !videos) return { ok: false, message: 'The last message must be a non-empty user message.' };
+    last.content = photos ? PHOTOS_ONLY : VIDEO_ONLY;
   }
   let image: string | null = null;
   if (b.image != null) {
@@ -84,6 +110,7 @@ export function validateBuildRequest(body: unknown): { ok: true; req: BuildReque
       messages,
       image,
       ...(photos ? { photos } : {}),
+      ...(videos ? { videos } : {}),
       errors,
       mode,
       worldName: typeof b.worldName === 'string' ? b.worldName.slice(0, BUILD_LIMITS.worldName) : undefined,

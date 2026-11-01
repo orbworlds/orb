@@ -2,9 +2,9 @@
 // src/server/agent/runner.ts). Streams its output (Orb protocol text + control frames; the first
 // frame is the job handle). The build goes on without the page; GET /api/agent/jobs/:id follows it.
 //
-// Body: BuildRequest ({ worldId, messages, errors?, image?, photos?, mode, worldName }; the agent
-// reads the world's files itself; the person's photos it sees, and a build has them among the
-// world's files too, see src/server/agent/photos.ts). Own keys: x-orb-agent-provider (anthropic | openai |
+// Body: BuildRequest ({ worldId, messages, errors?, image?, photos?, videos?, mode, worldName }; the
+// agent reads the world's files itself; the person's photos it sees (a video as frames), and a build
+// has them among the world's files too, see src/server/agent/photos.ts). Own keys: x-orb-agent-provider (anthropic | openai |
 // openrouter), x-orb-agent-key, x-orb-agent-model, x-orb-agent-effort (Anthropic and OpenAI:
 // low | medium | high | xhigh, high by default). The key is kept encrypted with the job only
 // while it runs. Free builds run as Cursor agents on Orb's own key when that is how the free
@@ -28,14 +28,14 @@ import { ready } from '@/server/schema';
 import { traceGroup } from '@/server/traces';
 import { worldTree } from '@/server/worlds';
 import { followJob } from '@/server/agent/follow';
-import { buildPhotos, photoNote } from '@/server/agent/photos';
+import { buildPhotos, buildVideo, photoNote, videoNote } from '@/server/agent/photos';
 import { cursorOrbPrompt } from '@/server/agent/prompt';
 import { AGENT_EFFORTS, AGENT_PROVIDERS, type AgentEffort, type AgentProvider } from '@/server/agent/models';
 import { createAgentJob, MAX_RUNNING, otherBuilder, runningJobs, runTick, kick } from '@/server/agent/runner';
 
 export const maxDuration = 300;
 
-const MAX_BODY = BUILD_LIMITS.image + BUILD_LIMITS.photos * BUILD_LIMITS.photo + BUILD_LIMITS.messages * BUILD_LIMITS.messageChars + 100_000;
+const MAX_BODY = BUILD_LIMITS.image + BUILD_LIMITS.photos * BUILD_LIMITS.photo + BUILD_LIMITS.videos * BUILD_LIMITS.frames * BUILD_LIMITS.frame + BUILD_LIMITS.messages * BUILD_LIMITS.messageChars + 100_000;
 /** Inline all files in the first message when they are this small together (saves read steps). */
 const INLINE_ALL = 60_000;
 const INLINE_ENTRY = 24_000;
@@ -164,11 +164,14 @@ export const POST = handle(async (req: Request): Promise<Response> => {
 
   const world = await worldTree(db, build.worldId);
   if (!world) return error(404, 'not_found', 'This world does not exist.');
-  // The person's photos: the AI sees them, and a build has them among the world's files.
+  // The person's photos and video: the AI sees them (the video as frames), and a build has them among the world's files.
   const last = build.messages[build.messages.length - 1];
   const asked = last.content;
-  const photos = build.photos?.length ? await buildPhotos(db, build.photos, mode === 'build') : null;
-  if (photos?.parts.length) last.content = `${asked.trim()}\n\n${photoNote(photos)}`;
+  const stills = build.photos?.length ? await buildPhotos(db, build.photos, mode === 'build') : null;
+  const video = build.videos?.length ? await buildVideo(db, build.videos[0], mode === 'build') : null;
+  const notes = [stills?.parts.length ? photoNote(stills) : '', video?.parts.length ? videoNote(video) : ''].filter(Boolean);
+  if (notes.length) last.content = `${asked.trim()}\n\n${notes.join(' ')}`;
+  const photos = stills || video ? { parts: [...(stills?.parts ?? []), ...(video?.parts ?? [])], paths: [...(stills?.paths ?? []), ...(video?.paths ?? [])], files: { ...stills?.files, ...video?.files } } : null;
   const messages: ModelMessage[] =
     provider === 'cursor' || viaCursor
       ? [cursorMessage(build, world.name, mode, photos?.parts ?? [])]

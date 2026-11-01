@@ -22,10 +22,10 @@ const IDEAS = [
 
 export const HERO_COMPOSER_ID = 'orb-hero-composer';
 
-/** Three of Orb's own worlds to start from, each a different kind: a game to build in, a toy, a tiny game. */
+/** Three of Orb's own worlds to start from, each a different kind: a painting adventure, a game to build in, a runner. */
 const REMIXES = [
+  { id: 'orb-wildbrush', name: 'Wildbrush', thumb: '/worlds/wildbrush.webp' },
   { id: 'orb-craft', name: 'Orbcraft', thumb: '/templates/craft.webp' },
-  { id: 'orb-paint', name: 'Glow Paint', thumb: '/templates/paint.webp' },
   { id: 'orb-runner', name: 'Star Runner', thumb: '/templates/runner.webp' },
 ];
 

@@ -3,7 +3,8 @@
 // Worlds run in an opaque-origin sandboxed frame whose page carries <base href="/api/tree/<sha>/">,
 // so their relative modules, styles and assets load from here: CORS is open, and responses are
 // immutable (a tree never changes). A file opened directly (not inside the world frame) is still
-// sandboxed by its CSP, so it can never act as Orb's own origin.
+// sandboxed by its CSP, so it can never act as Orb's own origin. A Range request gets just those
+// bytes (206): Safari plays a video only so.
 
 import { contentType, ENTRY, getBlob, getTree, isSha } from '@/server/files';
 import { ready } from '@/server/schema';
@@ -29,11 +30,20 @@ function chunked(bytes: Uint8Array): ReadableStream<Uint8Array> {
   });
 }
 
+/** The bytes a `Range: bytes=a-b` header asks for of `size` (null: all of them; 'bad': none can be given). */
+function byteRange(header: string | null, size: number): [number, number] | null | 'bad' {
+  const m = /^bytes=(\d*)-(\d*)$/.exec(header?.trim() ?? '');
+  if (!m || (!m[1] && !m[2])) return null;
+  const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
+  const end = m[1] && m[2] ? Math.min(size - 1, Number(m[2])) : size - 1;
+  return start <= end && start < size ? [start, end] : 'bad';
+}
+
 function notFound(): Response {
   return new Response('Not found', { status: 404, headers: { ...BASE_HEADERS, 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=60' } });
 }
 
-export async function GET(_req: Request, ctx: { params: Promise<{ sha: string; path: string[] }> }): Promise<Response> {
+export async function GET(req: Request, ctx: { params: Promise<{ sha: string; path: string[] }> }): Promise<Response> {
   const { sha, path } = await ctx.params;
   if (!isSha(sha)) return notFound();
   // A world loads many files at once (dozens of modules): ride out a busy database instead of
@@ -49,14 +59,21 @@ export async function GET(_req: Request, ctx: { params: Promise<{ sha: string; p
       if (!blobSha) return notFound();
       const bytes = await getBlob(db, blobSha);
       if (!bytes) return notFound();
+      const headers = { ...BASE_HEADERS, 'content-type': contentType(p), 'accept-ranges': 'bytes', etag: `"${blobSha}"` };
+      const range = byteRange(req.headers.get('range'), bytes.length);
+      if (range === 'bad') return new Response(null, { status: 416, headers: { ...headers, 'content-range': `bytes */${bytes.length}` } });
+      if (range) {
+        const part = bytes.slice(range[0], range[1] + 1);
+        // The browser keeps a part; the CDN only whole files.
+        const partHeaders = { ...headers, 'content-range': `bytes ${range[0]}-${range[1]}/${bytes.length}`, 'cache-control': 'public, max-age=31536000, immutable', 'cdn-cache-control': 'no-store' };
+        return new Response(part.length > STREAM_OVER ? chunked(part) : new Uint8Array(part), { status: 206, headers: partHeaders });
+      }
       return new Response(bytes.length > STREAM_OVER ? chunked(bytes) : new Uint8Array(bytes), {
         headers: {
-          ...BASE_HEADERS,
-          'content-type': contentType(p),
+          ...headers,
           // Immutable: browsers and Vercel's CDN keep it, so each file is read from the database once.
           'cache-control': 'public, max-age=31536000, immutable',
           'cdn-cache-control': 'public, max-age=31536000, immutable',
-          etag: `"${blobSha}"`,
         },
       });
     } catch (e) {

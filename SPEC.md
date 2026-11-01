@@ -68,23 +68,27 @@ If you change a contract, update this file in the same change.
   was". Replies carry no version numbers or credits (the chat says so only when credits run low:
   "12 credits left · See plans"). While Orb works, one word: "Thinking…" (answers in someone else's
   world) or "Building…".
-  **Photos** go with a message (the hero's composer and the chat's alike): the picture button (on a
-  phone it offers the camera too), pasting one, or dropping pictures anywhere on the page — into the
-  home page's box while it's in view, else into the chat, which opens (a world that takes drops
-  itself keeps them; Orb's runtime passes the others on, `drop` in §7). Up to 4,
-  each read in the browser into a JPEG (a PNG when it has see-through parts) of at most 1600 px and
-  under 700 KB (`src/lib/photos.ts`); they show above the words, each with an ×, and a message may
-  be photos alone. The chat keeps small copies with the message (a tap shows one up close). The AI
-  sees them; in a build they are also among the world's files (`photos/<id>.<ext>`), for when the
-  person wants one in the world (a picture on a wall, a poster, a texture), and a photo the world
-  doesn't use is left out whenever the build saves, so what was only shown for reference never
-  becomes part of the world (`src/server/agent/photos.ts`).
+  **Photos and videos** go with a message (the hero's composer and the chat's alike): the picture
+  button (on a phone it offers the camera too), pasting one, or dropping them anywhere on the page —
+  into the home page's box while it's in view, else into the chat, which opens (a world that takes
+  drops itself keeps them; Orb's runtime passes the others on, `drop` in §7). Up to 4, one of them
+  a video; each photo read in the browser into a JPEG (a PNG when it has see-through parts) of at
+  most 1600 px and under 700 KB (`src/lib/photos.ts`). The AI can't watch a video, so the browser
+  sends 4 frames spread over it (JPEGs of at most 1024 px, under 300 KB each) and how long it is;
+  a video of at most 4 MB (MP4, WebM or QuickTime) also goes on Orb first (`POST /api/uploads`).
+  They show above the words, each with an × (a video with ▶ and its length), and a message may be
+  photos or a video alone. The chat keeps small copies with the message (a tap shows a photo up
+  close). The AI sees them; in a build they are also among the world's files (`photos/<id>.<ext>`,
+  `videos/<id>.<ext>` for an uploaded video), for when the person wants one in the world (a
+  picture on a wall, a poster, a texture, a video on a screen), and one the world doesn't use is
+  left out whenever the build saves, so what was only shown for reference never becomes part of
+  the world (`src/server/agent/photos.ts`).
 - **Home** (`/`) is Explore under an invitation to make a world, on a calm background of its own
   (no world behind it: light, the sky with a soft iris glow, fading into paper under the worlds;
   dark, one deep dark with the same glow, low). A header row: on the right
   the Orb itself, docked (it floats only inside worlds), and before it, signed out, a quiet
   **Sign in** (the You tab, at its sign-in form). Then the headline ("Step into a world"), the big composer, under it **Or remix** and three of Orb's own
-  worlds (Orbcraft, Glow Paint, Star Runner: each remixes as a tile's Remix does, into the copy with
+  worlds (Wildbrush, Orbcraft, Star Runner: each remixes as a tile's Remix does, into the copy with
   its chat open), (for people who have some) one row of their own worlds or their friends' (**Your
   worlds**, with **See all**; read again each time home shows), then Explore's header and a few of
   its worlds (the lead and four rows, at every width), **More** (`/explore`: all of them,
@@ -650,6 +654,7 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `POST /api/kit/push?world=&name=&message=` | `Authorization: Bearer <kit token>`, body: the files as a .tar.gz with `index.html` at the top | `{ world: WorldFull, outcome: 'created' \| 'remixed' \| 'updated' \| 'unchanged', skipped, url }` (§2 "The Orb kit"). 400 `push_failed`, 401 `kit_login`, 404 not theirs and not remixable; 120 an hour |
 | `POST /api/worlds/import` | `{ url }` (a GitHub repository, optionally `/tree/<ref>/<dir>`; private ones with the importer's token kept on Orb) | `{ world: WorldFull, files, warning? }`: its files become a new world of the importer's (no `orb-kit/`, `node_modules`, `.git`…), linked to the repository (and, imported from a branch, kept in sync with it: `world.repo`), with its license (remixable only with one). Import maps that load three.js from `node_modules` are rewritten to jsdelivr, code that imports packages by name with no import map gets one (three, `three/webgpu` and `three/tsl` from jsdelivr, the rest from esm.sh at the version range package.json asks for, sharing that three), stylesheets a module imports become links, JSON it imports is imported as JSON, `import.meta.glob` lists the matching files (or, `eager`, imports them), `import W from './w.js?worker'` makes workers of that module and `import.meta.env` reads as a production build's, TypeScript (`.ts`) has its types stripped and is served as `.js`, imports without a file extension get it, modules that run in workers import packages by their address (workers have no import map), a Vite project's `public/` (a `vite.config`, or Vite in package.json) is also served at the top, and root-absolute `src`/`href` (in import maps, in stylesheets' `url()`, and in code, `'/path'` strings of a file or a top folder of the tree) become relative so they follow the tree `<base>`. An `orb.json` naming a public, remixable world (`world`) makes it a remix of that world (see §2 "Open-source games"). 400 `bad_request` / `import_failed`; 12 an hour |
 | `PUT /api/worlds/:id/thumb` | raw `image/webp\|jpeg\|png` body ≤ 500 KB | `{ thumbVersion: number }` |
+| `POST /api/uploads` | a video for a chat message: raw `video/mp4\|webm\|quicktime` body ≤ 4 MB | `{ sha, type }`, which a build request names to put it in the world (§8). 413 `too_big`, 415 `unsupported_type` (or bytes that aren't that video); 30 an hour, 60 from one address. A world's files answer `Range` requests (206), so its videos play in Safari too |
 | `GET /api/worlds/:id/thumb?v=` | | image bytes, `Cache-Control: public, max-age=31536000, immutable` |
 | `POST /api/worlds/:id/play` | | `{ plays }` (deduped per device/day; shown as "plays") |
 | `POST /api/worlds/:id/like` | | `{ liked, likes }` (toggle) |
@@ -841,7 +846,7 @@ iframe → parent: `ready`; `error {message, stack?, line?, col?, source?}`;
 `storage {area:'local'|'session', op:'set'|'remove'|'clear', key?, value?}`;
 `capture {dataUrl}`; `store {reqId, op:'get'|'set'|'incr'|'push'|'merge'|'list', key, value?, by?, max?}`;
 `room {op:'join'|'send'|'state'|'leave', room?, data?}` (`room` = the room's name, '' for the world's own);
-`invite {reqId, room}`; `shop {reqId, op:'items'|'owned'|'buy', item?}`; `toast {text}`; `title {text}`; `drop {files}` (pictures dropped on the world that it didn't take itself: they go with the person's next message, the chat open); `probe-result {reqId, result?: ProbeResult, error?}`;
+`invite {reqId, room}`; `shop {reqId, op:'items'|'owned'|'buy', item?}`; `toast {text}`; `title {text}`; `drop {files}` (pictures and videos dropped on the world that it didn't take itself: they go with the person's next message, the chat open); `probe-result {reqId, result?: ProbeResult, error?}`;
 `clip-result {reqId, mime, data: ArrayBuffer (transferred)} | {reqId, error}`.
 parent → iframe: `capture-request {reqId}`; `clip-request {reqId, ms, label}`; `clip-stop` (end the clip now: it comes back as `clip-result`); `store-result {reqId, ok, value?, error?}`; `invite-result {reqId, url}`;
 `shop-result {reqId, ok, value?, error?}`;
@@ -940,9 +945,11 @@ world as it goes; a Cursor agent does the same through the job's files link (§3
 ticks of a few minutes that hand over to each other, so a build goes on for as long as it needs,
 without the page.
 
-`BuildRequest` = `{ worldId, messages, image?, photos?, errors?, mode, worldName? }`: the chat
+`BuildRequest` = `{ worldId, messages, image?, photos?, videos?, errors?, mode, worldName? }`: the chat
 (earlier turns summarized, a turn's photos as a note), a screenshot of the world, the person's
-photos for the last message (≤ 4 data URLs, each ≤ 700 KB; the last message may then be empty),
+photos for the last message (≤ 4 data URLs, each ≤ 700 KB; the last message may then be empty)
+and a video (`videos`: at most one `{ frames, seconds, file? }`, ≤ 4 frames of ≤ 300 KB, `file`
+the `{ sha, type }` of `POST /api/uploads`),
 runtime errors to repair, and `mode` build or ask
 (a guide in someone else's world: it answers, can offer a copy, and changes nothing). The agent
 reads the world's files itself; its system prompts are in `src/server/agent/prompt.ts`.

@@ -4,7 +4,7 @@
 import './setup.mjs';
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateBuildRequest, normalizeHistory, imagePart, BUILD_LIMITS, PHOTOS_ONLY } from '../prompt.ts';
+import { validateBuildRequest, normalizeHistory, imagePart, BUILD_LIMITS, PHOTOS_ONLY, VIDEO_ONLY } from '../prompt.ts';
 
 const { agentSystemPrompt, cursorOrbPrompt } = await import('../../../server/agent/prompt.ts');
 
@@ -93,6 +93,18 @@ describe('validateBuildRequest', () => {
     assert.equal(validateBuildRequest({ ...req(), photos: [] }).req.photos, undefined);
   });
 
+  test('a video goes with the last message as its frames (and its uploaded file), alone too', () => {
+    const frame = 'data:image/jpeg;base64,/9j/AAAA';
+    const sha = 'a'.repeat(64);
+    const r = validateBuildRequest({ ...req(), videos: [{ frames: [frame, frame], seconds: 12.5, file: { sha, type: 'video/webm', extra: 1 }, extra: 1 }] });
+    assert.equal(r.ok, true);
+    assert.deepEqual(r.req.videos, [{ frames: [frame, frame], seconds: 12.5, file: { sha, type: 'video/webm' } }]);
+    const alone = validateBuildRequest({ ...req(), messages: [{ role: 'user', content: '' }], videos: [{ frames: [frame], seconds: 3 }] });
+    assert.equal(alone.ok, true);
+    assert.equal(alone.req.messages[0].content, VIDEO_ONLY);
+    assert.equal(validateBuildRequest({ ...req(), videos: [] }).req.videos, undefined);
+  });
+
   test('accepts and normalizes a valid request', () => {
     const r = validateBuildRequest({ ...req(), errors: ['x'.repeat(5000)], worldId: 'w'.repeat(100), extra: 1, code: '<html></html>' });
     assert.equal(r.ok, true);
@@ -125,6 +137,14 @@ describe('validateBuildRequest', () => {
       { ...req(), photos: ['data:image/jpeg;base64,' + 'A'.repeat(BUILD_LIMITS.photo)] },
       { ...req(), photos: Array.from({ length: BUILD_LIMITS.photos + 1 }, () => 'data:image/jpeg;base64,AAAA') },
       { ...req(), messages: [{ role: 'user', content: ' ' }] },
+      { ...req(), videos: { frames: ['data:image/jpeg;base64,AAAA'], seconds: 1 } },
+      { ...req(), videos: Array.from({ length: BUILD_LIMITS.videos + 1 }, () => ({ frames: ['data:image/jpeg;base64,AAAA'], seconds: 1 })) },
+      { ...req(), videos: [{ frames: [], seconds: 1 }] },
+      { ...req(), videos: [{ frames: Array.from({ length: BUILD_LIMITS.frames + 1 }, () => 'data:image/jpeg;base64,AAAA'), seconds: 1 }] },
+      { ...req(), videos: [{ frames: ['data:image/jpeg;base64,' + 'A'.repeat(BUILD_LIMITS.frame)], seconds: 1 }] },
+      { ...req(), videos: [{ frames: ['data:image/jpeg;base64,AAAA'], seconds: -1 }] },
+      { ...req(), videos: [{ frames: ['data:image/jpeg;base64,AAAA'], seconds: 1, file: { sha: 'nope', type: 'video/mp4' } }] },
+      { ...req(), videos: [{ frames: ['data:image/jpeg;base64,AAAA'], seconds: 1, file: { sha: 'a'.repeat(64), type: 'video/x-msvideo' } }] },
     ];
     for (const b of bad) {
       const r = validateBuildRequest(b);

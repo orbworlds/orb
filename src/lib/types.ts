@@ -409,12 +409,26 @@ export interface BuildRequest {
   image?: string | null;
   /** Photos the person attached to the last message, as data URLs (≤ BUILD_LIMITS.photos of ≤ BUILD_LIMITS.photo characters). */
   photos?: string[];
+  /** A video the person attached to the last message (at most one). */
+  videos?: BuildVideo[];
   /** Runtime errors to repair (the automatic repair round). */
   errors?: string[];
   /** 'build' edits the world; 'ask' only answers questions (e.g. visiting someone else's world without remixing). */
   mode: BuildMode;
   /** World name, for context. */
   worldName?: string;
+}
+
+/**
+ * A video sent with a message: frames from it the AI sees (the AI can't watch a video), how long
+ * it is, and, when it was small enough to go on Orb (POST /api/uploads), the file a build can put
+ * in the world.
+ */
+export interface BuildVideo {
+  /** JPEG data URLs, evenly spread over the video (≤ BUILD_LIMITS.frames of ≤ BUILD_LIMITS.frame characters). */
+  frames: string[];
+  seconds: number;
+  file?: { sha: string; type: string };
 }
 
 export type StepStatus = 'pending' | 'done' | 'failed';
@@ -472,6 +486,8 @@ export interface ChatMessage {
   createdAt: number;
   /** Photos the person sent with it: small JPEG data URLs, as the chat shows them. */
   photos?: string[];
+  /** Videos the person sent with it: a small JPEG of each, and how long it is. */
+  videos?: Array<{ thumb: string; seconds: number }>;
   build?: BuildInfo;
 }
 

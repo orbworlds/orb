@@ -50,7 +50,7 @@ export function MessageView(props: MessageViewProps) {
   if (message.role === 'user') {
     return (
       <div className="animate-fade-up flex flex-col items-end gap-1.5 pl-10">
-        {!!message.photos?.length && <SentPhotos id={message.id} photos={message.photos} />}
+        {!!(message.photos?.length || message.videos?.length) && <SentPhotos id={message.id} photos={message.photos ?? []} videos={message.videos ?? []} />}
         {message.text && (
           <div className="max-w-full rounded-[18px] rounded-br-[6px] bg-[var(--bubble)] px-3.5 py-2 text-[14.5px] leading-[1.45] break-words whitespace-pre-wrap text-ink">
             {message.text}
@@ -62,23 +62,42 @@ export function MessageView(props: MessageViewProps) {
   return <AssistantMessage {...props} />;
 }
 
-/** The photos a message was sent with: one shows large, several as tiles; a click shows one up close. */
-function SentPhotos({ id, photos }: { id: string; photos: string[] }) {
+/** A video's mark on its picture: ▶ and how long it is. */
+export function VideoMark({ seconds }: { seconds: number }) {
+  return (
+    <span className="pointer-events-none absolute bottom-1 left-1 flex items-center gap-0.5 rounded-full bg-black/55 py-0.5 pr-1.5 pl-1 text-[10.5px] font-semibold text-white tabular-nums">
+      <Icon name="play" size={10} strokeWidth={2.6} />
+      {formatCountdown(seconds)}
+    </span>
+  );
+}
+
+/** The photos and video a message was sent with: one shows large, several as tiles; a click shows a photo up close. */
+function SentPhotos({ id, photos, videos }: { id: string; photos: string[]; videos: Array<{ thumb: string; seconds: number }> }) {
   const [open, setOpen] = useState<number | null>(null);
-  const one = photos.length === 1;
+  const count = photos.length + videos.length;
+  const one = count === 1;
+  const size = one ? 'max-h-[220px] max-w-[220px] object-cover' : 'h-24 w-24 object-cover';
   return (
     <>
-      <ul className="flex flex-wrap justify-end gap-1.5" aria-label={one ? 'Photo' : `${photos.length} photos`}>
+      <ul className="flex flex-wrap justify-end gap-1.5" aria-label={one ? (videos.length ? 'Video' : 'Photo') : `${count} photos and videos`}>
         {photos.map((src, i) => (
           <li key={i}>
             <button type="button" onClick={() => setOpen(i)} aria-label={`Show photo ${i + 1}`} className="block overflow-hidden rounded-[16px] rounded-br-[6px] focus-visible:rounded-[16px]">
               {/* eslint-disable-next-line @next/next/no-img-element -- a small data URL kept with the chat */}
-              <img src={src} alt="" className={one ? 'max-h-[220px] max-w-[220px] object-cover' : 'h-24 w-24 object-cover'} />
+              <img src={src} alt="" className={size} />
             </button>
           </li>
         ))}
+        {videos.map((v, i) => (
+          <li key={`v${i}`} className="relative overflow-hidden rounded-[16px] rounded-br-[6px]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a small data URL kept with the chat */}
+            <img src={v.thumb} alt={`Video, ${formatCountdown(v.seconds)}`} className={size} />
+            <VideoMark seconds={v.seconds} />
+          </li>
+        ))}
       </ul>
-      {open !== null && <PhotoViewer src={sentPhotos(id)?.[open] ?? photos[open]} onClose={() => setOpen(null)} />}
+      {open !== null && <PhotoViewer src={sentPhotos(id)?.filter((p) => !p.video)[open]?.full ?? photos[open]} onClose={() => setOpen(null)} />}
     </>
   );
 }

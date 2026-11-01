@@ -121,6 +121,41 @@ try {
       check('…with the photo it was sent with', (await page.locator('aside[aria-label="Orb"] [aria-label="Photo"] img').count()) === 1);
       await page.screenshot({ path: `${OUT}/${label}-5-reloaded.png` });
 
+      // A video goes with a message too (made here, as a browser records one: a WebM that doesn't
+      // say how long it is): frames for the AI, and the file on Orb for the world.
+      const clip = await page.evaluate(async () => {
+        const c = Object.assign(document.createElement('canvas'), { width: 160, height: 90 });
+        const g = c.getContext('2d');
+        const rec = new MediaRecorder(c.captureStream(30), { mimeType: 'video/webm' });
+        const parts = [];
+        rec.ondataavailable = (e) => parts.push(e.data);
+        let hue = 0;
+        const paint = setInterval(() => {
+          g.fillStyle = `hsl(${(hue += 15) % 360} 80% 60%)`;
+          g.fillRect(0, 0, 160, 90);
+        }, 33);
+        rec.start();
+        await new Promise((r) => setTimeout(r, 2000));
+        await new Promise((r) => {
+          rec.onstop = r;
+          rec.stop();
+        });
+        clearInterval(paint);
+        const bytes = new Uint8Array(await new Blob(parts).arrayBuffer());
+        let s = '';
+        for (const b of bytes) s += String.fromCharCode(b);
+        return btoa(s);
+      });
+      const uploaded = page.waitForResponse((r) => r.url().endsWith('/api/uploads'), { timeout: 30000 }).then((r) => r.status(), () => 0);
+      const sentVideo = page.waitForRequest((r) => r.url().endsWith('/api/agent/jobs') && r.method() === 'POST', { timeout: 60000 }).then((r) => JSON.parse(r.postData() || '{}').videos?.[0], () => null);
+      await page.locator('aside[aria-label="Orb"] form input[type=file]').setInputFiles({ name: 'clip.webm', mimeType: 'video/webm', buffer: Buffer.from(clip, 'base64') });
+      check('a video picked for a message shows in the box, and goes on Orb', (await page.locator('aside[aria-label="Orb"] [aria-label="Remove video"]').waitFor({ timeout: 30000 }).then(() => true, () => false)) && (await uploaded) === 200);
+      await page.locator('aside[aria-label="Orb"] form textarea').fill('put this video on a screen');
+      await page.locator('aside[aria-label="Orb"] form textarea').press('Enter');
+      const video = await sentVideo;
+      check('…it is sent as frames spread over it, its length and its file', video?.frames?.length === 4 && video.seconds >= 1.5 && /^[a-f0-9]{64}$/.test(video.file?.sha ?? ''), video && { frames: video.frames?.length, seconds: video.seconds, file: video.file });
+      check('…and the chat shows it with the message', await page.locator('aside[aria-label="Orb"] [aria-label="Video"]').first().waitFor({ timeout: 30000 }).then(() => true, () => false));
+
       // Visitor: a fresh context sees the world read-only with the orb collapsed.
       const vctx = await browser.newContext({ viewport });
       await routeCdn(vctx);

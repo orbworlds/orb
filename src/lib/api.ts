@@ -107,6 +107,13 @@ export const api = {
     return res.blob();
   },
   fork: (id: string, authorName?: string) => call<{ world: WorldFull }>(`/api/worlds/${enc(id)}/fork`, { method: 'POST', body: JSON.stringify({ authorName }) }),
+  /** A video for a chat message, small enough to go in a world (POST /api/uploads) → what the build request names. */
+  uploadVideo: async (file: File) => {
+    const type = file.type || (/\.webm$/i.test(file.name) ? 'video/webm' : /\.mov$/i.test(file.name) ? 'video/quicktime' : 'video/mp4');
+    const res = await fetch('/api/uploads', { method: 'POST', body: file, headers: deviceHeaders({ 'content-type': type }) });
+    if (!res.ok) throw new ApiError(res.status, 'upload_failed', 'Couldn’t upload the video.');
+    return (await res.json()) as { sha: string; type: string };
+  },
   uploadThumb: async (id: string, blob: Blob) => {
     const res = await fetch(`/api/worlds/${enc(id)}/thumb`, { method: 'PUT', body: blob, headers: deviceHeaders({ 'content-type': blob.type || 'image/webp' }) });
     if (!res.ok) throw new ApiError(res.status, 'thumb_failed', 'Thumbnail upload failed');

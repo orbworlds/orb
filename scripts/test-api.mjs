@@ -59,6 +59,7 @@ const TRACER = device('tracer');
 const BUILDER = device('builder');
 const PHOTOGRAPHER = device('photographer');
 const PHOTO_VISITOR = device('photovisitor');
+const FILMMAKER = device('filmmaker');
 const BUILDER2 = device('builder2');
 const SIGNUP_DEV = device('signup');
 const SIGNUP_DEV2 = device('signup2');
@@ -1393,6 +1394,32 @@ async function run() {
     const onlyPhotos = await request('POST', '/api/agent/jobs', { dev: PHOTOGRAPHER, body: { worldId: pw.id, messages: [{ role: 'user', content: '' }], photos: [`data:image/png;base64,${PNG}`], mode: 'build', code: '' } });
     check('photos alone are a request too', onlyPhotos.status === 200 && /"kind":"agent"/.test(onlyPhotos.text), onlyPhotos.status + ' ' + onlyPhotos.text.slice(0, 160));
     check('too many photos → 400', (await request('POST', '/api/agent/jobs', { dev: PHOTOGRAPHER, body: { worldId: pw.id, messages: [{ role: 'user', content: 'x' }], photos: Array(5).fill(`data:image/png;base64,${PNG}`), mode: 'build', code: '' } })).status === 400);
+    // A video: the page uploads it first (when it's small), the AI sees its frames, and a build has it among the world's files.
+    const WEBM = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.from(`orb test video ${TOKEN}`)]);
+    const MP4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from(`ftypisom orb test video ${TOKEN}`)]);
+    const fw = (await create(FILMMAKER, { name: `Films ${TOKEN}` })).json.world;
+    const up = await request('POST', '/api/uploads', { dev: FILMMAKER, raw: WEBM, type: 'video/webm' });
+    const webmSha = createHash('sha256').update(WEBM).digest('hex');
+    check('a video uploads → its sha and type', up.status === 200 && up.json?.sha === webmSha && up.json?.type === 'video/webm', up.text.slice(0, 200));
+    check('an MP4 uploads too', (await request('POST', '/api/uploads', { dev: FILMMAKER, raw: MP4, type: 'video/mp4' })).status === 200);
+    check('an upload that isn’t a video → 415', (await request('POST', '/api/uploads', { dev: FILMMAKER, raw: Buffer.from('hello'), type: 'text/plain' })).status === 415);
+    check('bytes that don’t look like the video they claim to be → 415', (await request('POST', '/api/uploads', { dev: FILMMAKER, raw: Buffer.from('not really a video at all'), type: 'video/mp4' })).status === 415);
+    check('a video over 4 MB → 413', (await request('POST', '/api/uploads', { dev: FILMMAKER, raw: Buffer.concat([WEBM, Buffer.alloc(4_000_001)]), type: 'video/webm' })).status === 413);
+    check('an upload without a device key → 400', (await request('POST', '/api/uploads', { raw: WEBM, type: 'video/webm' })).status === 400);
+    const videoPath = `videos/${webmSha.slice(0, 10)}.webm`;
+    const frame = `data:image/jpeg;base64,${JPEG}`;
+    const withVideo = await request('POST', '/api/agent/jobs', { dev: FILMMAKER, body: { worldId: fw.id, messages: [{ role: 'user', content: 'a cinema with my video on the screen mockphoto' }], videos: [{ frames: [frame, frame, frame], seconds: 6, file: { sha: webmSha, type: 'video/webm' } }], mode: 'build', code: '' } });
+    check('a build with a video: the AI sees its frames', withVideo.status === 200 && /I can see 3 pictures/.test(withVideo.text), withVideo.text.slice(-300));
+    const vv = (await get(FILMMAKER, fw.id)).json.world;
+    const screen = await request('GET', `/api/tree/${vv.tree}/src/poster.js`);
+    const film = await request('GET', `/api/tree/${vv.tree}/${videoPath}`);
+    check('…the world that uses it keeps it, at the path it was given', screen.text.includes(videoPath) && film.status === 200 && /video\/webm/.test(film.headers.get('content-type') || ''), { screen: screen.text, video: film.status, type: film.headers.get('content-type') });
+    const reference = await request('POST', '/api/agent/jobs', { dev: FILMMAKER, body: { worldId: fw.id, messages: [{ role: 'user', content: '' }], videos: [{ frames: [frame], seconds: 2, file: { sha: createHash('sha256').update(MP4).digest('hex'), type: 'video/mp4' } }], mode: 'build', code: '' } });
+    const vv2 = (await get(FILMMAKER, fw.id)).json.world;
+    check('a video alone is a request too, and one shown only for reference isn’t saved', reference.status === 200 && /I can see one picture/.test(reference.text) && (await request('GET', `/api/tree/${vv2.tree}/videos/${createHash('sha256').update(MP4).digest('hex').slice(0, 10)}.mp4`)).status === 404, reference.text.slice(-200));
+    check('two videos → 400', (await request('POST', '/api/agent/jobs', { dev: FILMMAKER, body: { worldId: fw.id, messages: [{ role: 'user', content: 'x' }], videos: [{ frames: [frame], seconds: 1 }, { frames: [frame], seconds: 1 }], mode: 'build', code: '' } })).status === 400);
+    check('too many frames → 400', (await request('POST', '/api/agent/jobs', { dev: FILMMAKER, body: { worldId: fw.id, messages: [{ role: 'user', content: 'x' }], videos: [{ frames: Array(5).fill(frame), seconds: 1 }], mode: 'build', code: '' } })).status === 400);
+    await request('DELETE', `/api/worlds/${fw.id}`, { dev: FILMMAKER });
     await request('DELETE', `/api/worlds/${pw.id}`, { dev: PHOTOGRAPHER });
 
     // Restore an older version by its tree.

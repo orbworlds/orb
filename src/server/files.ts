@@ -85,6 +85,8 @@ const TYPES: Record<string, string> = {
   m4a: 'audio/mp4',
   flac: 'audio/flac',
   mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  mov: 'video/quicktime',
   webm: 'video/webm',
   ogv: 'video/ogg',
   woff: 'font/woff',

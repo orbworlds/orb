@@ -2081,7 +2081,7 @@ const RUNTIME_SOURCE = String.raw`
   };
   try { Object.defineProperty(W, 'orb', { value: Object.freeze(orb), writable: false, enumerable: false, configurable: false }); } catch (e) { /* ignore */ }
 
-  /* ===== Pictures dropped on the world =====
+  /* ===== Pictures (and videos) dropped on the world =====
      They go to the person's chat, unless the world takes drops itself (its own listeners, on the
      page's elements or set up on the window before these, run first and call preventDefault). */
   function filesDrag(e) {
@@ -2100,7 +2100,7 @@ const RUNTIME_SOURCE = String.raw`
       if (!filesDrag(e) || e.defaultPrevented) { return; }
       e.preventDefault();
       var files = [], list = e.dataTransfer.files || [];
-      for (var i = 0; i < list.length && files.length < 8; i++) { if (/^image\//.test(list[i].type)) { files.push(list[i]); } }
+      for (var i = 0; i < list.length && files.length < 8; i++) { if (/^(image|video)\//.test(list[i].type)) { files.push(list[i]); } }
       if (files.length) { post({ type: 'drop', files: files }); }
     });
   }
