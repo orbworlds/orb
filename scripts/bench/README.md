@@ -35,8 +35,12 @@ request is a noisy measure), `--parallel 2` that many at once (more slows the dr
 Results go to `.data/bench/<label>/`, a comparison to `.data/bench/<a>-vs-<b>.png` and `.json`.
 To try a change, make it in a second checkout (`git worktree add`), run both at once, one build
 each (`--parallel 1`, different `--port`s: then both draw at the same speed), and copy the second's
-`.data/bench/<label>` here to judge. All ten take about an hour and US$5–10 a version: the builder
-looks at its world until it's happy, and this machine draws slowly.
+`.data/bench/<label>` here to judge. All ten take about an hour and US$10–20 a version.
+
+Compare versions with each other, not with production: this machine draws worlds in software, so
+looks take 20–60 s instead of about 5, a heavy world's looks can time out again and again (the
+builder is told to look again later), and turns run longer and cost more than people's do
+(production's median new-world turn: 3 steps, 1 look, about US$0.35).
 
 ## What we learned
 
