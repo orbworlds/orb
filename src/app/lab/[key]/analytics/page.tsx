@@ -1,15 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { analytics, type AnalyticsDay, type AnalyticsPerson, type AnalyticsWorld, type Range } from '@/server/analytics';
+import { analytics, type AnalyticsDay, type AnalyticsPerson, type AnalyticsWorld, type Range, RANGES } from '@/server/analytics';
 import { LAB_KEY } from '@/server/lab';
 import { ready } from '@/server/schema';
-import { Today } from './Today';
+import { Trend } from './Trend';
 import { ago, Bar, CARD, type Column, countryName, dayLabel, duration, LINK, MAIN, percent, personName, Section, seenOn, Stat, Table, TITLE } from '../pulse/ui';
 
-// Who comes to Orb and what they do there, from Orb's own events (src/server/analytics.ts): today
-// hour by hour (./Today), then the last 7 days, or 30 with ?days=30, in UTC days. Everyone links to
-// their own timeline (./person).
+// Who comes to Orb and what they do there, from Orb's own events (src/server/analytics.ts): today,
+// or the last 7, 30 or 90 days with ?days=, in UTC days — people over time (./Trend), then the rest.
+// Everyone links to their own timeline (./person).
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Analytics' };
@@ -66,19 +66,18 @@ const people = (key: string, now: number): Column<AnalyticsPerson>[] => [
 ];
 
 function RangeSwitch({ base, range }: { base: string; range: Range }) {
-  const pill = (r: Range, label: string) => (
-    <Link
-      href={r === 7 ? base : `${base}?days=${r}`}
-      aria-current={r === range ? 'page' : undefined}
-      className={`rounded-full px-3 py-1 text-[13px] ${r === range ? 'bg-ink text-paper' : 'text-ink-2 hover:bg-[var(--hover)] hover:text-ink'}`}
-    >
-      {label}
-    </Link>
-  );
   return (
     <span className="inline-flex rounded-full bg-[var(--ink-5)] p-0.5">
-      {pill(7, '7 days')}
-      {pill(30, '30 days')}
+      {RANGES.map((r) => (
+        <Link
+          key={r}
+          href={r === 1 ? base : `${base}?days=${r}`}
+          aria-current={r === range ? 'page' : undefined}
+          className={`rounded-full px-3 py-1 text-[13px] ${r === range ? 'bg-ink text-paper' : 'text-ink-2 hover:bg-[var(--hover)] hover:text-ink'}`}
+        >
+          {r === 1 ? 'Today' : `${r} days`}
+        </Link>
+      ))}
     </span>
   );
 }
@@ -86,7 +85,8 @@ function RangeSwitch({ base, range }: { base: string; range: Range }) {
 export default async function AnalyticsPage({ params, searchParams }: { params: Promise<{ key: string }>; searchParams: Promise<{ days?: string | string[] }> }) {
   const { key } = await params;
   if (key !== LAB_KEY) notFound();
-  const range: Range = (await searchParams).days === '30' ? 30 : 7;
+  const days = Number((await searchParams).days);
+  const range: Range = RANGES.find((r) => r === days) ?? 1;
   const a = await analytics(await ready(), range);
   const t = a.totals;
   const f = a.funnel;
@@ -99,6 +99,7 @@ export default async function AnalyticsPage({ params, searchParams }: { params: 
     ['Came back another day', f.cameBack],
   ];
   const most = (xs: number[]) => Math.max(0, ...xs);
+  const when = range === 1 ? 'today' : `in these ${range} days`;
   const deviceTotal = a.devices.phone + a.devices.computer + a.devices.unknown;
   return (
     <main className={MAIN}>
@@ -110,16 +111,18 @@ export default async function AnalyticsPage({ params, searchParams }: { params: 
         </Link>
       </p>
 
-      <Section title="Today" about="People on Orb in each hour, beside yesterday’s: everyone counts in each hour one of their visits spans.">
-        <Today today={a.today} />
-      </Section>
-
-      <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h2 className="text-[17px] font-semibold text-ink">The last {range} days</h2>
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h2 className="text-[17px] font-semibold text-ink">{range === 1 ? 'Today' : <>The last {range} days</>}</h2>
         <RangeSwitch base={`/lab/${key}/analytics`} range={range} />
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Visitors" value={t.visitors} sub={`${t.newVisitors} new · ${t.visitors - t.newVisitors} returning`} />
+      <p className="mt-1 text-[13.5px] text-ink-2">
+        {range === 1 ? 'People on Orb in each hour, beside yesterday: everyone counts in each hour one of their visits spans.' : `People on Orb each day, beside the ${range} days before.`}
+      </p>
+      <div className="mt-4">
+        <Trend trend={a.trend} range={range} />
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="New people" value={t.newVisitors} sub={`${t.visitors - t.newVisitors} came before`} />
         <Stat label="Visits" value={t.visits} sub={t.visits ? `${duration(t.medianVisitSeconds)} median · ${duration(t.avgVisitSeconds)} average` : 'None yet'} />
         <Stat label="Page views" value={t.pageViews} sub={t.visits ? `${(t.pageViews / t.visits).toFixed(1)} a visit` : 'None yet'} />
         <Stat label="Time in worlds" value={duration(t.playSeconds)} sub={`${opens} world opens`} />
@@ -129,7 +132,7 @@ export default async function AnalyticsPage({ params, searchParams }: { params: 
         <Table rows={a.days} columns={DAYS} rowKey={(d) => d.day} minWidth={760} footer={`${t.events} events in all. New: first time on Orb. A visit is one tab, until it’s been out of sight for 30 minutes.`} />
       </Section>
 
-      <Section title="New people, step by step" about={`Everyone who first came in these ${range} days, and how many got to each step (and the ones before it).`}>
+      <Section title="New people, step by step" about={`Everyone who first came ${when}, and how many got to each step (and the ones before it).`}>
         <div className={CARD}>
           {steps.map(([label, n], i) => (
             <Bar key={label} label={label} value={n} of={f.came} note={i > 0 ? percent(n, f.came) : undefined} />
@@ -186,7 +189,7 @@ export default async function AnalyticsPage({ params, searchParams }: { params: 
         />
       </Section>
 
-      <Section title="People" about={`Everyone seen in these ${range} days, latest first. A person is a browser on a device, named after their account or the name they gave Orb.`}>
+      <Section title="People" about={`Everyone seen ${when}, latest first. A person is a browser on a device, named after their account or the name they gave Orb.`}>
         <Table rows={a.people} columns={people(key, a.now)} rowKey={(p) => p.id} minWidth={860} />
       </Section>
     </main>

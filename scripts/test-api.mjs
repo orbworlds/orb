@@ -1641,8 +1641,12 @@ async function run() {
     check('…and shows today hour by hour, with this hour’s people so far', !!nowHour && Number(nowHour[1]) >= 2 && plain(page.text).includes('People today'), nowHour?.[0]);
     check('…without their device hashes', ![PERSON, BEACON].some((d) => page.text.includes(hashDevice(d))));
     check('…and is not indexed', /<meta name="robots" content="noindex, nofollow"/.test(page.text));
-    const month = await request('GET', `/lab/${LAB_KEY}/analytics?days=30`);
-    check('30 days too', month.status === 200 && month.text.includes('The last <!-- -->30<!-- --> days'), month.status);
+    // Longer ranges: a column a day, each with its numbers and its twin in the period before.
+    for (const days of [7, 30, 90]) {
+      const r = await request('GET', `/lab/${LAB_KEY}/analytics?days=${days}`);
+      const columns = r.text.match(/aria-label="(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [A-Z][a-z]{2} \d{1,2}: \d+ (?:people|person)(?: so far)?, on [A-Z][a-z]{2} \d{1,2} \d+"/g) ?? [];
+      check(`${days} days too, a day a column`, r.status === 200 && r.text.includes(`The last <!-- -->${days}<!-- --> days`) && columns.length === days, { status: r.status, columns: columns.length });
+    }
     const who = await request('GET', `/lab/${LAB_KEY}/analytics/person/${id(PERSON)}`);
     const said = plain(who.text);
     const story = [`Came to /explore from example.com, utm_source zq${RUN}`, `${name} · n 1 · ok true`, `Asked “hello ${RUN}” · chat · free builder`, 'Build finished · 9 s · 2 steps'];

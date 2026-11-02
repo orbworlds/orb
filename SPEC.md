@@ -795,11 +795,13 @@ cross-site, from bots or headless browsers, malformed (names `^[a-z][a-z0-9_]{1,
 strings/numbers/booleans/nulls ≤ 2 KB) or over the limits (600 per IP every 10 minutes,
 `ORB_EVENTS_PER_DAY` a day in all).
 
-`/lab/<ORB_LAB_KEY>/analytics` (linked from Pulse) opens with today: the people on Orb in each
-UTC hour as columns (a person counts in every hour one of their visits spans; the hour going on is
-lighter, with its count so far), yesterday's hours as a line beside them, and how many people came
-today against yesterday by the same time and all of yesterday; hovering or focusing an hour shows
-its numbers, and a table has them all. Then, for the last 7 days (`?days=30` for 30), per UTC day:
+`/lab/<ORB_LAB_KEY>/analytics` (linked from Pulse) shows today, or the last 7, 30 or 90 days
+(`?days=7|30|90`; events are kept 180 days), in UTC, all of it from one switch. It opens with
+people over time: today as columns hour by hour (a person counts in every hour one of their visits
+spans; the hour going on is lighter, with its count so far) beside yesterday's hours as a line, or
+a column a day beside the same days of the period before; and how many people came against the
+period before by the same time (and, today, all of yesterday). Hovering or focusing a column shows
+its numbers, and a table has them all. Then, per UTC day:
 visitors (devices), new and returning, visits, page views and how long visits last; how far the
 people who first came in those days got (opened a world → sent a prompt → finished a build → came
 back another day); worlds by opens and time in them, with where they were opened from; events;
