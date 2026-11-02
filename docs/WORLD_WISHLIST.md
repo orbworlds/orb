@@ -180,6 +180,14 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   began: check it on a real GPU with Tiny Boat. For a later day: **Survive the Horde**
   (babylon-fps.vercel.app, Babylon.js, on GitHub without a licence file: a substantial zombie
   shooter with an offline solo mode, but grey and modelled on PUBG; not beautiful enough yet).
+- **Scouted on 2 November 2026** (three.js forum, Show HN): Virtual Diwali went in, embedded (no
+  code found). For a later day: **The Clearing** (gogaetmaru.meaninglens0.workers.dev: a night
+  forest where you write a line about your day and light a campfire; it draws in Orb, but its
+  walker didn't move here, and strangers' lines show in the world) and **Lightyears Home**
+  (lightyears-home.pages.dev: finding the way home by pulsars; not looked into past its menu).
+  Left out: **Speedmaxxing** (maxxing.games: a racer on Dubai's Sheikh Zayed Road; refuses a
+  frame), **Sand-racer** (WebGPU, shown only as a post on X), and **Hyrule diorama** (someone
+  else's game world).
 
 ## Embeds we would add if their sites allowed it
 

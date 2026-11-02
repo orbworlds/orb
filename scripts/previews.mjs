@@ -693,6 +693,16 @@ const SHOTS = {
       await sleep(20000);
     },
   },
+  // Virtual Diwali: a lit agarbatti in hand in the courtyard before the house's arched windows and door, the view turning
+  // slowly round and back (its counters and hotbar hidden)
+  'ext-virtual-diwali': {
+    wait: 40000, steps: [{ click: [320, 200], wait: 5000 }], drag: swing(120, 0),
+    setup: () => {
+      const style = document.createElement('style');
+      style.textContent = 'body * { visibility: hidden } canvas { visibility: visible }';
+      document.head.append(style);
+    },
+  },
   'ext-camp-nou': {
     wait: 40000, crf: [52, 33],
     setup: async () => {

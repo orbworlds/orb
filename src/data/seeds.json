@@ -3141,5 +3141,30 @@
       "author_url": "https://github.com/MrPavian",
       "made_with": "three.js, HD pixel art"
     }
+  },
+  {
+    "id": "ext-virtual-diwali",
+    "name": "Virtual Diwali",
+    "description": "Spend Diwali night in an old-city mohalla by the ghats: light 108 diyas, find hidden crackers and send a wish into a sky shared by everyone.",
+    "kind": "external",
+    "external_url": "https://virtualdiwali.com/",
+    "source_url": null,
+    "author_name": "abhas9",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-virtual-diwali.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=50332869",
+      "platform": "hn",
+      "likes": 5,
+      "posted_at": "2026-11-02",
+      "handle": "abhas9",
+      "author_url": "https://news.ycombinator.com/user?id=abhas9",
+      "made_with": "three.js"
+    }
   }
 ]
