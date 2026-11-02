@@ -22,7 +22,7 @@ import { HERO_COMPOSER_ID, HomeHeader, OrbButton } from './Hero';
 import { ExploreTile, ExploreTileSkeleton, onPlainClick } from './WorldCard';
 
 type ListParams = NonNullable<Parameters<typeof api.listWorlds>[0]>;
-type FilterId = 'all' | 'games' | 'places' | 'art';
+type FilterId = 'all' | 'games' | 'places' | 'art' | 'remixable';
 type SortId = 'trending' | 'new';
 
 const FILTERS: { id: FilterId; label: string; query: ListParams }[] = [
@@ -30,6 +30,7 @@ const FILTERS: { id: FilterId; label: string; query: ListParams }[] = [
   { id: 'games', label: 'Games', query: { tag: 'game' } },
   { id: 'places', label: 'Places', query: { tag: 'world' } },
   { id: 'art', label: 'Art & toys', query: { tag: 'art,toy' } },
+  { id: 'remixable', label: 'Remixable', query: { remixable: true } },
 ];
 
 const SORTS: { id: SortId; label: string }[] = [

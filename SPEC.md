@@ -542,7 +542,8 @@ search keeps the header where it is, its worlds starting right under it. Explore
 left (filter, sort, search, scroll) while a world is played: going back to it (the world's way back)
 leaves the world (a build of one's own goes on in the background) and goes home (pushed, so the
 browser's back returns to the world), down where it was left. Its filters: All, Games
-(`tag=game`), Places (`tag=world`) and Art & toys (`tag=art,toy`), one category per world: the first of `game`, `world`, `art`/`toy` in its tags (a game has a goal, a
+(`tag=game`), Places (`tag=world`), Art & toys (`tag=art,toy`) and Remixable (`remixable=1`:
+worlds anyone may remix), one category per world: the first of `game`, `world`, `art`/`toy` in its tags (a game has a goal, a
 world is a place to wander, a toy is something to make or play with freely, or a scene to look at),
 else its template's. The curated worlds name exactly one (`src/data/seeds.json`,
 `src/data/originals.json`); the in-house agent says a new world's when it names it (`name_world`'s
