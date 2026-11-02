@@ -57,6 +57,22 @@ const hop = (p) => (t) => { const m = p.length - 1, k = Math.floor(t / 0.7), f =
 // for a camera flight or a walk that's too slow or too quick for a four-second clip
 const threefold = () => { const raf = window.requestAnimationFrame; window.requestAnimationFrame = (cb) => raf((ts) => cb(ts * 3)); };
 const halved = () => { const raf = window.requestAnimationFrame; window.requestAnimationFrame = (cb) => raf((ts) => cb(ts / 2)); };
+// Orb's own games dress up for the month they're in (pumpkins in October): their clips are of a day in May, as Orbcraft's
+// thumbnail is, so they don't date (an `init`: the recorder's clock, moved to that day)
+const inMay = () => {
+  const D = window.Date, shift = D.UTC(2027, 4, 12, 12) - D.now();
+  function May(...a) { return new.target ? (a.length ? new D(...a) : new D(D.now() + shift)) : new D(D.now() + shift).toString(); }
+  Object.assign(May, { now: () => D.now() + shift, parse: D.parse, UTC: D.UTC });
+  May.prototype = D.prototype;
+  window.Date = May;
+};
+// ...and at their full sharpness: they start below the screen's density and lower it when frames come slowly, as they
+// do here while a world loads (a `patch` for Orbcraft and Bed Wars, which share this code)
+const SHARP = [
+  ['LOW ? 1.5 : 2,', 'LOW ? 1.5 : 3,'],
+  ['let pixelRatio = Math.min(maxRatio(), 1.5)', 'let pixelRatio = maxRatio()'],
+  ['perfSlow = frameAvg > 24 ? perfSlow + 1 : 0;', 'perfSlow = 0;'],
+];
 const SHOTS = {
   // Monolith Wilds: a slow glide in over the basin of monuments toward the red peaks (its `cam` view leaves its controls out)
   'aw-monolith-wilds': {
@@ -433,7 +449,7 @@ const SHOTS = {
   },
   // Bed Wars: a Duos match on Sunset Mesa, the camera chasing a bot as it bridges, buys and fights
   'orb-bedwars': {
-    file: '?debug', ready: () => window.__bw?.game.mode === 'lobby', wait: 2000, crf: [42, 28],
+    file: '?debug', ready: () => window.__bw?.game.mode === 'lobby', wait: 2000, crf: [42, 28], init: inMay, patch: SHARP,
     setup: async () => {
       const b = window.__bw;
       document.getElementById('daily')?.classList.add('hidden');
@@ -461,11 +477,9 @@ const SHOTS = {
   'orb-craft': {
     file: '?debug&nodaily', ready: () => window.__oc?.game.mode === 'wild' && window.__oc.player && document.getElementById('loading')?.classList.contains('out'), wait: 3000,
     // the lead tile: drawn at 2.5× so its signs stay readable at that size
-    scale: 2.5, crf: [46, 30],
+    scale: 2.5, crf: [40, 27], init: inMay, patch: SHARP,
     setup: () => {
       const o = window.__oc;
-      o.renderer.setPixelRatio(2.5);
-      o.renderer.setSize(innerWidth, innerHeight);
       o.clockShift = (o.clockShift || 0) - o.wildClock().t + 560;   // as its thumbnail
       for (const el of document.querySelectorAll('body > *:not(canvas)')) el.style.visibility = 'hidden';
       o.input.keys.add('KeyW');
@@ -502,7 +516,8 @@ const SHOTS = {
   'aw-sakura': { crf: [60, 36], wait: 30000, settle: 2, press: [['Space', 0.5, 0.6], ['Space', 2.5, 2.6]] },
   // VampireZ: a night with the bots, past the grace, the survivor running from the vampires on its own
   'orb-vampirez': {
-    file: '?debug', ready: () => window.__vz?.game.state === 'title', wait: 3000, crf: [48, 31],
+    file: '?debug', ready: () => window.__vz?.game.state === 'title', wait: 3000, crf: [48, 31], init: inMay,
+    patch: [['if (frameAvg > 24 && pixelRatio > 0.75)', 'if (false)']],   // never lower its sharpness (see SHARP)
     setup: async () => {
       const vz = window.__vz;
       vz.start(true);
@@ -734,6 +749,8 @@ function clock({ blank: blanking } = {}) {
   FakeDate.parse = RealDate.parse;
   FakeDate.UTC = RealDate.UTC;
   window.Date = FakeDate;
+  // full quality whatever this machine is: some worlds give up shadows and effects on 4 cores, as it has
+  Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
   window.requestAnimationFrame = (cb) => {
     // a frame asked for before the clock was taken over but run after it waits for the next step,
     // or its real timestamp (ahead of the stopped clock) would make time run backwards
