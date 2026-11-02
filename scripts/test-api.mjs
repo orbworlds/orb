@@ -1422,16 +1422,22 @@ async function run() {
     check('too many frames → 400', (await request('POST', '/api/agent/jobs', { dev: FILMMAKER, body: { worldId: fw.id, messages: [{ role: 'user', content: 'x' }], videos: [{ frames: Array(5).fill(frame), seconds: 1 }], mode: 'build', code: '' } })).status === 400);
     await request('DELETE', `/api/worlds/${fw.id}`, { dev: FILMMAKER });
     await request('DELETE', `/api/worlds/${pw.id}`, { dev: PHOTOGRAPHER });
-    // Orb's paint kit: every build has it at orb/paint.js; the world keeps it only when it uses it.
+    // Orb's kits: every build has them at orb/<kit>.js; a world keeps each only when it uses it.
+    const kitText = (tree, kit) => request('GET', `/api/tree/${tree}/orb/${kit}.js`);
     const kw = (await create(PAINTER, { name: `Paint ${TOKEN}` })).json.world;
     const plainBuild = await request('POST', '/api/agent/jobs', { dev: PAINTER, body: { worldId: kw.id, messages: [{ role: 'user', content: 'a garden' }], mode: 'build', code: '' } });
     const plainTree = (await get(PAINTER, kw.id)).json.world.tree;
-    check('a world that doesn’t use the paint kit doesn’t keep it', plainBuild.status === 200 && (await request('GET', `/api/tree/${plainTree}/orb/paint.js`)).status === 404, plainBuild.status);
-    const kw2 = (await create(PAINTER, { name: `Painted ${TOKEN}` })).json.world;
-    const painted = await request('POST', '/api/agent/jobs', { dev: PAINTER, body: { worldId: kw2.id, messages: [{ role: 'user', content: 'a garden mockpaint' }], mode: 'build', code: '' } });
-    const kitFile = await request('GET', `/api/tree/${(await get(PAINTER, kw2.id)).json.world.tree}/orb/paint.js`);
-    check('…one that does keeps it, as the kit is', painted.status === 200 && kitFile.status === 200 && kitFile.text === fs.readFileSync(path.join(root, 'public/kit/paint.js'), 'utf8') && /javascript/.test(kitFile.headers.get('content-type') || ''), { status: kitFile.status });
-    for (const id of [kw.id, kw2.id]) await request('DELETE', `/api/worlds/${id}`, { dev: PAINTER });
+    check('a world that doesn’t use the kits doesn’t keep them', plainBuild.status === 200 && (await kitText(plainTree, 'paint')).status === 404 && (await kitText(plainTree, 'nature')).status === 404, plainBuild.status);
+    for (const kit of ['paint', 'nature']) {
+      const w = (await create(PAINTER, { name: `${kit} ${TOKEN}` })).json.world;
+      const built = await request('POST', '/api/agent/jobs', { dev: PAINTER, body: { worldId: w.id, messages: [{ role: 'user', content: `a garden mock${kit}` }], mode: 'build', code: '' } });
+      const tree = (await get(PAINTER, w.id)).json.world.tree;
+      const kept = await kitText(tree, kit);
+      const other = await kitText(tree, kit === 'paint' ? 'nature' : 'paint');
+      check(`…one that uses the ${kit} kit keeps it, as the kit is, and not the other`, built.status === 200 && kept.status === 200 && kept.text === fs.readFileSync(path.join(root, `public/kit/${kit}.js`), 'utf8') && /javascript/.test(kept.headers.get('content-type') || '') && other.status === 404, { status: kept.status });
+      await request('DELETE', `/api/worlds/${w.id}`, { dev: PAINTER });
+    }
+    await request('DELETE', `/api/worlds/${kw.id}`, { dev: PAINTER });
 
 
     // Restore an older version by its tree.

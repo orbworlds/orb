@@ -1,20 +1,27 @@
-// Orb's paint kit for worlds (public/kit/paint.js, bundled from src/data/paint-kit.json by
-// scripts/paint-kit.mjs): a painted storybook look for three.js. Every build gets it at KIT_PATH,
-// and a world keeps it only when it uses it (dropped on save like unused photos, ./photos.ts).
+// Orb's kits for worlds (public/kit/*.js, bundled into src/data/kits.json by scripts/kits.mjs):
+// ready-made looks for three.js — a painted storybook look (orb/paint.js) and nature with
+// cinematic light (orb/nature.js). Every build gets them, and a world keeps a kit only when it uses
+// it (dropped on save like unused photos, ./photos.ts).
 
-import kit from '@/data/paint-kit.json';
+import kits from '@/data/kits.json';
 import type { Db } from '../db';
 import { putBlob, type Tree } from '../files';
 
-export const KIT_PATH = 'orb/paint.js';
-/** The kit's opening comment, in lines: its documentation, which the builder reads. */
-export const KIT_HEADER_LINES = kit.source.split('\n').findIndex((l) => !l.startsWith('//'));
+/** Each kit's path in a world, and its source. */
+export const KITS: Readonly<Record<string, string>> = kits;
 
-let stored: string | null = null;
+/** A kit's opening comment, in lines: its documentation, which the builder reads. */
+export const kitHeaderLines = (path: string): number => (KITS[path] ?? '').split('\n').findIndex((l) => !l.startsWith('//'));
 
-/** The kit for a build of a world with these files: its file, unless the world has one there already. */
+const stored = new Map<string, string>();
+
+/** The kits for a build of a world with these files: each kit's file, unless the world has one there already. */
 export async function kitFiles(db: Db, world: Tree): Promise<Tree> {
-  if (world[KIT_PATH]) return {};
-  stored ??= (await putBlob(db, kit.source)).sha;
-  return { [KIT_PATH]: stored };
+  const out: Tree = {};
+  for (const [path, source] of Object.entries(KITS)) {
+    if (world[path]) continue;
+    if (!stored.has(path)) stored.set(path, (await putBlob(db, source)).sha);
+    out[path] = stored.get(path)!;
+  }
+  return out;
 }

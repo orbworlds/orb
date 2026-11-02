@@ -10,7 +10,7 @@
 // what it saw), "mockfirstlook" (a big new world's first look, ending with a question),
 // "mockphoto" (the world uses the person's photo or video), "mockadd:<word>" / "mocktop:<word>" (a
 // file written again whole, with a line of its own), "mockasset <url>" (a file copied in from the web),
-// "mockpaint" (the world uses Orb's paint kit). A visitor's request (guide mode) gets an
+// "mockpaint" / "mocknature" (the world uses Orb's paint or nature kit). A visitor's request (guide mode) gets an
 // answer, and with "mockchange" the offer of their own copy.
 
 import type { LanguageModel } from 'ai';
@@ -125,7 +125,7 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
       return {
         calls: [
           { name: 'name_world', input: { name: 'Mock Garden', kind: 'toy' } },
-          { name: 'write_file', input: { label: 'Laying out the garden', path: 'index.html', content: request.includes('mockpaint') ? INDEX.replace('</body>', '<script type="module" src="./orb/paint.js"></script>\n</body>') : INDEX } },
+          { name: 'write_file', input: { label: 'Laying out the garden', path: 'index.html', content: INDEX.replace('</body>', ['paint', 'nature'].filter((k) => request.includes(`mock${k}`)).map((k) => `<script type="module" src="./orb/${k}.js"></script>\n`).join('') + '</body>') } },
           { name: 'write_file', input: { label: 'Painting the sky', path: 'style.css', content: STYLE } },
           { name: 'write_file', input: { label: 'Tuning the colors', path: 'src/config.js', content: CONFIG_JS(250) } },
           { name: 'write_file', input: { label: 'Planting the glows', path: 'src/main.js', content: main(request.includes('mockcrash')) } },

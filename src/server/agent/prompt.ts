@@ -3,7 +3,7 @@
 // model can't know by itself belongs here — Orb's window.orb SDK (SPEC §7), the starter island,
 // three.js r186's pitfalls, how to save and look. Keep it in sync with docs/WORLD_STYLE.md.
 
-import { KIT_HEADER_LINES, KIT_PATH } from './kit';
+import { kitHeaderLines } from './kit';
 import { LOOK_ACTIONS, SEEN_DIR } from './look';
 
 const TALK = `# How you talk
@@ -26,7 +26,8 @@ const world = (web: WebAssets) => `# The world
 - index.html loads the other files by relative paths: plain ES modules, no build step. three.js through this import map: <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>
 - three r186: THREE.SRGBColorSpace, THREE.ACESFilmicToneMapping, THREE.PCFShadowMap (PCFSoftShadowMap is gone), THREE.Timer with timer.update(t) (THREE.Clock is deprecated; clamp dt, early deltas can be negative).
 - ${web ? `Real assets beat boxes: characters, vehicles, props, textures, skies and sounds are free files from the web (CC0 or CC-BY: Kenney, Quaternius, Poly Pizza, Poly Haven, ambientCG…), ${ASSETS[web]}.` : 'Textures, models and sounds are made in code or as files you write.'} Light materials from the sky too (scene.environment).
-- A painted storybook look (watercolor, Ghibli, cozy, fairy tale): ./${KIT_PATH}; its first ${KIT_HEADER_LINES} lines say how.
+- A painted storybook look (watercolor, Ghibli, cozy, fairy tale): ./orb/paint.js; its first ${kitHeaderLines('orb/paint.js')} lines say how.
+- Nature with cinematic light (meadows, forests, hills, water, golden hour): ./orb/nature.js; its first ${kitHeaderLines('orb/nature.js')} lines say how.
 - Mouse, keys and touch, with a short controls hint. Keep the bottom-right 90×90 px free (Orb's button). Sound only after the first tap. Smooth on a phone; never throw at startup.
 - A new world starts as Orb's sky island ("// === YOUR WORLD ===", helpers: world, place(object, x, z), groundHeight(x, z), onFrame((dt, t) => …)): build on it when it fits, replace it when it doesn't.`;
 

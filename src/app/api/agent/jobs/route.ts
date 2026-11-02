@@ -190,7 +190,7 @@ export const POST = handle(async (req: Request): Promise<Response> => {
         ? { effort }
         : {};
   if (billing) ext.billing = billing;
-  // Every build gets Orb's paint kit; like the photos, it stays in the world only where it's used.
+  // Every build gets Orb's kits; like the photos, each stays in the world only where it's used.
   const kit = mode === 'build' ? await kitFiles(db, world.files) : {};
   const extras = [...(photos?.paths ?? []), ...Object.keys(kit)];
   if (extras.length) ext.photos = extras;

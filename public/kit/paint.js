@@ -283,7 +283,7 @@ export function createPainter(renderer, scene, camera, { radius = 3, step = 1.5 
   const kuwahara = new ShaderPass(KuwaharaShader), wash = new ShaderPass(WashShader);
   wash.uniforms.uStars = skyState.stars; wash.uniforms.uPaperSky = skyState.paper; // set by skyMesh each frame
   composer.addPass(kuwahara); composer.addPass(wash);
-  return {
+  const painter = {
     composer, kuwahara, wash,
     setSize(w, h) {
       composer.setSize(w, h);
@@ -294,4 +294,7 @@ export function createPainter(renderer, scene, camera, { radius = 3, step = 1.5 
     },
     render(t = 0) { wash.uniforms.uTime.value = t; composer.render(); },
   };
+  const size = renderer.getSize(new THREE.Vector2());
+  painter.setSize(size.x, size.y); // sized from the start: unsized, every tap lands on the screen's edges
+  return painter;
 }
