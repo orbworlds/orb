@@ -46,7 +46,7 @@ export function Trend({ trend, range }: { trend: AnalyticsTrend; range: Range })
   const period = hourly ? 'today' : `in ${range} days`;
   const was = hourly ? 'yesterday by this time' : `the ${range} days before`;
   const change = trend.beforeSoFar ? Math.round(((trend.people - trend.beforeSoFar) / trend.beforeSoFar) * 100) : null;
-  const versus = change === null ? `None ${was}` : change === 0 ? `As many as ${was} (${trend.beforeSoFar})` : `${change > 0 ? '▲' : '▼'} ${Math.abs(change)}% on ${was} (${trend.beforeSoFar})`;
+  const versus = change === null ? `None ${hourly ? '' : 'in '}${was}` : change === 0 ? `As many as ${was} (${trend.beforeSoFar})` : `${change > 0 ? '▲' : '▼'} ${Math.abs(change)}% on ${was} (${trend.beforeSoFar})`;
   const shown = at === null ? null : points[at];
   return (
     <div className={CARD}>
