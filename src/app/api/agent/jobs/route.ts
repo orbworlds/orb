@@ -28,6 +28,7 @@ import { ready } from '@/server/schema';
 import { traceGroup } from '@/server/traces';
 import { worldTree } from '@/server/worlds';
 import { followJob } from '@/server/agent/follow';
+import { kitFiles } from '@/server/agent/kit';
 import { buildPhotos, buildVideo, photoNote, videoNote } from '@/server/agent/photos';
 import { cursorOrbPrompt } from '@/server/agent/prompt';
 import { AGENT_EFFORTS, AGENT_PROVIDERS, type AgentEffort, type AgentProvider } from '@/server/agent/models';
@@ -189,7 +190,10 @@ export const POST = handle(async (req: Request): Promise<Response> => {
         ? { effort }
         : {};
   if (billing) ext.billing = billing;
-  if (photos?.paths.length) ext.photos = photos.paths;
+  // Every build gets Orb's paint kit; like the photos, it stays in the world only where it's used.
+  const kit = mode === 'build' ? await kitFiles(db, world.files) : {};
+  const extras = [...(photos?.paths ?? []), ...Object.keys(kit)];
+  if (extras.length) ext.photos = extras;
   const id = await createAgentJob(db, {
     owner: viewer,
     worldId: build.worldId,
@@ -200,7 +204,7 @@ export const POST = handle(async (req: Request): Promise<Response> => {
     origin,
     messages,
     prompt: asked,
-    files: photos?.files,
+    files: { ...photos?.files, ...kit },
     ext: Object.keys(ext).length ? ext : undefined,
     trace: { group: traceGroup(req), meta: build.errors?.length ? { repair: build.errors.length } : undefined },
   });

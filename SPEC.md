@@ -362,6 +362,12 @@ Browser (Next.js client)                              Vercel Functions (Node)   
   refused) of at most 10 MB, 40 files and 80 MB a tick of a build; its author and license go into
   `CREDITS.md`, and a model's size and animations come back to the agent. A Cursor agent downloads
   them into `assets/` itself. `ORB_WEB_ASSETS=0` turns this off (models and textures made in code).
+  Every build also has Orb's paint kit at `orb/paint.js` (`public/kit/paint.js`, bundled for the
+  server as `src/data/paint-kit.json` by `scripts/paint-kit.mjs`): a painted storybook look for
+  three.js (a Kuwahara and watercolor pass, brush-textured materials, watercolor skies, clumps for
+  foliage and smoke, scattered small detail), whose opening comment is its documentation, and one
+  line of the prompt points there. A world keeps the file only when it uses it (dropped on save, like
+  photos), and one that already has its own at that path keeps that.
   Free builds are guarded the way chatgpt.com's are: quotas per account, or per device and IP
   without one (`src/server/freetier.ts`), and Vercel BotID on free builds, signing up and signing
   in (`src/server/botid.ts`, `src/instrumentation-client.ts`; 403 `bot_detected`). What they may

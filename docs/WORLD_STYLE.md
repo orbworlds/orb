@@ -9,6 +9,8 @@ says "wow" within one second, on a phone or a laptop.
   the web (CC0 or CC-BY: Kenney, Quaternius, Poly Pizza, Poly Haven, ambientCG…), copied into the
   world's `assets/` and credited in `CREDITS.md`; never loaded from other sites. Simple shapes and
   effects are made in code. Materials are lit by the sky too (`scene.environment`).
+- A painted storybook look comes from Orb's paint kit (`orb/paint.js`, from `public/kit/paint.js`):
+  its opening comment says how to use it and how to stage a scene for it.
 - Libraries only from jsDelivr, pinned. Default stack is three.js via an import map:
   ```html
   <script type="importmap">{"imports":{
