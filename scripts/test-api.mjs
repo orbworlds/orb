@@ -1636,6 +1636,9 @@ async function run() {
     if (!counted) fs.writeFileSync(path.join(OUT_DIR, 'analytics.html'), page.text);
     check('the analytics page counts each person: 1 visit, 2 prompts, 1 build', counted, { status: page.status, saved: '.data/test-api/analytics.html' });
     check('…links them to their timelines, by public id', page.text.includes(`/analytics/person/${id(PERSON)}"`) && page.text.includes(`/analytics/person/${id(BEACON)}"`));
+    // Today, hour by hour: both people of this run are in the hour going on now.
+    const nowHour = /aria-label="\d\d:00–now UTC: (\d+) (?:people|person) so far, yesterday \d+"/.exec(page.text);
+    check('…and shows today hour by hour, with this hour’s people so far', !!nowHour && Number(nowHour[1]) >= 2 && plain(page.text).includes('People today'), nowHour?.[0]);
     check('…without their device hashes', ![PERSON, BEACON].some((d) => page.text.includes(hashDevice(d))));
     check('…and is not indexed', /<meta name="robots" content="noindex, nofollow"/.test(page.text));
     const month = await request('GET', `/lab/${LAB_KEY}/analytics?days=30`);

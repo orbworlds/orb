@@ -1,7 +1,8 @@
 // What the analytics page (/lab/<key>/analytics) shows, read from orb_events (see ./events), over
 // the last 7 or 30 days in UTC days: visitors (devices) and how many were new, visits (a tab's
 // session), page views and how long visits last; the funnel of the people who first came in those
-// days, from opening a world to coming back another day; worlds by opens and play time; events;
+// days, from opening a world to coming back another day; today hour by hour beside yesterday;
+// worlds by opens and play time; events;
 // where visits come from; phones and computers; countries; and everyone who came — each with their
 // own timeline (person()).
 // A person is a device: its display name is its account's, else the name it gave Orb, else its
@@ -60,9 +61,22 @@ export interface AnalyticsPerson {
   worlds: number;
 }
 
+/** Today (UTC) hour by hour, beside yesterday: who was on Orb when. */
+export interface AnalyticsToday {
+  /** The hour it is now (UTC), 0–23: today's later hours haven't come yet. */
+  hour: number;
+  /** People on Orb in each hour of today (null: still to come) and of yesterday: everyone with a visit going on then. */
+  hours: Array<{ today: number | null; yesterday: number }>;
+  /** People today so far, yesterday until this time of day, and all of yesterday. */
+  people: number;
+  yesterdaySoFar: number;
+  yesterday: number;
+}
+
 export interface Analytics {
   now: number;
   range: Range;
+  today: AnalyticsToday;
   totals: { visitors: number; newVisitors: number; visits: number; pageViews: number; events: number; avgVisitSeconds: number; medianVisitSeconds: number; playSeconds: number };
   days: AnalyticsDay[];
   /** People who first came in the range, and how many of them got through each step (and the ones before it). */
@@ -117,11 +131,48 @@ function rangeStart(now: number, range: Range): Date {
   return new Date(d.getTime() - (range - 1) * 86_400_000);
 }
 
+const HOUR = 3_600_000;
+
+/** Today and yesterday (UTC), hour by hour: a person counts in every hour one of their visits spans. */
+async function todayByHour(db: Db, now: number): Promise<AnalyticsToday> {
+  const midnight = now - (now % (24 * HOUR));
+  const yesterday = new Date(midnight - 24 * HOUR).toISOString();
+  const hour = Math.floor((now - midnight) / HOUR);
+  const [byHour, totals] = await Promise.all([
+    db.query<{ at: Date | string; people: number }>(
+      `with v as (
+         select e.device, min(e.at) as a, max(e.at) as b from orb_events e where e.at >= $1::timestamptz group by e.device, e.session
+       )
+       select h.at, count(distinct v.device)::int as people
+       from generate_series($1::timestamptz, $2::timestamptz, interval '1 hour') as h(at)
+       left join v on v.a < h.at + interval '1 hour' and v.b >= h.at
+       group by h.at`,
+      [yesterday, new Date(midnight + hour * HOUR).toISOString()],
+    ),
+    db.query<Record<string, unknown>>(
+      `select count(distinct e.device) filter (where e.at >= $2::timestamptz)::int as today,
+              count(distinct e.device) filter (where e.at < $2::timestamptz)::int as yesterday,
+              count(distinct e.device) filter (where e.at < $3::timestamptz)::int as so_far
+       from orb_events e where e.at >= $1::timestamptz`,
+      [yesterday, new Date(midnight).toISOString(), new Date(now - 24 * HOUR).toISOString()],
+    ),
+  ]);
+  const hours = Array.from({ length: 24 }, (_, h) => ({ today: h <= hour ? 0 : null, yesterday: 0 }));
+  for (const r of byHour) {
+    const i = Math.round((new Date(r.at).getTime() - (midnight - 24 * HOUR)) / HOUR);
+    if (i >= 0 && i < 24) hours[i].yesterday = n(r.people);
+    else if (i >= 24 && i - 24 <= hour) hours[i - 24].today = n(r.people);
+  }
+  const t = totals[0] ?? {};
+  return { hour, hours, people: n(t.today), yesterdaySoFar: n(t.so_far), yesterday: n(t.yesterday) };
+}
+
 export async function analytics(db: Db, range: Range): Promise<Analytics> {
   const now = Date.now();
   const start = rangeStart(now, range);
   const since = [start.toISOString()];
-  const [daily, totals, funnel, worlds, events, sources, devices, countries, people] = await Promise.all([
+  const [today, daily, totals, funnel, worlds, events, sources, devices, countries, people] = await Promise.all([
+    todayByHour(db, now),
     db.query<Record<string, unknown> & { day: string }>(
       `with ev as (
          select (e.at at time zone 'utc')::date as day, e.device, e.session, e.name, e.props
@@ -262,6 +313,7 @@ export async function analytics(db: Db, range: Range): Promise<Analytics> {
   return {
     now,
     range,
+    today,
     totals: {
       visitors: n(t.visitors),
       newVisitors: days.reduce((s, d) => s + d.newVisitors, 0),

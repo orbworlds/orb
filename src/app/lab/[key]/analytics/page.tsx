@@ -4,10 +4,12 @@ import { notFound } from 'next/navigation';
 import { analytics, type AnalyticsDay, type AnalyticsPerson, type AnalyticsWorld, type Range } from '@/server/analytics';
 import { LAB_KEY } from '@/server/lab';
 import { ready } from '@/server/schema';
+import { Today } from './Today';
 import { ago, Bar, CARD, type Column, countryName, dayLabel, duration, LINK, MAIN, percent, personName, Section, seenOn, Stat, Table, TITLE } from '../pulse/ui';
 
-// Who comes to Orb and what they do there, from Orb's own events (src/server/analytics.ts): the
-// last 7 days, or 30 with ?days=30, in UTC days. Everyone links to their own timeline (./person).
+// Who comes to Orb and what they do there, from Orb's own events (src/server/analytics.ts): today
+// hour by hour (./Today), then the last 7 days, or 30 with ?days=30, in UTC days. Everyone links to
+// their own timeline (./person).
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Analytics' };
@@ -101,15 +103,22 @@ export default async function AnalyticsPage({ params, searchParams }: { params: 
   return (
     <main className={MAIN}>
       <h1 className={TITLE}>Analytics</h1>
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[14.5px] text-ink-2">
-        <span>The last {range} days (UTC), from Orb’s own events.</span>
-        <RangeSwitch base={`/lab/${key}/analytics`} range={range} />
+      <p className="mt-3 text-[14.5px] text-ink-2">
+        Who comes to Orb and what they do there, from Orb’s own events, in UTC.{' '}
         <Link href={`/lab/${key}/pulse`} className={LINK}>
           Pulse
         </Link>
-      </div>
+      </p>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Section title="Today" about="People on Orb in each hour, beside yesterday’s: everyone counts in each hour one of their visits spans.">
+        <Today today={a.today} />
+      </Section>
+
+      <div className="mt-10 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h2 className="text-[17px] font-semibold text-ink">The last {range} days</h2>
+        <RangeSwitch base={`/lab/${key}/analytics`} range={range} />
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Visitors" value={t.visitors} sub={`${t.newVisitors} new · ${t.visitors - t.newVisitors} returning`} />
         <Stat label="Visits" value={t.visits} sub={t.visits ? `${duration(t.medianVisitSeconds)} median · ${duration(t.avgVisitSeconds)} average` : 'None yet'} />
         <Stat label="Page views" value={t.pageViews} sub={t.visits ? `${(t.pageViews / t.visits).toFixed(1)} a visit` : 'None yet'} />
