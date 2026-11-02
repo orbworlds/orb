@@ -1,5 +1,5 @@
 // nature.js — beautiful outdoor scenes for three.js r186: golden light, sky, haze, wind-blown grass and flowers, trees,
-// rocks, water, drifting pollen, bloom. Self-contained ES module.
+// ferns, rocks, water, drifting pollen, sun shafts, bloom. Self-contained ES module.
 //   import { createNature } from './orb/nature.js';
 //   const world = createNature(renderer, scene, camera, { time: 'golden' }); // or 'morning' 'noon' 'dusk' 'night'
 //     // sets up the renderer (tone mapping, shadows), sun, sky, haze and fill light; world.sunDir points at the sun
@@ -7,13 +7,15 @@
 //   land.heightAt(x, z)                                   // the ground's height: stand your things on it
 //   world.grass(land, { height: 0.5, where: (x, z) => true }); // swaying, to the horizon; colors: [deep, mid, straw]
 //   world.flowers(land, { colors: ['#c8352d', '#3a59c9', '#f2eee2'] }); // in drifts in the grass
-//   world.trees(land, { kind: 'oak', count: 40, where });   // 'oak' 'birch' 'pine'; or at: [[x, z], …]
+//   world.trees(land, { kind: 'oak', count: 40, where });   // 'oak' 'birch' 'pine'; a forest: 300+; or at: [[x, z], …]
+//   world.plants(land, { kind: 'fern', count: 600, where }); // in patches: 'fern' 'bush' 'reed' (reeds along the water)
 //   world.rocks(land, { count: 20 }); world.water(land, { level: -1 }); world.motes();
 //   every frame: world.render() instead of renderer.render; on resize: world.setSize(innerWidth, innerHeight)
 //   Your meshes: MeshStandardMaterial; the light, haze and shadows take them in (no lights or fog of your own).
 // Taste:
 // 1. Camera low (1.5-3 m) looking across the land, 20-60° beside the sun (world.sunDir): backlit grass and leaves glow.
-// 2. Layers: grass and flowers right in front, the subject in the middle, trees framing a side, hills fading into haze.
+// 2. Layers: grass and flowers in front, the subject in the middle, trees framing a side, low hills far off in the haze,
+//    sky over the top third.
 // 3. Trees in groups, rocks half sunk, a path or clearing (where: … false) to lead the eye; never a bare flat plane.
 // 4. Muted natural colours, one or two strong accents (red poppies, a red cloak).
 import * as THREE from 'three';
@@ -22,7 +24,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 
 const DEG = Math.PI / 180;
@@ -30,11 +32,11 @@ const PLANTS = 1; // the layer grass, flowers and motes are on: the main camera 
 
 // ---------- times of day (sun: [degrees around from -z toward +x, degrees up]) ----------
 const TIMES = {
-  golden: { sun: [25, 11], light: ['#ffc58a', 4.4], fill: ['#9db4e3', '#5c5a3c', 0.55], env: 0.55, zenith: '#4a74bd', mid: '#a6bcdb', horizon: '#f1d0aa', haze: '#b0b5c9', glow: '#ffb55a', density: 0.0055, clouds: 0.5, stars: 0, exposure: 1.1, bloom: 0.5 },
-  morning: { sun: [-40, 17], light: ['#ffe2c2', 3.6], fill: ['#b3c6ea', '#59604a', 0.55], env: 0.55, zenith: '#7ca4da', mid: '#b6cbe5', horizon: '#e8ddd2', haze: '#c2c9d8', glow: '#ffcf96', density: 0.008, clouds: 0.3, stars: 0, exposure: 1.1, bloom: 0.4 },
-  noon: { sun: [30, 58], light: ['#fff3e0', 3.4], fill: ['#a9c3ee', '#5f6748', 0.55], env: 0.6, zenith: '#4a82d4', mid: '#8fb4e2', horizon: '#c4d8ee', haze: '#c0d0e2', glow: '#fff0d2', density: 0.0035, clouds: 0.4, stars: 0, exposure: 1.05, bloom: 0.3 },
-  dusk: { sun: [15, 3], light: ['#ff9a5a', 3.0], fill: ['#8a90c6', '#463c3c', 0.45], env: 0.45, zenith: '#3a4a80', mid: '#a49cba', horizon: '#f0a070', haze: '#8a8fb0', glow: '#ff8c4a', density: 0.0055, clouds: 0.5, stars: 0, exposure: 1.1, bloom: 0.7 },
-  night: { sun: [-30, 32], light: ['#a9bcff', 0.7], fill: ['#3b4a7c', '#0f1218', 0.35], env: 0.35, zenith: '#050a1c', mid: '#0e1730', horizon: '#1b2540', haze: '#18213a', glow: '#3a4f8c', density: 0.005, clouds: 0.15, stars: 1, exposure: 1.1, bloom: 0.6 },
+  golden: { sun: [25, 11], light: ['#ffc58a', 4.4], fill: ['#9db4e3', '#5c5a3c', 0.55], env: 0.55, zenith: '#4a74bd', mid: '#a6bcdb', horizon: '#f1d0aa', haze: '#b0b5c9', glow: '#ffb55a', density: 0.0055, clouds: 0.5, stars: 0, exposure: 1.1, bloom: 0.5, shafts: 0.7 },
+  morning: { sun: [-40, 17], light: ['#ffe2c2', 3.6], fill: ['#b3c6ea', '#59604a', 0.55], env: 0.55, zenith: '#7ca4da', mid: '#b6cbe5', horizon: '#e8ddd2', haze: '#c2c9d8', glow: '#ffcf96', density: 0.008, clouds: 0.3, stars: 0, exposure: 1.1, bloom: 0.4, shafts: 0.6 },
+  noon: { sun: [30, 58], light: ['#fff3e0', 3.4], fill: ['#a9c3ee', '#5f6748', 0.55], env: 0.6, zenith: '#4a82d4', mid: '#8fb4e2', horizon: '#c4d8ee', haze: '#c0d0e2', glow: '#fff0d2', density: 0.0035, clouds: 0.4, stars: 0, exposure: 1.05, bloom: 0.3, shafts: 0.25 },
+  dusk: { sun: [15, 3], light: ['#ff9a5a', 3.0], fill: ['#8a90c6', '#463c3c', 0.45], env: 0.45, zenith: '#3a4a80', mid: '#a49cba', horizon: '#f0a070', haze: '#8a8fb0', glow: '#ff8c4a', density: 0.0055, clouds: 0.5, stars: 0, exposure: 1.1, bloom: 0.7, shafts: 0.8 },
+  night: { sun: [-30, 32], light: ['#a9bcff', 0.7], fill: ['#3b4a7c', '#0f1218', 0.35], env: 0.35, zenith: '#050a1c', mid: '#0e1730', horizon: '#1b2540', haze: '#18213a', glow: '#3a4f8c', density: 0.005, clouds: 0.15, stars: 1, exposure: 1.1, bloom: 0.6, shafts: 0 },
 };
 
 const TREES = {
@@ -157,6 +159,10 @@ export function createNature(renderer, scene, camera, opts = {}) {
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), o.bloom, 0.6, 1.0);
   composer.addPass(bloom);
+  const shafts = new ShaderPass(ShaftsShader);
+  shafts.uniforms.uColor.value.set(o.light[0]);
+  shafts.enabled = o.shafts > 0 && quality >= 0.5;
+  composer.addPass(shafts);
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(GradeShader);
   grade.uniforms.uTime = u.time;
@@ -166,12 +172,13 @@ export function createNature(renderer, scene, camera, opts = {}) {
   camera.layers.enable(PLANTS);
   const camPos = new THREE.Vector3(), camFwd = new THREE.Vector3(), followers = [];
   const world = {
-    sun, fill, sky, sunDir, composer, bloom, grade, quality, uniforms: u, followers,
+    sun, fill, sky, sunDir, composer, bloom, shafts, grade, quality, uniforms: u, followers,
     terrain: (opts) => makeTerrain(world, opts),
     grass: (land, opts) => makeGrass(world, land, opts),
     flowers: (land, opts) => makeFlowers(world, land, opts),
     trees: (land, opts) => makeTrees(world, land, opts),
     rocks: (land, opts) => makeRocks(world, land, opts),
+    plants: (land, opts) => makePlants(world, land, opts),
     water: (land, opts) => makeWater(world, land, opts),
     motes: (opts) => makeMotes(world, scene, opts),
     render() { composer.render(); },
@@ -182,7 +189,7 @@ export function createNature(renderer, scene, camera, opts = {}) {
   const t0 = performance.now();
   let frames = 0;
   const seen = new WeakSet(), scale = new THREE.Vector3();
-  const lx = new THREE.Vector3(), ly = new THREE.Vector3(), focus = new THREE.Vector3();
+  const lx = new THREE.Vector3(), ly = new THREE.Vector3(), focus = new THREE.Vector3(), sunScreen = new THREE.Vector3();
   const before = scene.onBeforeRender;
   scene.onBeforeRender = function (...args) {
     u.time.value = (performance.now() - t0) / 1000;
@@ -203,6 +210,12 @@ export function createNature(renderer, scene, camera, opts = {}) {
     sun.position.copy(focus).addScaledVector(sunDir, 150);
     sun.target.updateMatrixWorld();
     for (const f of followers) f(camPos, camFwd);
+    // light shafts stream from where the sun is on screen, when it's ahead
+    const ahead = camFwd.dot(sunDir);
+    sunScreen.copy(camPos).addScaledVector(sunDir, 1000).project(camera);
+    shafts.uniforms.uSun.value.set(sunScreen.x * 0.5 + 0.5, sunScreen.y * 0.5 + 0.5);
+    shafts.uniforms.uAspect.value = camera.aspect ?? 1;
+    shafts.uniforms.uStrength.value = o.shafts * THREE.MathUtils.smoothstep(ahead, 0.05, 0.4) * (1 - THREE.MathUtils.smoothstep(Math.max(Math.abs(sunScreen.x), Math.abs(sunScreen.y)), 1.2, 2.2));
     // your meshes cast and take shadows (not huge or see-through ones; userData.noShadow opts out)
     if (frames++ % 30 === 0) scene.traverse((m) => {
       if (!m.isMesh || seen.has(m) || m.userData.nature) return;
@@ -318,6 +331,28 @@ function skyMaterial(uniforms, env) {
       }`,
   });
 }
+
+const ShaftsShader = {
+  name: 'NatureShafts',
+  uniforms: { tDiffuse: { value: null }, uSun: { value: new THREE.Vector2(0.5, 0.5) }, uStrength: { value: 0 }, uAspect: { value: 1 }, uColor: { value: new THREE.Color() } },
+  vertexShader: 'varying vec2 vUv;\nvoid main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }',
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse; uniform vec2 uSun; uniform float uStrength, uAspect; uniform vec3 uColor; varying vec2 vUv;
+    ${NK}
+    void main() {
+      vec4 base = texture2D( tDiffuse, vUv );
+      if ( uStrength <= 0.0 ) { gl_FragColor = base; return; }
+      vec2 d = ( uSun - vUv ) / 28.0, p = vUv + d * nkHash( gl_FragCoord.xy );   // a jittered start: no banding
+      float acc = 0.0, w = 1.0;
+      for ( int i = 0; i < 28; i++ ) { // what's bright between here and the sun (sky, not leaves) shines through
+        p += d;
+        acc += smoothstep( 1.3, 4.0, dot( texture2D( tDiffuse, clamp( p, 0.0, 1.0 ) ).rgb, vec3( 0.2126, 0.7152, 0.0722 ) ) ) * w;
+        w *= 0.96;
+      }
+      vec2 q = ( vUv - uSun ) * vec2( uAspect, 1.0 );
+      gl_FragColor = vec4( base.rgb + uColor * ( acc / 28.0 ) * uStrength * ( 1.0 - smoothstep( 0.0, 1.1, length( q ) ) ), base.a );
+    }`,
+};
 
 const GradeShader = {
   name: 'NatureGrade',
@@ -558,25 +593,10 @@ function makeTrees(world, land, { kind = 'oak', count = 30, where, at, size = 1,
   const group = new THREE.Group();
   const wood = new THREE.MeshStandardMaterial({ color: P.bark, map: barkTexture(P), roughness: 0.95 });
   const leaves = new THREE.MeshStandardMaterial({ map: leafTexture(P), alphaTest: 0.45, side: THREE.DoubleSide, vertexColors: true, roughness: 0.8 });
-  const un = { nkTime: world.uniforms.time, nkWind: { value: wind }, nkGlow: { value: 0.55 } };
-  leaves.onBeforeCompile = (s) => {
-    Object.assign(s.uniforms, un);
-    s.vertexShader = 'uniform float nkTime, nkWind;\nvarying float vNkT;\n' + s.vertexShader.replace('#include <begin_vertex>', /* glsl */ `
-      vec3 transformed = position;
-      #ifdef USE_INSTANCING
-        vec2 nkSeed = instanceMatrix[ 3 ].xz;
-      #else
-        vec2 nkSeed = vec2( 0.0 );
-      #endif
-      float nkSway = sin( nkTime * 1.1 + nkSeed.x * 0.37 + nkSeed.y * 0.21 ) * 0.5 + sin( nkTime * 2.3 + nkSeed.x * 0.11 ) * 0.25;
-      transformed.xz += vec2( 0.8, 0.35 ) * nkSway * nkWind * 0.012 * max( position.y, 0.0 );
-      transformed += sin( nkTime * 3.7 + dot( position, vec3( 2.1, 1.7, 2.9 ) ) ) * 0.03 * nkWind;
-      vNkT = 1.0;`);
-    s.fragmentShader = 'uniform float nkGlow;\nvarying float vNkT;\n' + s.fragmentShader;
-    glowFragment(s, 6);
-  };
-  leaves.customProgramCacheKey = () => 'nature-leaves';
-  const crowns = { ...P, cards: Math.round(P.cards * Math.min(1, world.quality + 0.2)) }; // lighter crowns on phones
+  swaying(leaves, world, wind, 0.012, 'nature-leaves');
+  // lighter crowns on phones and in big forests (fewer, larger leaf cards: the same crown from afar)
+  const k = Math.min(1, world.quality + 0.2) * Math.min(1, Math.sqrt(60 / Math.max(spots.length, 1)));
+  const crowns = { ...P, cards: Math.round(P.cards * k), card: P.card / Math.sqrt(Math.max(k, 0.3)) };
   const variants = [0, 1, 2].map((v) => treeGeometry(crowns, seed * 31 + v * 977 + kind.length));
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), y = new THREE.Vector3(0, 1, 0);
   variants.forEach((g, v) => {
@@ -596,12 +616,13 @@ function makeTrees(world, land, { kind = 'oak', count = 30, where, at, size = 1,
 }
 
 // random spots on the land: in `where`, not steep, dry, not in a flattened clearing, apart; in groups if asked
-function place(land, { count, where, spacing, groups }, r) {
+function place(land, { count, where, spacing, groups, shore }, r) {
   const out = [], half = land.half - 4;
   for (let tries = 0; tries < count * 60 && out.length < count; tries++) {
     const x = (r() * 2 - 1) * half, z = (r() * 2 - 1) * half;
     if (groups && r() > smooth(0.38, 0.62, fbm(x / 45 + 9.1, z / 45 + 3.7, 3))) continue;
-    if ((where && !where(x, z)) || land.normalAt(x, z).y < 0.8 || land.heightAt(x, z) < land.level + 0.4) continue;
+    const h = land.heightAt(x, z);
+    if ((where && !where(x, z)) || land.normalAt(x, z).y < 0.8 || (shore ? !(h > land.level - 0.5 && h < land.level + 0.25) : h < land.level + 0.4)) continue;
     if (land.flat.some(([fx, fz, fr]) => Math.hypot(x - fx, z - fz) < fr)) continue;
     if (out.some(([a, b]) => (a - x) ** 2 + (b - z) ** 2 < spacing * spacing)) continue;
     out.push([x, z]);
@@ -753,6 +774,112 @@ function barkTexture(P) {
   });
 }
 
+// ---------- plants: ferns and bushes under trees, reeds along the water ----------
+const PLANT_KINDS = {
+  fern: { size: [0.7, 1.2], color: ['#3d6428', '#6c8c38'], spacing: 0.9 },
+  bush: { size: [0.8, 1.5], color: ['#45662a', '#7a8e3c'], spacing: 1.6 },
+  reed: { size: [1.1, 1.8], color: ['#5f6e30', '#a49a56'], spacing: 0.7 },
+};
+
+function makePlants(world, land, { kind = 'fern', count = 600, where, at, size = 1, wind = 1, seed = 5 } = {}) {
+  const K = PLANT_KINDS[kind] ?? PLANT_KINDS.fern, r = rng(seed * 2971 + kind.length);
+  const spots = at ?? place(land, { count, where, spacing: K.spacing * size, groups: kind !== 'reed', shore: kind === 'reed' && land.level > -Infinity }, r);
+  const c0 = new THREE.Color(K.color[0]), c1 = new THREE.Color(K.color[1]);
+  const mat = kind === 'reed'
+    ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, side: THREE.DoubleSide })
+    : new THREE.MeshStandardMaterial({ map: kind === 'fern' ? frondTexture() : leafTexture({}), alphaTest: 0.45, vertexColors: true, roughness: 0.8, side: THREE.DoubleSide });
+  swaying(mat, world, wind, 0.06, `nature-plant-${kind}`);
+  const make = (v) => {
+    const rv = rng(seed * 131 + v * 7 + kind.length);
+    if (kind === 'bush') return leafCards([[new THREE.Vector3(0, 0.45, 0), 0.5], [new THREE.Vector3(0.35, 0.35, 0.1), 0.38], [new THREE.Vector3(-0.3, 0.38, -0.15), 0.4]], { cards: 45, card: 0.55, leaf: K.color }, rv);
+    const pos = [], col = [], uv = [], idx = [], c = new THREE.Color();
+    const blades = kind === 'fern' ? 7 + Math.floor(rv() * 4) : 12 + Math.floor(rv() * 6);
+    for (let b = 0; b < blades; b++) {
+      const az = (b / blades) * Math.PI * 2 + rv() * 0.5, L = kind === 'fern' ? 0.55 + rv() * 0.35 : 0.9 + rv() * 0.8;
+      const W = kind === 'fern' ? 0.24 : 0.035, base = pos.length / 3, lean = kind === 'fern' ? 0.6 + rv() * 0.3 : 0.08 + rv() * 0.15;
+      c.copy(c0).lerp(c1, rv());
+      for (let i = 0; i <= 5; i++) {
+        const t = i / 5, out = L * t * lean, up = kind === 'fern' ? L * (0.95 * t - 0.75 * t * t) * 1.3 : L * t;
+        const w = (kind === 'fern' ? Math.sin(Math.PI * Math.min(1, t * 1.1 + 0.05)) : 1 - t * 0.8) * W;
+        for (const s of [-1, 1]) {
+          pos.push(Math.cos(az) * out - Math.sin(az) * w * 0.5 * s, up, Math.sin(az) * out + Math.cos(az) * w * 0.5 * s);
+          const k = 0.45 + 0.55 * t;
+          col.push(c.r * k, c.g * k, c.b * k); uv.push(s < 0 ? 0 : 1, t);
+        }
+        if (i) idx.push(base + i * 2 - 2, base + i * 2 - 1, base + i * 2, base + i * 2 - 1, base + i * 2 + 1, base + i * 2);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    if (kind === 'reed') { // a few brown cattails among the blades
+      const heads = [0, 1, 2].map((i) => new THREE.CapsuleGeometry(0.014, 0.11, 2, 6).translate((rv() - 0.5) * 0.12, 1.05 + i * 0.1 + rv() * 0.15, (rv() - 0.5) * 0.12));
+      for (const h of heads) h.setAttribute('color', new THREE.Float32BufferAttribute(new Array(h.attributes.position.count).fill([0.18, 0.1, 0.05]).flat(), 3));
+      return mergeGeometries([g.deleteAttribute('uv'), ...heads.map((h) => h.deleteAttribute('uv'))]);
+    }
+    return g;
+  };
+  return instanced(world, land, spots, [0, 1, 2].map(make), mat, r, K.size.map((x) => x * size), false);
+}
+
+// a few variants of one thing, instanced over spots on the land (scaled within [min, max], turned at random)
+function instanced(world, land, spots, geometries, material, r, [min, max], cast = true) {
+  const group = new THREE.Group(), m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), y = new THREE.Vector3(0, 1, 0);
+  geometries.forEach((g, v) => {
+    const mine = spots.filter((_, i) => i % geometries.length === v);
+    if (!mine.length) return;
+    const mesh = new THREE.InstancedMesh(g, material, mine.length);
+    mine.forEach(([x, z], i) => {
+      q.setFromAxisAngle(y, r() * Math.PI * 2);
+      m.compose(new THREE.Vector3(x, land.heightAt(x, z) - 0.05, z), q, s.setScalar(min + (max - min) * r()));
+      mesh.setMatrixAt(i, m);
+    });
+    mesh.castShadow = cast; mesh.receiveShadow = true; mesh.userData.nature = true; mesh.computeBoundingSphere();
+    group.add(mesh);
+  });
+  group.userData.nature = true;
+  world.sky.parent.add(group);
+  return { mesh: group, at: spots };
+}
+
+// leaves and fronds that move in the wind and glow when the sun is behind them
+function swaying(material, world, wind, amount, key) {
+  const un = { nkTime: world.uniforms.time, nkWind: { value: wind }, nkGlow: { value: 0.55 } };
+  material.onBeforeCompile = (s) => {
+    Object.assign(s.uniforms, un);
+    s.vertexShader = 'uniform float nkTime, nkWind;\nvarying float vNkT;\n' + s.vertexShader.replace('#include <begin_vertex>', /* glsl */ `
+      vec3 transformed = position;
+      #ifdef USE_INSTANCING
+        vec2 nkSeed = instanceMatrix[ 3 ].xz;
+      #else
+        vec2 nkSeed = vec2( 0.0 );
+      #endif
+      float nkSway = sin( nkTime * 1.1 + nkSeed.x * 0.37 + nkSeed.y * 0.21 ) * 0.5 + sin( nkTime * 2.3 + nkSeed.x * 0.11 ) * 0.25;
+      transformed.xz += vec2( 0.8, 0.35 ) * nkSway * nkWind * ${amount.toFixed(3)} * max( position.y, 0.0 );
+      transformed += sin( nkTime * 3.7 + dot( position, vec3( 2.1, 1.7, 2.9 ) ) ) * 0.03 * nkWind;
+      vNkT = 1.0;`);
+    s.fragmentShader = 'uniform float nkGlow;\nvarying float vNkT;\n' + s.fragmentShader;
+    glowFragment(s, 6);
+  };
+  material.customProgramCacheKey = () => key;
+}
+
+function frondTexture() {
+  return canvasTexture(64, 128, (g, r) => { // a rib with leaflets along it
+    g.strokeStyle = '#ddd'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(32, 128); g.lineTo(32, 0); g.stroke();
+    for (let y = 6; y < 124; y += 7) {
+      const w = 28 * Math.sin((Math.PI * (128 - y)) / 128) + 2;
+      for (const s of [-1, 1]) {
+        g.fillStyle = `hsl(0,0%,${72 + r() * 28}%)`;
+        g.beginPath(); g.ellipse(32 + s * w * 0.5, y, w * 0.5, 3.2, s * 0.35, 0, Math.PI * 2); g.fill();
+      }
+    }
+  });
+}
+
 // ---------- rocks ----------
 function makeRocks(world, land, { count = 20, size = 1, color = '#8b8478', moss = '#5d6b34', where, at, seed = 3 } = {}) {
   const r = rng(seed * 4099), spots = at ?? place(land, { count, where, spacing: 2.5 * size }, r);
@@ -822,7 +949,7 @@ function makeWater(world, land, { level = 0, color = '#4c8a7c', deep = '#13474f'
         for ( int i = 0; i < 7; i++ ) { // small waves from all around
           float a = float( i ) * 2.399, f = 0.7 + float( i ) * 0.6;
           vec2 d = vec2( cos( a ), sin( a ) );
-          g += d * cos( dot( p, d ) * f + nkTime * ( 1.1 + float( i ) * 0.35 ) ) * 0.09 / ( 1.0 + float( i ) * 0.5 );
+          g += d * cos( dot( p, d ) * f + nkTime * ( 1.1 + float( i ) * 0.35 ) ) * 0.06 / ( 1.0 + float( i ) * 0.5 );
         }
         vec3 n = normalize( vec3( - g.x, 1.0, - g.y ) ), v = normalize( cameraPosition - vNkWorld ), rf = reflect( - v, n );
         rf.y = abs( rf.y );
@@ -830,7 +957,7 @@ function makeWater(world, land, { level = 0, color = '#4c8a7c', deep = '#13474f'
         vec3 sky = mix( mix( uHorizon, uMid, smoothstep( 0.0, 0.16, h ) ), uZenith, smoothstep( 0.1, 0.7, h ) );
         sky = mix( uHaze + uGlow * ( 0.3 * pow( c, 4.0 ) + 0.25 * pow( c, 14.0 ) + 0.25 * pow( c, 48.0 ) ), sky, smoothstep( -0.02, 0.14, rf.y ) );
         #ifdef NK_MIRROR
-          vec4 uv = vRefl; uv.xy += g * 0.35 * uv.w / ( 1.0 + 0.05 * length( cameraPosition - vNkWorld ) );
+          vec4 uv = vRefl; uv.xy += g * 0.1 * uv.w / ( 1.0 + 0.05 * length( cameraPosition - vNkWorld ) );
           vec3 refl = texture2DProj( tDiffuse, uv ).rgb;
         #else
           vec3 refl = sky + uSunColor * pow( c, 900.0 ) * 12.0;

@@ -367,8 +367,8 @@ Browser (Next.js client)                              Vercel Functions (Node)   
   storybook look (a Kuwahara and watercolor pass, brush-textured materials, watercolor skies,
   clumps for foliage and smoke, scattered small detail), and `nature.js`, nature with cinematic
   light (a golden-hour sun with soft shadows, a sky whose haze every material shares, terrain,
-  wind-blown grass and flowers placed on the GPU around the camera, instanced trees and rocks,
-  water, drifting pollen, bloom and a grade). Each one's opening comment is its documentation, and
+  wind-blown grass and flowers placed on the GPU around the camera, instanced trees, ferns, bushes,
+  reeds and rocks, water that mirrors the world, drifting pollen, sun shafts, bloom and a grade). Each one's opening comment is its documentation, and
   one line of the prompt points there. A world keeps a kit's file only when it uses it (dropped on
   save, like photos), and one that already has its own at that path keeps that.
   Free builds are guarded the way chatgpt.com's are: quotas per account, or per device and IP
