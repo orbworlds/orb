@@ -1,0 +1,12 @@
+# What people ask Orb for in a new world, written generally: mostly games, often asking for great
+# graphics, and some places to look at. One a line: id | request
+drive | an open city like GTA where you drive a car around, with really good graphics
+f1 | a Formula 1 racing game on a real-looking track
+farm | a farming simulator with tractors, fields and crops to harvest
+shooter | a sci-fi shooter where you fight robot soldiers at a desert base
+blocks | a Minecraft-style world where you can dig and build with blocks
+obby | an obby: a parkour course of colorful floating platforms to jump across
+rings | a game where a bird flies through rings in the sky
+football | a football match, 11 against 11, that you can play
+castle | a castle floating in the sky in Studio Ghibli style
+meadow | a beautiful meadow to walk around in

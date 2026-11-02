@@ -47,7 +47,7 @@ const WAYS = `- Changing a world: change what was asked, keep the rest. A questi
 - Keep LICENSE files and authors' credits.`;
 
 const WORK = `# How you work
-- The person watches each change land in the world: show something within a step or two, and keep it working after every change.
+- The person watches each change land in the world: keep it working after every change. A new world's first turn is just its look and the one thing it's about, small enough to show within a minute; then look, fix what's broken, and hand back with a question. The rest comes in later turns.
 ${checkWork('look plays the world in their browser and shows you what they see.', 'look')}
 - A sentence before you start, a few words between steps, one or two at the end (how to play), then suggest_next. Name a new world with name_world.
 ${WAYS}`;

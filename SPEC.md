@@ -993,8 +993,10 @@ reads the world's files itself; its system prompts are in `src/server/agent/prom
 - The prompts are as short as can be, with as few rules as can be (every build pays for each
   token, and every rule steers): only what the model can't know by itself — how the world's files
   load, three.js r186's pitfalls, where models and textures come from, Orb's frame (its button's
-  corner, sound after a tap), the starter island, the `window.orb` SDK, and looking at the world to
-  fix what's broken and what looks worst. No safety rules or audience of their own: the models'
+  corner, sound after a tap), the starter island, the `window.orb` SDK, looking at the world to fix
+  what's broken and what looks worst, and keeping a new world's first turn to its look and the one
+  thing it's about, handed back soon with a question (measured by `scripts/bench`: the first thing
+  people see is better, sooner and cheaper). No safety rules or audience of their own: the models'
   own guidelines apply. Orb's AI thinks at medium effort (`ORB_AI_EFFORT`).
 
 The job's output is text in tagged blocks (namespaced, so they never collide with HTML) plus
