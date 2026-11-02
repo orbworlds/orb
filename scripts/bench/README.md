@@ -38,7 +38,7 @@ each (`--parallel 1`, different `--port`s: then both draw at the same speed), an
 `.data/bench/<label>` here to judge. All ten take about an hour and US$10–20 a version.
 
 Compare versions with each other, not with production: this machine draws worlds in software, so
-looks take 20–60 s instead of about 5, a heavy world's looks can time out again and again (the
+looks take 10–50 s instead of about 5, a heavy world's looks can time out again and again (the
 builder is told to look again later), and turns run longer and cost more than people's do
 (production's median new-world turn: 3 steps, 1 look, about US$0.35).
 
