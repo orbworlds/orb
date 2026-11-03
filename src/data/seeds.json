@@ -3166,5 +3166,54 @@
       "author_url": "https://news.ycombinator.com/user?id=abhas9",
       "made_with": "three.js"
     }
+  },
+  {
+    "id": "aw-iso-hoops",
+    "name": "Iso Hoops",
+    "description": "Shoot hoops alone on a little pixel-art neighbourhood court under a tree: pick your spot, hold to charge, release and watch it drop.",
+    "kind": "external",
+    "external_url": "https://vladsez.github.io/iso-hoops/",
+    "source_url": "https://github.com/VladSez/iso-hoops",
+    "author_name": "vladsazonau",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/aw-iso-hoops.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=50339050",
+      "platform": "hn",
+      "likes": 3,
+      "posted_at": "2026-11-02",
+      "handle": "vldszn",
+      "author_url": "https://github.com/VladSez",
+      "made_with": "Pixel Plays isometric software renderer, no build step"
+    }
+  },
+  {
+    "id": "ext-warsaw-voxels",
+    "name": "Warsaw in Voxels",
+    "description": "Explore central Warsaw in one-metre voxels around the Palace of Culture, change the date, hour and weather, or take over a passer-by.",
+    "kind": "external",
+    "external_url": "https://p.migdal.pl/warsaw-vibe-voxel/",
+    "source_url": "https://github.com/stared/warsaw-vibe-voxel",
+    "author_name": "Piotr Migdał",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-warsaw-voxels.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=50339221",
+      "platform": "hn",
+      "likes": 235,
+      "posted_at": "2026-11-02",
+      "handle": "stared",
+      "author_url": "https://p.migdal.pl/",
+      "made_with": "Claude Opus 5.5, three.js, OpenStreetMap, LiDAR"
+    }
   }
 ]

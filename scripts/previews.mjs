@@ -718,6 +718,12 @@ const SHOTS = {
       document.head.append(style);
     },
   },
+  // Iso Hoops: the little neighbourhood court, the player charging a shot and letting it go (only the court, its page's
+  // scoreboard and help cut away)
+  'aw-iso-hoops': { wait: 20000, steps: [{ click: [320, 200], wait: 2000 }], press: [['Space', 0.4, 1.4]], crop: [200, 128, 240, 150], scale: 4 },
+  // Warsaw in Voxels: the city centre round the Palace of Culture from above, every tile streamed in, the view turning
+  // slowly round and back (its own switch hides its interface)
+  'ext-warsaw-voxels': { query: 'ui=0', wait: 240000, drag: swing(110, 0), crf: [54, 33] },
   'ext-camp-nou': {
     wait: 40000, crf: [52, 33],
     setup: async () => {

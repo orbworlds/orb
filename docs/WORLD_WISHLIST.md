@@ -188,6 +188,13 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   Left out: **Speedmaxxing** (maxxing.games: a racer on Dubai's Sheikh Zayed Road; refuses a
   frame), **Sand-racer** (WebGPU, shown only as a post on X), and **Hyrule diorama** (someone
   else's game world).
+- **Scouted on 3 November 2026** (Show HN, three.js forum): Iso Hoops went in hosted (no build
+  step; no licence for the game itself, so it can't be remixed) and Warsaw in Voxels embedded.
+  **Warsaw in Voxels** (stared/warsaw-vibe-voxel, MIT, by the maker of Invisible Cities) could be
+  hosted: its `web/` folder is a Vite project the importer runs from source, but its
+  `public/data/trees.json` is 18 MB, over a world's 10 MB a file, so a copy would lose its trees.
+  Larger files in worlds (or the tree data split in two upstream) would unlock it. Nothing else
+  new on the forum since the 1st was worth adding.
 
 ## Embeds we would add if their sites allowed it
 
