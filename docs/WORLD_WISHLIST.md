@@ -195,6 +195,10 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   `public/data/trees.json` is 18 MB, over a world's 10 MB a file, so a copy would lose its trees.
   Larger files in worlds (or the tree data split in two upstream) would unlock it. Nothing else
   new on the forum since the 1st was worth adding.
+- **Scouted on 4 November 2026**, a quiet day otherwise: Neighborhood Football went in, hosted
+  (VladSez/iso-football: Iso Hoops' sibling, penalty practice against a diving keeper on five
+  pitches; no build step, and like Iso Hoops no licence for the game itself). Nothing new on the
+  three.js forum since the 2nd, and nothing on Show HN or Velven worth adding.
 
 ## Embeds we would add if their sites allowed it
 

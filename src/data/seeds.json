@@ -3215,5 +3215,29 @@
       "author_url": "https://p.migdal.pl/",
       "made_with": "Claude Opus 5.5, three.js, OpenStreetMap, LiDAR"
     }
+  },
+  {
+    "id": "aw-neighborhood-football",
+    "name": "Neighborhood Football",
+    "description": "Take shot after shot at a diving keeper on a little pixel-art pitch: aim at the goal, hold to charge, and chip it or drive it low.",
+    "kind": "external",
+    "external_url": "https://vladsez.github.io/iso-football/",
+    "source_url": "https://github.com/VladSez/iso-football",
+    "author_name": "vladsazonau",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/aw-neighborhood-football.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://github.com/VladSez/iso-football",
+      "platform": "github",
+      "posted_at": "2026-11-02",
+      "handle": "VladSez",
+      "author_url": "https://github.com/VladSez",
+      "made_with": "Pixel Plays isometric software renderer, no build step"
+    }
   }
 ]

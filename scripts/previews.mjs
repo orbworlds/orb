@@ -723,6 +723,9 @@ const SHOTS = {
   'aw-iso-hoops': { wait: 20000, steps: [{ click: [320, 200], wait: 2000 }], press: [['Space', 0.4, 1.4]], crop: [200, 128, 240, 150], scale: 4 },
   // Warsaw in Voxels: the city centre round the Palace of Culture from above, every tile streamed in, the view turning
   // slowly round and back (its own switch hides its interface)
+  // Neighborhood Football: the little pitch, the player lining up a shot at the keeper and chipping it (only the pitch,
+  // its page's scoreboard and controls cut away)
+  'aw-neighborhood-football': { wait: 20000, steps: [{ click: [320, 200], wait: 2000 }], press: [['Space', 0.4, 1.4]], crop: [152, 150, 336, 210], scale: 3 },
   'ext-warsaw-voxels': { query: 'ui=0', wait: 240000, drag: swing(110, 0), crf: [54, 33] },
   'ext-camp-nou': {
     wait: 40000, crf: [52, 33],
