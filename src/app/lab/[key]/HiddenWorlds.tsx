@@ -23,7 +23,7 @@ export function HiddenWorlds({ worlds }: { worlds: WorldCardData[] }) {
     <main className="mx-auto w-full max-w-[1320px] px-4 pt-[max(28px,env(safe-area-inset-top))] pb-[max(48px,env(safe-area-inset-bottom))] sm:px-8 sm:pt-10 lg:px-12">
       <h1 className={TITLE}>Hidden worlds</h1>
       <p className="mt-3 text-[14.5px] text-ink-2">
-        {worlds.length} worlds hidden. They still play by link. Curated ones stay out of Explore; one made on Orb is listed under “hidden” after Explore’s worlds while it’s very poor (under 2 plays and 5 requests), and comes back once people play it or its maker keeps building.
+        {worlds.length} worlds hidden. They still play by link. Curated ones stay out of Explore; one made on Orb is listed under “hidden” after Explore’s worlds while it’s very poor (under 2 plays and 5 changes), and comes back once people play it or its maker keeps building.
       </p>
       <form
         className="mt-6 flex max-w-[640px] flex-col gap-2"

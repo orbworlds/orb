@@ -546,8 +546,8 @@ boost over its first days (at most 0.5), so its first players find it. Curated
 worlds that don't hold up are `hidden` in `src/data/seeds.json` (playable by link, listed only in the
 lab). Worlds made on Orb can be hidden too, from the lab (`/lab/<key>`: their links, "Hide from
 Explore"; "Back into Explore" undoes it) or by the script check, but only while they're very poor:
-under 2 plays and under 5 requests to build them; once people play one or its maker keeps building,
-it's back. A list keeps those after all of its own: its first page counts them (`hidden` in the
+under 2 plays and under 5 changes since it began (`version` < 6: a chat that changed nothing doesn't
+count); once people play one or its maker keeps building, it's back. A list keeps those after all of its own: its first page counts them (`hidden` in the
 answer) and, once everything else is shown, a quiet row says "N hidden worlds"; opening it lists
 them there (`/api/worlds?hidden=1`, the same filter, search and sort; "Kept out of Explore: made by a
 script, or not holding up. They still play."). Curated worlds are never in that row. On touch

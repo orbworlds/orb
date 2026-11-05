@@ -80,7 +80,7 @@ on Pulse beside the budget.
 Worlds that shouldn't be in Explore (a script's, say) are hidden from the lab's first page
 (`/lab/<key>`): paste their links and **Hide from Explore**; **Back into Explore** undoes it. They
 still play by link. A world made on Orb stays out only while it's very poor (under 2 plays and 5
-requests to build it), listed under "N hidden worlds" after everything else; curated worlds hidden in
+changes since it began), listed under "N hidden worlds" after everything else; curated worlds hidden in
 `seeds.json` are listed only in the lab.
 
 With the AI Gateway, also cap it there: buy credits with auto top-up off, and give the project a daily budget with

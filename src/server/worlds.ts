@@ -477,8 +477,11 @@ const SHOWABLE = [
 ];
 /** People's own worlds (Newest), not the curated ones. */
 const PEOPLES = `(w.owner_user is not null or w.owner_device is not null)`;
-/** A world made on Orb that hardly anyone has played or worked on: under 2 plays and under 5 requests to build it. */
-const VERY_POOR = `(${PEOPLES} and w.plays < 2 and (select count(*) from orb_agent_jobs j where j.world_id = w.id) < 5)`;
+/**
+ * A world made on Orb that hardly anyone has played or worked on: under 2 plays and under 5 changes
+ * since it began (its version counts the saved ones; a chat that changed nothing doesn't count).
+ */
+const VERY_POOR = `(${PEOPLES} and w.plays < 2 and w.version < 6)`;
 /**
  * What Explore lists: showable, still loading, and not kept out. It keeps out the curated worlds
  * Orb's curation hid (`w.hidden` in seeds.json: shown nowhere, but the lab), and the hidden ones made
