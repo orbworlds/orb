@@ -199,6 +199,11 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   (VladSez/iso-football: Iso Hoops' sibling, penalty practice against a diving keeper on five
   pitches; no build step, and like Iso Hoops no licence for the game itself). Nothing new on the
   three.js forum since the 2nd, and nothing on Show HN or Velven worth adding.
+- **Scouted on 5 November 2026**: Paper Boat Storm went in, embedded. It is a world made with
+  Diorama (gtanczyk/diorama, Apache-2.0: a sketch or a sentence turned into a paper-craft scene
+  with Meta's models), but the world itself is a build the tool's command line makes and isn't in
+  the repository, so it can't be hosted. The three.js forum's Showcase has had no new topics since
+  1 November (checked its feed, its search and the topic numbers after it).
 
 ## Embeds we would add if their sites allowed it
 

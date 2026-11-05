@@ -3239,5 +3239,29 @@
       "author_url": "https://github.com/VladSez",
       "made_with": "Pixel Plays isometric software renderer, no build step"
     }
+  },
+  {
+    "id": "ext-paper-boat-storm",
+    "name": "Paper Boat Storm",
+    "description": "Walk a girl in a yellow raincoat along a paper-craft quay in a storm, past glowing lamps and tossing boats, under a lighthouse's sweeping beam.",
+    "kind": "external",
+    "external_url": "https://grzegorz.tanczyk.pl/diorama/paper-boat-storm/",
+    "source_url": "https://github.com/gtanczyk/diorama",
+    "author_name": "Grzegorz Tańczyk",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-paper-boat-storm.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=50371859",
+      "platform": "hn",
+      "likes": 4,
+      "posted_at": "2026-11-04",
+      "handle": "fullstackwife",
+      "author_url": "https://x.com/gtanczyk",
+      "made_with": "Diorama (Meta Muse, SAM 3.1), three.js"
+    }
   }
 ]

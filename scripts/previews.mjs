@@ -726,6 +726,9 @@ const SHOTS = {
   // Neighborhood Football: the little pitch, the player lining up a shot at the keeper and chipping it (only the pitch,
   // its page's scoreboard and controls cut away)
   'aw-neighborhood-football': { wait: 20000, steps: [{ click: [320, 200], wait: 2000 }], press: [['Space', 0.4, 1.4]], crop: [152, 150, 336, 210], scale: 3 },
+  // Paper Boat Storm: the paper quay in the rain, the girl in the yellow raincoat walking out along it toward the
+  // tossing boats as the lighthouse beam sweeps
+  'ext-paper-boat-storm': { wait: 30000, steps: [{ click: [400, 150], wait: 1000 }], crop: [53, 60, 534, 334], scale: 3, crf: [50, 33] },
   'ext-warsaw-voxels': { query: 'ui=0', wait: 240000, drag: swing(110, 0), crf: [54, 33] },
   'ext-camp-nou': {
     wait: 40000, crf: [52, 33],
