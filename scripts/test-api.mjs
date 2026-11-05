@@ -1557,8 +1557,7 @@ async function run() {
     const ids = await feed();
     check('hidden worlds stay out of Explore', !ids.includes(hidden.id) && ids.includes(shown.id), { hidden: hidden.id });
     check('…and out of search', !(await request('GET', `/api/worlds?q=${encodeURIComponent(hidden.name)}`)).json.worlds.some((w) => w.id === hidden.id));
-    check('…listed only when asked for (hidden=1), as Explore’s “N hidden” after its list', (await request('GET', `/api/worlds?hidden=1&q=${encodeURIComponent(hidden.name)}`)).json.worlds.some((w) => w.id === hidden.id));
-    check('…which a first page counts', (await request('GET', `/api/worlds?q=${encodeURIComponent(hidden.name)}`)).json.hidden >= 1);
+    check('…and not under Explore’s “N hidden” either (that’s for worlds made on Orb)', !(await request('GET', `/api/worlds?hidden=1&q=${encodeURIComponent(hidden.name)}`)).json.worlds.some((w) => w.id === hidden.id));
     check('a hidden world still plays by link', (await request('GET', `/api/worlds/${hidden.id}`)).status === 200);
     if (!LAB_KEY) return skip('the secret page', 'its key is unknown (set ORB_TEST_LAB_KEY)');
     const lab = await request('GET', `/lab/${LAB_KEY}`);
@@ -1710,6 +1709,9 @@ async function run() {
     check('…and the worlds of all four leave Explore', shown(after) === 0, after.worlds.map((w) => w.name));
     check('…said after its list ("N hidden")', after.hidden >= 4, after.hidden);
     check('…and listed when asked for (hidden=1)', shown(await newest(true)) === 4);
+    // Hidden only while very poor (under 2 plays and 5 requests): once people play one, it's back.
+    for (const dev of [OTHER, THIRD]) await request('POST', `/api/worlds/${ids[0]}/play`, { dev });
+    check('a hidden world people play (2 plays) is back in Explore', (await newest()).worlds.some((w) => w.id === ids[0]) && !(await newest(true)).worlds.some((w) => w.id === ids[0]));
   });
 
   await section('Agent looks at the world it builds', async () => {

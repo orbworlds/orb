@@ -455,8 +455,8 @@ interface ListParams {
   mine?: boolean;
   /** Worlds the viewer liked (♥), on this device or any device of their account. */
   liked?: boolean;
-  /** Only the worlds kept out of Explore (by Orb's curation, or a script's: `w.hidden`), for its "N hidden" row and the lab. */
-  hidden?: boolean;
+  /** Only the worlds Explore keeps out: true, the ones made on Orb it shows as "N hidden" after its list (KEPT_OUT); 'all', every hidden world, curated ones too (the lab). */
+  hidden?: boolean | 'all';
   /** Only Orb worlds anyone may remix. */
   remixable?: boolean;
   limit: number;
@@ -475,12 +475,19 @@ const SHOWABLE = [
   // A remix starts as a copy (version 1): it is listed once its owner has changed it.
   `(w.forked_from is null or w.version > 1)`,
 ];
-/** What Explore lists: showable, not kept out by curation, and still loading. */
-const LISTED = [...SHOWABLE, `not w.hidden`, `w.broken_at is null`];
-/** …and what it keeps out (hidden), shown only when asked for: after its list, as "N hidden". */
-const KEPT_OUT = [...SHOWABLE, `w.hidden`, `w.broken_at is null`];
 /** People's own worlds (Newest), not the curated ones. */
 const PEOPLES = `(w.owner_user is not null or w.owner_device is not null)`;
+/** A world made on Orb that hardly anyone has played or worked on: under 2 plays and under 5 requests to build it. */
+const VERY_POOR = `(${PEOPLES} and w.plays < 2 and (select count(*) from orb_agent_jobs j where j.world_id = w.id) < 5)`;
+/**
+ * What Explore lists: showable, still loading, and not kept out. It keeps out the curated worlds
+ * Orb's curation hid (`w.hidden` in seeds.json: shown nowhere, but the lab), and the hidden ones made
+ * on Orb (a script's, or hidden from the lab) while they're very poor: once people play one or its
+ * maker keeps building, it's back.
+ */
+const LISTED = [...SHOWABLE, `not (w.hidden and (not ${PEOPLES} or ${VERY_POOR}))`, `w.broken_at is null`];
+/** …and the ones made on Orb it keeps out, shown only when asked for: after its list, as "N hidden". */
+const KEPT_OUT = [...SHOWABLE, `w.hidden`, VERY_POOR, `w.broken_at is null`];
 /** Plays that earn a person's world its place in Explore's ranked lists (or one like, or Orb's pick). */
 const EARNED_PLAYS = 10;
 /**
@@ -692,7 +699,7 @@ function listFilters(viewer: Viewer, p: ListParams, $: (v: unknown) => string): 
       where.push(`w.visibility = 'public'`, `w.broken_at is null`);
     }
   } else {
-    where.push(...(p.hidden ? KEPT_OUT : LISTED));
+    where.push(...(p.hidden === 'all' ? [...SHOWABLE, `w.hidden`] : p.hidden ? KEPT_OUT : LISTED));
     // Newest is what people just made on Orb: curated worlds come in batches and would bury them.
     // Within a kind (games, places…) it's every world of that kind, as people's carry no kind. The
     // ranked lists show the worlds that earned it; what they keep out is all there when asked for.

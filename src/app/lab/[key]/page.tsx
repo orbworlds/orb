@@ -16,6 +16,6 @@ export default async function HiddenWorldsPage({ params }: { params: Promise<{ k
   const { key } = await params;
   if (key !== LAB_KEY) notFound();
   const db = await ready();
-  const { worlds } = await listWorlds(db, { deviceHash: null, deviceId: null, userId: null }, { sort: 'featured', hidden: true, limit: 200 });
+  const { worlds } = await listWorlds(db, { deviceHash: null, deviceId: null, userId: null }, { sort: 'featured', hidden: 'all', limit: 200 });
   return <HiddenWorlds worlds={worlds} />;
 }

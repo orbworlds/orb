@@ -94,7 +94,8 @@ If you change a contract, update this file in the same change.
   its worlds (the lead and four rows, at every width), **More** (`/explore`: all of them,
   in place, as a page of its own: the browser's back returns home) and a footer (orbworlds, Plans,
   the Orb kit on npm, `/llms.txt` (how to make worlds, for AI agents), GitHub (the org:
-  `GITHUB_URL`), YouTube (`YOUTUBE_URL`, @orbworlds) and Back to top). Sending from the composer hands over to the chat on the canvas;
+  `GITHUB_URL`), YouTube (`YOUTUBE_URL`, @orbworlds), Orb's email (`EMAIL`, hi@orbworlds.com, a
+  `mailto:` link) and Back to top). Sending from the composer hands over to the chat on the canvas;
   the world it makes gets its own address as a new page (the browser's back returns home). Once
   Explore's header reaches the top it stays there, opaque over a hairline, with the Orb at its end.
   There is one Explore, and it is this page: a world's way back, "See all", `/explore` and a missing
@@ -542,12 +543,14 @@ counting a little (0.5·ln(1 + likes + 2·remixes)); Orb's order counts too (fro
 first world down to 1 for its last; Orb's pick, `featured`, for a world outside it), so a curated
 world few have found yet still comes before one nobody has played; and a new world gets a small
 boost over its first days (at most 0.5), so its first players find it. Curated
-worlds that don't hold up are `hidden` in `src/data/seeds.json` (playable by link), and so are
-people's worlds hidden from the lab (`/lab/<key>`: their links, "Hide from Explore"; "Back into
-Explore" undoes it) or by the script check. A list keeps its hidden worlds after all of its own: its
-first page counts them (`hidden` in the answer) and, once everything else is shown, a quiet row says
-"N hidden worlds"; opening it lists them there (`/api/worlds?hidden=1`, the same filter, search and
-sort; "Kept out of Explore: made by a script, or not holding up. They still play."). On touch
+worlds that don't hold up are `hidden` in `src/data/seeds.json` (playable by link, listed only in the
+lab). Worlds made on Orb can be hidden too, from the lab (`/lab/<key>`: their links, "Hide from
+Explore"; "Back into Explore" undoes it) or by the script check, but only while they're very poor:
+under 2 plays and under 5 requests to build them; once people play one or its maker keeps building,
+it's back. A list keeps those after all of its own: its first page counts them (`hidden` in the
+answer) and, once everything else is shown, a quiet row says "N hidden worlds"; opening it lists
+them there (`/api/worlds?hidden=1`, the same filter, search and sort; "Kept out of Explore: made by a
+script, or not holding up. They still play."). Curated worlds are never in that row. On touch
 screens, worlds that need a keyboard (tagged `keyboard`) come after the others in each page (not in
 a search). At home, Trending under All fills four rows under the lead, then **More** (when
 there are more); a filter, New or a search shows all its worlds (more load as you scroll). A search

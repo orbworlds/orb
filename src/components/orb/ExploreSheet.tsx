@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { track } from '@/lib/analytics';
 import { api } from '@/lib/api';
-import { GITHUB_URL, YOUTUBE_URL } from '@/lib/site';
+import { EMAIL, GITHUB_URL, YOUTUBE_URL } from '@/lib/site';
 import { onPhone, touchFirst } from '@/lib/keyboard';
 import type { WorldCard as WorldCardData } from '@/lib/types';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -402,6 +402,9 @@ function Footer({ onTop }: { onTop(): void }) {
         </a>
         <a className={`${link} inline-flex items-center gap-1.5`} href={YOUTUBE_URL} target="_blank" rel="noopener noreferrer">
           <Icon name="youtube" size={14} /> YouTube
+        </a>
+        <a className={`${link} inline-flex items-center gap-1.5`} href={`mailto:${EMAIL}`}>
+          <Icon name="mail" size={14} /> {EMAIL}
         </a>
         <button type="button" className={`${link} inline-flex items-center gap-1`} onClick={onTop}>
           Back to top <Icon name="arrow-up" size={13} />
