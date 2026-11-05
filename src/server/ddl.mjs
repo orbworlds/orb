@@ -286,6 +286,8 @@ alter table orb_agent_jobs add column if not exists ext jsonb;
 alter table orb_agent_jobs add column if not exists inbox text;
 create index if not exists orb_agent_jobs_running on orb_agent_jobs(status, lease_until);
 create index if not exists orb_agent_jobs_world on orb_agent_jobs(world_id, created_at desc);
+-- the day's requests, for the script check (../buildlimits.ts scripted)
+create index if not exists orb_agent_jobs_created on orb_agent_jobs(created_at);
 -- The build's own files when it last saved (committed_tree is what the world became then, with
 -- what others changed meanwhile): its next save puts what it changed since onto the world as it is.
 alter table orb_agent_jobs add column if not exists saved_tree text;

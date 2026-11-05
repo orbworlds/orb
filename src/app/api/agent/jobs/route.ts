@@ -17,7 +17,7 @@ import type { BuildRequest } from '@/lib/types';
 import { aiConfigured, freeOnCursor, lightModel, mockAi, serverCursorKey } from '@/server/ai';
 import { canEdit, getViewer, isAdmin } from '@/server/auth';
 import { botCheck } from '@/server/botid';
-import { buildCost, checkByoLimits, checkCredits, checkRateLimits, refundQuota, type Billing } from '@/server/buildlimits';
+import { buildCost, checkByoLimits, checkCredits, checkRateLimits, refundQuota, scripted, SCRIPTED, type Billing } from '@/server/buildlimits';
 import { DEFAULT_CURSOR_MODEL, serverCursorParams } from '@/server/cursor';
 import { freeTierConfig, type LimitCheck } from '@/server/freetier';
 import type { Db } from '@/server/db';
@@ -149,12 +149,17 @@ export const POST = handle(async (req: Request): Promise<Response> => {
   let charged: LimitCheck[] = [];
   let billing: Billing | null = null;
   if (provider === 'free' && !mock) {
+    // A script building as a new guest each time: turned away, its worlds of the day hidden.
+    if (!viewer.userId && viewer.deviceHash && !isAdmin(req) && (await scripted(db, viewer.deviceHash, build.messages[build.messages.length - 1].content))) {
+      return error(403, 'account_required', SCRIPTED);
+    }
     const credits = await checkCredits(req);
     if ('response' in credits) return credits.response;
     billing = credits.billing;
     const quota = await checkRateLimits(req, buildCost(build), freeTierConfig(process.env, mockAi(), viaCursor), billing?.paid, billing?.light);
     if ('response' in quota) return quota.response;
     charged = quota.charged;
+    if (quota.light && billing) billing = { ...billing, light: true };
   } else if (!mock) {
     const limited = await checkByoLimits(req);
     if (limited) return limited;
@@ -180,7 +185,7 @@ export const POST = handle(async (req: Request): Promise<Response> => {
       : [...normalizeHistory(build.messages.slice(0, -1)), await firstMessage(db, { ...world.files, ...photos?.files }, build.worldName ?? world.name, build, photos?.parts ?? [])];
   const { origin } = requestOrigin(req);
   // Orb's AI builds with one model for everyone (Pro only has more credits), and with the lighter
-  // one once someone's credits are used up.
+  // one once someone's credits are used up (or, without an account, once that part of the budget is).
   const freeModel = viaCursor ? DEFAULT_CURSOR_MODEL : billing?.light ? lightModel() : null;
   const ext: Record<string, unknown> = viaCursor
     ? { backend: 'cursor', params: await serverCursorParams(serverCursorKey()!, freeModel!, req.signal) }

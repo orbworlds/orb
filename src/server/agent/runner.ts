@@ -22,7 +22,7 @@ import { mergeWorldTrees } from '../merge';
 import { commitTree, worldTree } from '../worlds';
 import { pushRepo } from '../reposync';
 import { rateLimit } from '../ratelimit';
-import { ANON_PAUSE, BUDGET_PAUSE, cutCallUsd, lightOn, lightWait, promptTokens, usageUsd } from '../budget';
+import { ANON_PAUSE, ANON_PAUSE_LIGHT, BUDGET_PAUSE, GUEST_LIGHT, cutCallUsd, lightOn, lightWait, promptTokens, usageUsd } from '../budget';
 import { chargeBuild, type Billing } from '../buildlimits';
 import { logBuild, outOfCredits, plansConfig, refundCredits, toCredits } from '../credits';
 import { paymentsForPayer } from '../billing';
@@ -528,6 +528,8 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
   const seqRows = await db.query<{ next: number }>(`select coalesce(max(seq) + 1, 0)::int as next from orb_build_chunks where job_id = $1`, [id]);
   const stop = new AbortController();
   const out = new Output(db, id, Number(seqRows[0]?.next) || 0, () => stop.abort('cancelled'));
+  /** Nothing of this build is in the chat yet (its first tick, before anything was written). */
+  let unsaid = !(Number(seqRows[0]?.next) > 0);
   let messages = parseMessages(job.messages);
   const files = (job.tree && (await getTree(db, job.tree))) || {};
   const ws = new Workspace(db, files);
@@ -671,7 +673,7 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
         creditsOut = true;
         return outOfCredits(wallet, plansConfig(), await paymentsForPayer(db, billing!.payer), true, lightOn());
       }
-      return over === 'all' ? BUDGET_PAUSE : over === 'anon' ? ANON_PAUSE : null;
+      return over === 'all' ? BUDGET_PAUSE : over === 'anon' ? (lightOn(true) ? ANON_PAUSE_LIGHT : ANON_PAUSE) : null;
     } catch (e) {
       console.error('[orb] charging the free builder failed', e);
       return null;
@@ -810,12 +812,19 @@ export async function runTick(db: Db, id: string): Promise<TickResult> {
       }
       if (budgetStop) {
         out.say(budgetStop);
-        trace.note('pause', { text: budgetStop === BUDGET_PAUSE || budgetStop === ANON_PAUSE ? "Paused: the free builder's budget for today is used up." : "Paused: the maker's credits are used up." });
+        trace.note('pause', { text: [BUDGET_PAUSE, ANON_PAUSE, ANON_PAUSE_LIGHT].includes(budgetStop) ? "Paused: the free builder's budget for today is used up." : "Paused: the maker's credits are used up." });
         return await finish('done');
       }
       // On the lighter model, all builds share an hourly budget: when this window's is spent, wait for the next.
       if (billing?.light) {
-        const wait = await lightWait(db);
+        const guest = billing.plan === 'guest';
+        // Without an account, the person hears why it's the lighter model (once, before anything else).
+        if (guest && steps === 0 && unsaid) {
+          unsaid = false;
+          out.say(GUEST_LIGHT);
+          out.endSay();
+        }
+        const wait = await lightWait(db, new Date(), guest);
         if (wait > 0) {
           if (!lightWaited) {
             lightWaited = true;

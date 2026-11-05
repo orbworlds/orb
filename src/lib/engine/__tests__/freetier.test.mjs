@@ -12,6 +12,7 @@ register('./resolve-hooks.mjs', import.meta.url);
 const { FREE_TIER_DEFAULTS, CURSOR_FREE_TIER_DEFAULTS, freeTierConfig, freeTierChecks, longBuildChecks, secondsUntilUtcMidnight } = await import('../../../server/freetier.ts');
 const { rateLimit, refundRate, underLimit } = await import('../../../server/ratelimit.ts');
 const { clientIp, ipBlock } = await import('../../../server/http.ts');
+const { scripted, SCRIPTED_MIN } = await import('../../../server/buildlimits.ts');
 
 describe('freeTierConfig', () => {
   test('defaults bound a day of free building', () => {
@@ -196,5 +197,48 @@ describe('ipBlock', () => {
     assert.equal(clientIp(req({ 'x-real-ip': '2001:db8:a:b:1:2:3:4' })), '2001:db8:a:b::/64');
     assert.equal(clientIp(req({ 'x-forwarded-for': '5.6.7.8, 10.0.0.1' })), '5.6.7.8');
     assert.equal(clientIp(req({})), '0.0.0.0');
+  });
+});
+
+describe('the script check (src/server/buildlimits.ts scripted)', () => {
+  let db;
+  let n = 0;
+  /** A world of `device`'s (made `ago` hours back) and its build of `text`. */
+  const built = async (device, text, { ago = 0 } = {}) => {
+    const id = `w${++n}`;
+    await db.query(`insert into orb_worlds (id, name, kind, visibility, owner_device, created_at) values ($1, 'Gray Room', 'native', 'public', $2, now() - make_interval(hours => $3::int))`, [id, device, ago]);
+    await db.query(`insert into orb_build_jobs (id) values ($1)`, [`j${n}`]);
+    await db.query(`insert into orb_agent_jobs (id, world_id, owner_device, prompt, created_at) values ($1, $2, $3, $4, now() - make_interval(hours => $5::int))`, [`j${n}`, id, device, text, ago]);
+    return id;
+  };
+  const hidden = async () => (await db.query(`select id from orb_worlds where hidden order by id`)).rows.map((r) => r.id);
+
+  before(async () => {
+    db = new PGlite();
+    await db.exec(DDL);
+  });
+  after(async () => db.close());
+
+  test('longer than any of Orb’s own suggestion chips (people tap the same ones)', async () => {
+    const fs = await import('node:fs');
+    const { TEMPLATES } = await import('../../templates.ts');
+    const change = JSON.parse(/CHANGE_CHIPS = (\[[^\]]*\])/.exec(fs.readFileSync(new URL('../../../state/world.ts', import.meta.url), 'utf8'))[1].replace(/'/g, '"'));
+    const chips = [...TEMPLATES.flatMap((t) => t.suggestions), ...change];
+    assert.ok(chips.length > 10 && chips.every((c) => c.length < SCRIPTED_MIN), `chips up to ${Math.max(...chips.map((c) => c.length))} characters`);
+  });
+
+  test('the same long request from a 4th device without an account within a day: a script, and the worlds of all four are hidden', async () => {
+    const text = 'An empty gray room. Keep it minimal.';
+    const db_ = { query: async (sql, params) => (await db.query(sql, params)).rows };
+    const mine = await built('d0', 'a castle in the clouds with a long winding stair'); // someone else, asking for something else
+    const earlier = await built('d1', text, { ago: 30 }); // more than a day ago: doesn't count
+    for (const d of ['d1', 'd2']) await built(d, text);
+    assert.equal(await scripted(db_, 'd4', text), false, 'two other devices: not yet');
+    const third = await built('d3', `  an EMPTY gray room.\n keep it minimal.`); // case and spacing aside, the same
+    const own = await built('d4', 'hello'); // the device's own world of the day
+    assert.equal(await scripted(db_, 'd4', 'make it nighttime'), false, 'a short request never counts');
+    assert.equal(await scripted(db_, 'd4', text), true, 'three other devices: a script');
+    assert.deepEqual(await hidden(), ['w3', 'w4', third, own].sort(), 'its worlds of the day and the other three devices’ (not the older one, not someone else’s)');
+    assert.ok(![mine, earlier].some((id) => ['w3', 'w4', third, own].includes(id)));
   });
 });

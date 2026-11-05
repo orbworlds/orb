@@ -199,6 +199,10 @@ export const BUDGET_SPENT = "Orb's free builder has used up today's budget — i
 export const ANON_SPENT = 'Lots of people are building without an account right now — sign in (You → Account) to keep building!';
 export const BUDGET_PAUSE = "Orb's free builder has used up today's budget, so I'll pause here — it's back tomorrow. Add your own AI key in You → Model to keep going now.";
 export const ANON_PAUSE = "Lots of people are building without an account right now, so I'll pause here — sign in (You → Account) to keep going!";
+/** …when builds without an account go on with the lighter model (lightOn(true)). */
+export const ANON_PAUSE_LIGHT = "Lots of people are building without an account right now, so I'll pause here — what I made so far is saved. Say “keep going” and I'll go on with my lighter model, or sign in (You → Account) to keep my full one.";
+/** Said when a build without an account starts on the lighter model. */
+export const GUEST_LIGHT = "Lots of people are building without an account today, so I'm on my lighter model for now — sign in (You → Account) for my full one.";
 
 const MICROS = 1_000_000;
 const toSpent = (rows: Array<{ scope: string; micros: string | number }>): Spent => ({
@@ -238,34 +242,37 @@ export function chargePaid(db: Db, usd: number, now: Date = new Date()): Promise
 // An account whose credits are used up keeps building on Orb's lighter model (../ai.ts lightModel)
 // for free. All such builds together may cost at most ORB_LIGHT_USD_PER_HOUR (default US$2; 0 turns
 // it off), spread over 5-minute windows: a build waits for the next window when its own is spent.
+// Builds without an account go on with it too once their part of the day's budget is spent, within
+// a tight hour of their own (ORB_GUEST_LIGHT_USD_PER_HOUR, default US$0.25): whoever spent that part
+// (a script, say) can't take the accounts' share, and what they get from it is little and cheap.
 
 const LIGHT_WINDOW_MS = 5 * 60_000;
 
-/** US$ an hour for builds on the lighter model (0: none, out of credits is out). */
-export function lightUsdPerHour(env: Record<string, string | undefined> = process.env): number {
-  return Math.max(0, numberEnv(env, 'ORB_LIGHT_USD_PER_HOUR', 2));
+/** US$ an hour for builds on the lighter model (0: none); `guest`: for builds without an account. */
+export function lightUsdPerHour(env: Record<string, string | undefined> = process.env, guest = false): number {
+  return Math.max(0, guest ? numberEnv(env, 'ORB_GUEST_LIGHT_USD_PER_HOUR', 0.25) : numberEnv(env, 'ORB_LIGHT_USD_PER_HOUR', 2));
 }
 
-/** Whether an account whose credits are used up keeps building, on the lighter model. */
-export const lightOn = (): boolean => lightUsdPerHour() > 0 && lightModel() !== null;
+/** Whether builds keep going on the lighter model: accounts out of credits, or (`guest`) builds without an account once their budget is spent. */
+export const lightOn = (guest = false): boolean => lightUsdPerHour(process.env, guest) > 0 && lightModel() !== null;
 
 /** The 5-minute window `now` is in: its spend's scope, and when it ends. */
-function lightWindow(now: Date): { scope: string; ends: number } {
+function lightWindow(now: Date, guest: boolean): { scope: string; ends: number } {
   const n = Math.floor(now.getTime() / LIGHT_WINDOW_MS);
-  return { scope: `light:${n}`, ends: (n + 1) * LIGHT_WINDOW_MS };
+  return { scope: `light:${guest ? 'guest:' : ''}${n}`, ends: (n + 1) * LIGHT_WINDOW_MS };
 }
 
 /** How long a build on the lighter model waits before its next model call (ms; 0: go now). */
-export async function lightWait(db: Db, now: Date = new Date()): Promise<number> {
-  const { scope, ends } = lightWindow(now);
+export async function lightWait(db: Db, now: Date = new Date(), guest = false): Promise<number> {
+  const { scope, ends } = lightWindow(now, guest);
   const rows = await db.query<{ micros: string | number }>(`select micros from orb_spend where day = $1::date and scope = $2`, [utcDay(now), scope]);
   const spent = Number(rows[0]?.micros ?? 0) / MICROS;
-  return spent < (lightUsdPerHour() * LIGHT_WINDOW_MS) / 3_600_000 ? 0 : Math.max(1000, ends - now.getTime());
+  return spent < (lightUsdPerHour(process.env, guest) * LIGHT_WINDOW_MS) / 3_600_000 ? 0 : Math.max(1000, ends - now.getTime());
 }
 
 /** Add what a build on the lighter model cost (US$): to its window, and to the day's ('light'). */
-export function chargeLight(db: Db, usd: number, now: Date = new Date()): Promise<void> {
-  return addSpend(db, ['light', lightWindow(now).scope], usd, now);
+export function chargeLight(db: Db, usd: number, now: Date = new Date(), guest = false): Promise<void> {
+  return addSpend(db, ['light', lightWindow(now, guest).scope], usd, now);
 }
 
 /** Free spend per UTC day (US$), for the Pulse page. */

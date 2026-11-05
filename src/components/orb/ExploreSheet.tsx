@@ -49,6 +49,8 @@ const EXIT_MS = 240;
 
 interface Feed {
   items: WorldCardData[];
+  /** How many worlds this list keeps out (shown after it, when asked for). */
+  hidden: number;
   loading: boolean;
   error: boolean;
   hasMore: boolean;
@@ -62,7 +64,7 @@ async function fetchPage(query: ListParams, cursor?: string) {
   const r = await api.listWorlds({ ...query, limit: PAGE, cursor });
   // On touch screens, worlds that need a keyboard come after the others; a search shows what was
   // asked for, in order.
-  return { items: onPhone() && !query.q ? touchFirst(r.worlds) : r.worlds, cursor: r.nextCursor };
+  return { items: onPhone() && !query.q ? touchFirst(r.worlds) : r.worlds, cursor: r.nextCursor, hidden: r.hidden ?? 0 };
 }
 
 function dedupe(prev: WorldCardData[], next: WorldCardData[]) {
@@ -80,13 +82,13 @@ function dedupe(prev: WorldCardData[], next: WorldCardData[]) {
 function useFeed(query: ListParams): Feed {
   const [nonce, setNonce] = useState(0);
   const spec = JSON.stringify(query);
-  const [state, setState] = useState<{ items: WorldCardData[]; cursor?: string; error: boolean } | null>(null);
+  const [state, setState] = useState<{ items: WorldCardData[]; cursor?: string; hidden?: number; error: boolean } | null>(null);
   const [more, setMore] = useState<'loading' | 'error' | null>(null);
 
   useEffect(() => {
     let alive = true;
     fetchPage(JSON.parse(spec) as ListParams)
-      .then((p) => alive && setState({ items: p.items, cursor: p.cursor, error: false }))
+      .then((p) => alive && setState({ items: p.items, cursor: p.cursor, hidden: p.hidden, error: false }))
       .catch(() => alive && setState({ items: [], error: true }));
     return () => {
       alive = false;
@@ -107,6 +109,7 @@ function useFeed(query: ListParams): Feed {
 
   return {
     items: state?.items ?? [],
+    hidden: state?.hidden ?? 0,
     loading: !state,
     error: !!state?.error,
     hasMore: !!cursor,
@@ -567,7 +570,8 @@ function ResultsGrid({
   onOpen(id: string): void;
   onRemix?(w: WorldCardData): void;
 }) {
-  const feed = useFeed(q ? { sort, q } : { ...FILTERS.find((f) => f.id === filter)!.query, sort });
+  const query: ListParams = q ? { sort, q } : { ...FILTERS.find((f) => f.id === filter)!.query, sort };
+  const feed = useFeed(query);
   const searched = useRef(false);
   useEffect(() => {
     if (!q || feed.loading || searched.current) return;
@@ -632,8 +636,45 @@ function ResultsGrid({
         {feed.loadingMore && <Skeletons n={4} />}
       </div>
       {!feed.loading && !rows && <MoreSentinel feed={feed} scrollRef={scrollRef} />}
+      {/* What the list keeps out (by Orb's curation, or made by a script), after all of it: there when asked for. */}
+      {!feed.loading && !rows && !feed.hasMore && feed.hidden > 0 && <KeptOut query={query} count={feed.hidden} scrollRef={scrollRef} onOpen={onOpen} onRemix={onRemix} />}
       {/* Only when there's more than the rows show at some width. */}
       {!feed.loading && rows && (feed.hasMore || fourRows(feed.items.length - 1, lead) !== '') && seeAll}
+    </div>
+  );
+}
+
+/** "N hidden": the worlds a list keeps out, shown below it when asked for (more load as you scroll). */
+function KeptOut({ query, count, scrollRef, onOpen, onRemix }: { query: ListParams; count: number; scrollRef: RefObject<HTMLDivElement | null>; onOpen(id: string): void; onRemix?(w: WorldCardData): void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="mt-10 border-t border-[var(--ink-5)] pt-6">
+      <div className="flex justify-center">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+          className="inline-flex h-9 items-center gap-1 rounded-full px-3.5 text-[13.5px] text-ink-2 transition-colors hover:bg-[var(--hover)] hover:text-ink"
+        >
+          {count} hidden {count === 1 ? 'world' : 'worlds'}
+          <Icon name="chevron-down" size={15} className={`transition-transform duration-300 ease-[var(--ease)] ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+      {open && <KeptOutGrid query={query} scrollRef={scrollRef} onOpen={onOpen} onRemix={onRemix} />}
+    </section>
+  );
+}
+
+function KeptOutGrid({ query, scrollRef, onOpen, onRemix }: { query: ListParams; scrollRef: RefObject<HTMLDivElement | null>; onOpen(id: string): void; onRemix?(w: WorldCardData): void }) {
+  const feed = useFeed({ ...query, hidden: true });
+  return (
+    <div className="animate-fade-up mt-4">
+      <p className="mb-4 text-center text-[13px] text-ink-3">Kept out of Explore: made by a script, or not holding up. They still play.</p>
+      <div className="grid grid-cols-2 gap-2.5 opacity-90 sm:gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:gap-4 min-[112.5rem]:grid-cols-5">
+        {feed.loading ? <Skeletons n={4} /> : feed.items.map((w) => <ExploreTile key={w.id} world={w} onOpen={onOpen} onRemix={onRemix} />)}
+        {feed.loadingMore && <Skeletons n={4} />}
+      </div>
+      {!feed.loading && <MoreSentinel feed={feed} scrollRef={scrollRef} />}
     </div>
   );
 }

@@ -455,7 +455,7 @@ interface ListParams {
   mine?: boolean;
   /** Worlds the viewer liked (♥), on this device or any device of their account. */
   liked?: boolean;
-  /** Only the curated worlds kept out of Explore (for the secret page). */
+  /** Only the worlds kept out of Explore (by Orb's curation, or a script's: `w.hidden`), for its "N hidden" row and the lab. */
   hidden?: boolean;
   /** Only Orb worlds anyone may remix. */
   remixable?: boolean;
@@ -477,6 +477,10 @@ const SHOWABLE = [
 ];
 /** What Explore lists: showable, not kept out by curation, and still loading. */
 const LISTED = [...SHOWABLE, `not w.hidden`, `w.broken_at is null`];
+/** …and what it keeps out (hidden), shown only when asked for: after its list, as "N hidden". */
+const KEPT_OUT = [...SHOWABLE, `w.hidden`, `w.broken_at is null`];
+/** People's own worlds (Newest), not the curated ones. */
+const PEOPLES = `(w.owner_user is not null or w.owner_device is not null)`;
 /** Plays that earn a person's world its place in Explore's ranked lists (or one like, or Orb's pick). */
 const EARNED_PLAYS = 10;
 /**
@@ -559,7 +563,7 @@ export function parseListParams(sp: URLSearchParams): ListParams {
   const limit = Number.isFinite(limitRaw) ? Math.min(LIMITS.listMax, Math.max(1, limitRaw)) : LIMITS.listDefault;
   const q = (sp.get('q') ?? '').replace(CONTROL_RE, '').trim().slice(0, LIMITS.query) || undefined;
   const tag = (sp.get('tag') ?? '').split(',').map(normalizeTag).filter(Boolean).slice(0, 6).join(',') || undefined;
-  return { sort, q, tag, verified: flag(sp.get('verified')), mine, liked, remixable: flag(sp.get('remixable')), limit, cursor: sp.get('cursor') || undefined };
+  return { sort, q, tag, verified: flag(sp.get('verified')), mine, liked, hidden: flag(sp.get('hidden')), remixable: flag(sp.get('remixable')), limit, cursor: sp.get('cursor') || undefined };
 }
 
 const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}(:?\d{2})?)?$/;
@@ -670,12 +674,13 @@ async function curatedOrder(db: Db, tag: string): Promise<string[]> {
   return ids;
 }
 
-export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise<{ worlds: WorldCard[]; nextCursor?: string }> {
-  const { params, $ } = sqlParams();
+/**
+ * A listing's filters: whose worlds (the viewer's own or liked, Explore's, or the ones it keeps out),
+ * its kind and search; `rank`, a search's relevance.
+ */
+function listFilters(viewer: Viewer, p: ListParams, $: (v: unknown) => string): { where: string[]; rank: string } {
   const where: string[] = [];
-
   if (p.mine || p.liked) {
-    if (!viewer.deviceHash && !viewer.userId) return { worlds: [] };
     const dev = $(viewer.deviceHash);
     const user = $(viewer.userId);
     if (p.mine) where.push(`(${ownedBy(dev, user)} or ${editedBy(dev, user)})`);
@@ -686,13 +691,15 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
           where d.user_id = coalesce(${user}::text, (select d2.user_id from orb_devices d2 where d2.hash = ${dev}::text)))))`);
       where.push(`w.visibility = 'public'`, `w.broken_at is null`);
     }
-  } else if (p.hidden) {
-    where.push(...SHOWABLE, `w.hidden`);
   } else {
-    where.push(...LISTED);
+    where.push(...(p.hidden ? KEPT_OUT : LISTED));
     // Newest is what people just made on Orb: curated worlds come in batches and would bury them.
-    // Within a kind (games, places…) it's every world of that kind, as people's carry no kind.
-    if (!p.q && !(p.sort === 'new' && p.tag)) where.push(p.sort === 'new' ? `(w.owner_user is not null or w.owner_device is not null)` : EARNED);
+    // Within a kind (games, places…) it's every world of that kind, as people's carry no kind. The
+    // ranked lists show the worlds that earned it; what they keep out is all there when asked for.
+    if (!p.q && !(p.sort === 'new' && p.tag)) {
+      if (p.sort === 'new') where.push(PEOPLES);
+      else if (!p.hidden) where.push(EARNED);
+    }
   }
   // A search's relevance, before the sort: its name, then its description or tags, then its maker.
   let rank = '';
@@ -706,10 +713,17 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
     where.push(`(w.name ~* ${start} or w.author_name ~* ${start} or ${inText})`);
     rank = `(case when w.name ~* ${start} then 2 when ${inText} then 1 else 0 end)`;
   }
-  const tag = p.tag ?? '';
-  if (tag) where.push(inTags(tag, $));
+  if (p.tag) where.push(inTags(p.tag, $));
   if (p.verified) where.push(`w.verified`);
   if (p.remixable) where.push(`w.forkable and w.kind = 'native'`);
+  return { where, rank };
+}
+
+export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise<{ worlds: WorldCard[]; nextCursor?: string; hidden?: number }> {
+  if ((p.mine || p.liked) && !viewer.deviceHash && !viewer.userId) return { worlds: [] };
+  const { params, $ } = sqlParams();
+  const { where, rank } = listFilters(viewer, p, $);
+  const tag = p.tag ?? '';
 
   const keyDefs: Array<[string, string]> = rank ? [[rank, 'int'], ...SORT_KEYS[p.sort]] : SORT_KEYS[p.sort];
   const cursor = p.cursor ? decodeCursor(p.sort, p.cursor, keyDefs.map(([, type]) => type)) : null;
@@ -759,7 +773,14 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
     };
     nextCursor = encodeCursor(p.sort, keys.map(([expr]) => keyOf[expr]), p.sort === 'trending' ? snapshot : undefined);
   }
-  return { worlds: page.map(toCard), nextCursor };
+  // Explore's first page says how many of its worlds it keeps out ("N hidden" after the list).
+  let hidden: number | undefined;
+  if (!p.mine && !p.liked && !p.hidden && !p.cursor) {
+    const c = sqlParams();
+    const kept = listFilters(viewer, { ...p, hidden: true }, c.$);
+    hidden = Number((await db.query<{ n: number }>(`select count(*)::int as n from orb_worlds w where ${kept.where.join(' and ')}`, c.params))[0]?.n) || 0;
+  }
+  return { worlds: page.map(toCard), nextCursor, ...(hidden ? { hidden } : {}) };
 }
 
 /**

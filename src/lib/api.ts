@@ -70,10 +70,11 @@ export const api = {
   updateMe: (name: string) => call<MeResponse>('/api/me', { method: 'PATCH', body: JSON.stringify({ name }) }),
 
   resolvePath: (handle: string, slug: string) => call<{ id: string }>(`/api/paths?handle=${encodeURIComponent(handle)}&slug=${encodeURIComponent(slug)}`),
-  listWorlds: (params: { sort?: 'trending' | 'featured' | 'popular' | 'played' | 'liked' | 'views' | 'new'; q?: string; tag?: string; verified?: boolean; kind?: 'native' | 'external'; limit?: number; cursor?: string; mine?: boolean; liked?: boolean; remixable?: boolean } = {}) => {
+  /** `hidden`: the worlds Explore keeps out instead; a first page of Explore says how many (`hidden` in the answer). */
+  listWorlds: (params: { sort?: 'trending' | 'featured' | 'popular' | 'played' | 'liked' | 'views' | 'new'; q?: string; tag?: string; verified?: boolean; kind?: 'native' | 'external'; limit?: number; cursor?: string; mine?: boolean; liked?: boolean; remixable?: boolean; hidden?: boolean } = {}) => {
     const sp = new URLSearchParams();
     for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '' && v !== false) sp.set(k, v === true ? '1' : String(v));
-    return call<{ worlds: WorldCard[]; nextCursor?: string }>(`/api/worlds?${sp}`);
+    return call<{ worlds: WorldCard[]; nextCursor?: string; hidden?: number }>(`/api/worlds?${sp}`);
   },
   /** Let the Orb kit that showed this code push worlds as this browser (src/server/kit.ts). */
   approveKit: (code: string) => call<{ name: string | null }>('/api/kit/approve', { method: 'POST', body: JSON.stringify({ code }) }),

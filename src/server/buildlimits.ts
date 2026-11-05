@@ -25,13 +25,17 @@ export function buildCost(b: BuildRequest): number {
   return Math.max(1, Math.ceil(chars / 100_000));
 }
 
-/** Either the answer that turns the build away, or the quotas it was counted against. */
-export type Quota = { response: Response } | { charged: LimitCheck[] };
+/**
+ * Either the answer that turns the build away, or the quotas it was counted against; `light`: a
+ * build without an account whose part of the budget is spent goes on with the lighter model.
+ */
+export type Quota = { response: Response } | { charged: LimitCheck[]; light?: boolean };
 
 /**
  * Free-tier quotas (see ./freetier.ts): burst, hourly and daily per person; then the day's budget
  * (./budget.ts). A builder who pays for their credits (`paid`) skips the daily caps and the budget;
- * one on the lighter model (`light`) skips the budget, the lighter model having its own.
+ * one on the lighter model (`light`) skips the budget, the lighter model having its own. Without an
+ * account, once that part of the budget is spent, the build goes on with the lighter model.
  */
 export async function checkRateLimits(req: Request, cost: number, cfg: FreeTierConfig, paid = false, light = false): Promise<Quota> {
   const viewer = getViewer(req);
@@ -49,6 +53,7 @@ export async function checkRateLimits(req: Request, cost: number, cfg: FreeTierC
       if (c.cost) charged.push(c);
     }
     const over = paid || light ? null : overBudget(await spentToday(db), budgetConfig(), !viewer.userId);
+    if (over === 'anon' && lightOn(true)) return { charged, light: true };
     if (over) {
       await refundQuota(charged);
       const retryAfter = secondsUntilUtcMidnight();
@@ -60,6 +65,36 @@ export async function checkRateLimits(req: Request, cost: number, cfg: FreeTierC
     console.error('[orb] build rate limit check failed', e);
     return { response: error(503, 'ai_unavailable', 'Orb is having a little trouble right now. Please try again in a moment.') };
   }
+}
+
+/** Requests at least this long count for the script check: longer than Orb's own suggestion chips (34 characters at most). */
+export const SCRIPTED_MIN = 35;
+/** …and it takes this many other devices without an account sending the very same request in a day. */
+const SCRIPTED_DEVICES = 3;
+export const SCRIPTED = "Orb couldn't tell that a person sent this — sign in (You → Account) to keep building.";
+
+/**
+ * A script that builds as a new guest each time (a fresh device, for a fresh free quota) gives itself
+ * away by sending the very same request from many devices: the same text (from SCRIPTED_MIN
+ * characters; its first 120, case and spacing aside) from SCRIPTED_DEVICES other devices without an
+ * account within a day. People don't type the same long request as strangers do. Its worlds of the
+ * day are hidden from Explore (they still play by link) and the request is turned away; signing in
+ * still works, as it does for a person.
+ */
+export async function scripted(db: Db, deviceHash: string, text: string): Promise<boolean> {
+  if (text.trim().length < SCRIPTED_MIN) return false;
+  const same = `select world_id, owner_device from orb_agent_jobs
+    where created_at > now() - interval '1 day' and owner_user is null and owner_device is not null
+      and left(lower(regexp_replace(btrim(prompt), '\\s+', ' ', 'g')), 120) = left(lower(regexp_replace(btrim($2::text), '\\s+', ' ', 'g')), 120)`;
+  const [row] = await db.query<{ n: number }>(`select count(distinct owner_device) filter (where owner_device <> $1)::int as n from (${same}) s`, [deviceHash, text]);
+  if ((row?.n ?? 0) < SCRIPTED_DEVICES) return false;
+  await db.query(
+    `update orb_worlds w set hidden = true where not w.hidden and w.owner_user is null
+       and ((w.owner_device = $1 and w.created_at > now() - interval '1 day')
+         or exists (select 1 from (${same}) s where s.world_id = w.id and s.owner_device = w.owner_device))`,
+    [deviceHash, text],
+  );
+  return true;
 }
 
 /** Whose credits a build on Orb's AI uses, and whether they pay for them (see ./billing.ts). */
@@ -102,7 +137,7 @@ export async function checkCredits(req: Request): Promise<{ billing: Billing | n
 export async function chargeBuild(db: Db, billing: Billing | null, usd: number, anonymous: boolean): Promise<{ wallet: (Wallet & { fromTopup: number }) | null; over: 'all' | 'anon' | null }> {
   if (!(usd > 0)) return { wallet: null, over: null };
   if (billing?.light) {
-    await chargeLight(db, usd);
+    await chargeLight(db, usd, new Date(), billing.plan === 'guest');
     return { wallet: null, over: null };
   }
   const wallet = billing ? await chargeCredits(db, billing.payer, Math.round(usd * 1e6)) : null;

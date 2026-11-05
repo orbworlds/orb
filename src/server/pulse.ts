@@ -40,7 +40,7 @@ export interface Pulse {
   now: number;
   days: PulseDay[];
   totals: { worlds: number; accounts: number; devices: number; plays: number; likes: number };
-  builder: { backend: string; model: string; lastDown: { at: string; message: string } | null; budget: BudgetConfig; today: Spent; lightPerHour: number };
+  builder: { backend: string; model: string; lastDown: { at: string; message: string } | null; budget: BudgetConfig; today: Spent; lightPerHour: number; guestLightPerHour: number };
   /** The server's own problems and builder outages, apart from what browsers report (pages). */
   problems: { server: PulseProblem[]; pages: PulseProblem[] };
   /** Plans (./billing.ts): Stripe set up, Pro accounts (and how many of them end), credit packs sold. */
@@ -96,6 +96,7 @@ export async function pulse(db: Db): Promise<Pulse> {
       lastDown: down[0] ? { at: iso(down[0].last_at), message: down[0].message } : null,
       budget: budgetConfig(),
       lightPerHour: lightUsdPerHour(),
+      guestLightPerHour: lightUsdPerHour(process.env, true),
       today: spend.get(days[0]?.day ?? '') ?? { all: 0, anon: 0, paid: 0, light: 0 },
     },
     problems: { server: server.map(toProblem), pages: pages.map(toProblem) },

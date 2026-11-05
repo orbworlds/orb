@@ -375,7 +375,14 @@ Browser (Next.js client)                              Vercel Functions (Node)   
   without one (`src/server/freetier.ts`), and Vercel BotID on free builds, signing up and signing
   in (`src/server/botid.ts`, `src/instrumentation-client.ts`; 403 `bot_detected`). What they may
   cost in a day is a budget in US$ (`src/server/budget.ts`), half of it for builds without an
-  account, so those are asked to sign in before the free builder rests for everyone.
+  account: once that half is spent, theirs go on with the lighter model on a tight hour of its own
+  (below), so a script spending it can't stop people building, nor take the accounts' share. A
+  script that builds as a new guest each time (a fresh device for a fresh quota) gives itself away
+  by sending the very same request from many devices: the same text (from 35 characters, longer than
+  Orb's own suggestion chips; its first 120, case and spacing aside) from 3 other devices without an
+  account within a day is turned away (403 `account_required`, "Orb couldn't tell that a person sent
+  this — sign in…"), and its worlds of the day and theirs are hidden from Explore
+  (`src/server/buildlimits.ts scripted`).
   Builds on the person's own key (Anthropic, OpenRouter with any model, OpenAI, Cursor) run the
   same way: the key is saved only in their browser, and the job keeps it encrypted while it runs.
 - Realtime (multiplayer presence/broadcast): Supabase Realtime broadcast channels, connected
@@ -397,8 +404,9 @@ Browser (Next.js client)                              Vercel Functions (Node)   
 | `ORB_FREE_DAILY_PER_ACCOUNT` | optional; free build units per UTC day per account (default 30; 25 on Orb's Cursor key) |
 | `ORB_FREE_DAILY_PER_DEVICE`, `ORB_FREE_DAILY_PER_IP` | optional; free build units per UTC day without an account, per device (default 12; 10 on Cursor) / per IP (default 40; 25 on Cursor; ×3 for the IP's accounts together). An IPv6 address counts as its /64. With `ORB_MOCK_AI=1` the daily caps are off unless set |
 | `ORB_LIGHT_USD_PER_HOUR` | optional; US$ an hour for all builds on the lighter model together (accounts out of credits; default 2; 0 = none). `ORB_LIGHT_MODEL` overrides the model (default `claude-haiku-5-5`, on the gateway `anthropic/claude-haiku-5.5`) |
+| `ORB_GUEST_LIGHT_USD_PER_HOUR` | optional; US$ an hour for builds without an account on the lighter model, once their part of the day's budget is spent (default 0.25; 0 = they're asked to sign in instead) |
 | `ORB_FREE_DAILY_USD` | optional; budget in US$ per UTC day for all free builds together (default 20; 0 = no free building), charged as builds go (exact from provider usage, estimated for Cursor agents and for a model call cut short; `src/server/budget.ts`, table `orb_spend`). Spent → running builds pause at their next model call, new ones get 503 `ai_unavailable` until UTC midnight |
-| `ORB_FREE_DAILY_USD_ANON` | optional; the part of it builds without an account may spend (default half). Spent → those builds are asked to sign in (429), signed-in builds go on |
+| `ORB_FREE_DAILY_USD_ANON` | optional; the part of it builds without an account may spend (default half). Spent → those builds go on with the lighter model (`ORB_GUEST_LIGHT_USD_PER_HOUR`), signed-in builds go on as before |
 | `ORB_FREE_MAX_OUTPUT_TOKENS` | optional; longest reply of one free build (default 12000) |
 | `STRIPE_SECRET_KEY` | optional; Stripe's secret key (`sk_test_…`/`sk_live_…`): Pro and credit packs can be bought (`src/server/stripe.ts`). Orb makes the Pro price (lookup key `orb_pro_month_usd_<cents>`), the portal's settings and, without `STRIPE_WEBHOOK_SECRET`, its webhook endpoint (from the production deployment only) itself, kept in `orb_meta` per key; a new key's endpoint replaces Orb's old ones at the same address (a rolled key, a database that forgot its endpoint). Without it Pro shows "Coming soon" and credits still apply |
 | `ORB_STRIPE_SECRET_KEY` | optional; a Stripe secret key that wins over `STRIPE_SECRET_KEY` (which Vercel's Stripe integration manages and may overwrite), e.g. a live account's key for Production while previews keep the sandbox |
@@ -528,7 +536,12 @@ pick (`featured`, `verified`). A world just built (changed since it began: versi
 new worlds does the rest. Untouched templates and bare copies wait. Otherwise they're under New,
 in search and on their maker's page. Trending leads with Orb's own order of the curated worlds
 (`src/lib/curation.ts`), each maker's spread out so none shows twice among four neighbours. Curated
-worlds that don't hold up are `hidden` in `src/data/seeds.json` (playable by link). On touch
+worlds that don't hold up are `hidden` in `src/data/seeds.json` (playable by link), and so are
+people's worlds hidden from the lab (`/lab/<key>`: their links, "Hide from Explore"; "Back into
+Explore" undoes it) or by the script check. A list keeps its hidden worlds after all of its own: its
+first page counts them (`hidden` in the answer) and, once everything else is shown, a quiet row says
+"N hidden worlds"; opening it lists them there (`/api/worlds?hidden=1`, the same filter, search and
+sort; "Kept out of Explore: made by a script, or not holding up. They still play."). On touch
 screens, worlds that need a keyboard (tagged `keyboard`) come after the others in each page (not in
 a search). At home, Trending under All fills four rows under the lead, then **More** (when
 there are more); a filter, New or a search shows all its worlds (more load as you scroll). A search
@@ -695,7 +708,7 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `GET /api/looks` | | `LooksView`: Orb's things for the blob (`items`: id, name, `slot` head\|face, price), what the account `owned` and its `look` (`color`, `wear`), its `credits` (null signed out), `signedIn` |
 | `PATCH /api/looks` | `{ color?, wear? }` (signed in) | `LooksView`. `color`: one of the palette or null (the device's own); `wear`: things the account has, one per slot. 400 `invalid_color`, 403 `not_owned` |
 | `POST /api/looks/buy` | `{ item, price }` (signed in) | `LooksView`, with the thing bought and put on (in its slot). Orb keeps the sale; otherwise as buying in a world (401, 404 `unknown_item`, 409 `price_changed`, 402 `no_credits`, 429 `daily_limit`, the same 30 tries in 10 minutes) |
-| `POST /api/agent/jobs` | `BuildRequest` (`worldId` required); the person's own key: `x-orb-agent-provider` (anthropic\|openai\|openrouter\|cursor), `x-orb-agent-key`, `x-orb-agent-model`, `x-orb-agent-effort` | starts a build (every build is an agent job) and streams its output (§8), the job's handle first. 400 `bad_request` (no world) or `bad_key`; 404; 429 `{error:'rate_limited', retryAfter}` (also with 3 builds of yours running, or 12 changing the world); 503 `{error:'ai_unavailable'}`; on Orb's AI: 403 `{error:'bot_detected'}`, 402 `{error:'out_of_credits', plan}` |
+| `POST /api/agent/jobs` | `BuildRequest` (`worldId` required); the person's own key: `x-orb-agent-provider` (anthropic\|openai\|openrouter\|cursor), `x-orb-agent-key`, `x-orb-agent-model`, `x-orb-agent-effort` | starts a build (every build is an agent job) and streams its output (§8), the job's handle first. 400 `bad_request` (no world) or `bad_key`; 404; 429 `{error:'rate_limited', retryAfter}` (also with 3 builds of yours running, or 12 changing the world); 503 `{error:'ai_unavailable'}`; on Orb's AI: 403 `{error:'bot_detected'}`, 403 `{error:'account_required'}` (the script check), 402 `{error:'out_of_credits', plan}` |
 | `GET /api/agent/jobs/:id` | `?from=N` | the job's output from character N, then live (after a reload, a dropped connection or a request's time limit). This, Stop and answering its looks are only for whoever started the job (its device, or account); anyone else gets 404 |
 | `POST /api/agent/jobs/:id/cancel` | | Stop: `{ ok }`; the job ends within a moment and keeps what it saved |
 | `GET /api/billing` | | `BillingInfo`: the viewer's `plan` (guest\|free\|pro), `credits` (`left`, `monthly`, `used`, `topup`, `periodEnd`, `cancelAt`, `pastDue`; the app shows them to accounts only), `payments` (Stripe set up), `manage` (has a Stripe customer), `earnings` (accounts: `credits` earned in their worlds' shops and not yet used, `total` ever, and `payouts` once they're open: `account` none\|pending\|ready, `payable`, `minimum`, `holdDays`, `buyers` and `minBuyers`, `requested`, `paid`, `currency`, `usdPer`, `country` from the connection), and the `plans` (Free's and Pro's credits, Pro's price, packs, `typicalBuild`, `shopShare`: what makers earn of paid credits spent in their worlds) |
@@ -768,7 +781,13 @@ builds together cost at most `ORB_LIGHT_USD_PER_HOUR` (default US$2; 0 turns it 
 credits is out again), counted in 5-minute windows (`orb_spend` scopes `light:<window>`, and the
 day's `light`, outside the free budget): a build whose window is spent waits for the next one
 before its next model call ("Lots of people are building right now — yours goes on in a
-moment…"), and Pulse shows the day's spend. Devices without an account still ask for one.
+moment…"), and Pulse shows the day's spend. Builds without an account whose part of the day's
+budget is spent go on with the lighter model too (one that's running pauses: "Say “keep going” and
+I'll go on with my lighter model, or sign in…"; a new one starts by saying so: "Lots of people are
+building without an account today, so I'm on my lighter model for now — sign in (You → Account) for
+my full one."), within `ORB_GUEST_LIGHT_USD_PER_HOUR` (default US$0.25), windows of their own
+(`light:guest:<window>`). With that at 0 they're asked to sign in (429) as before. A device without
+an account whose own credits are used up still asks for one.
 
 Builds (`/api/agent/jobs`) also send `x-orb-trace-group: <chat message id>`,
 so a build and its repair round share a trace group. The lab's trace pages (key: `ORB_LAB_KEY`,

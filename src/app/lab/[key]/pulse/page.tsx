@@ -84,7 +84,7 @@ export default async function PulsePage({ params }: { params: Promise<{ key: str
             {p.builder.lastDown ? ` · last refused ${ago(p.now, p.builder.lastDown.at)}: ${p.builder.lastDown.message}` : ' · never refused'}
           </div>
           <div className="mt-0.5 text-ink-2">
-            Today (UTC): {usd(p.builder.today.all)} of the {usd(p.builder.budget.dailyUsd)} budget · without an account {usd(p.builder.today.anon)} of {usd(p.builder.budget.anonUsd)} · paid for with credits people bought {usd(p.builder.today.paid)} · on the lighter model, out of credits, {usd(p.builder.today.light)} (at most {usd(p.builder.lightPerHour)} an hour)
+            Today (UTC): {usd(p.builder.today.all)} of the {usd(p.builder.budget.dailyUsd)} budget · without an account {usd(p.builder.today.anon)} of {usd(p.builder.budget.anonUsd)} · paid for with credits people bought {usd(p.builder.today.paid)} · on the lighter model (out of credits, or without an account past their part) {usd(p.builder.today.light)} (at most {usd(p.builder.lightPerHour)} an hour, and {usd(p.builder.guestLightPerHour)} more without an account)
           </div>
         </div>
       </section>

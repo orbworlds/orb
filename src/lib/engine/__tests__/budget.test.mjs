@@ -167,6 +167,17 @@ describe('charging the day (PGlite)', () => {
     assert.equal((await B.spentToday(db, at)).all, 0);
   });
 
+  test('without an account, once that part of the budget is spent: the lighter model, on a tight hour of its own (US$0.25)', async () => {
+    assert.equal(B.lightUsdPerHour({}, true), 0.25);
+    assert.equal(B.lightUsdPerHour({ ORB_GUEST_LIGHT_USD_PER_HOUR: '0' }, true), 0, '0 turns it off');
+    assert.equal(B.lightUsdPerHour({ ORB_GUEST_LIGHT_USD_PER_HOUR: '1' }), 2, 'accounts keep theirs');
+    const at = new Date('2026-06-01T10:01:00Z');
+    await B.chargeLight(db, 0.03, at, true);
+    assert.equal(await B.lightWait(db, at, true), 4 * 60_000, 'over its window’s share (US$0.25 / 12): wait for the next window');
+    assert.equal(await B.lightWait(db, at), 0, 'accounts out of credits go on: their share is apart');
+    assert.equal((await B.spentToday(db, at)).light, 0.03, 'counted with the lighter model’s day, apart from the budget');
+  });
+
   test('when builds without an account spend their part, they ask to sign in, and those signed in keep building to the whole budget', async () => {
     const day = new Date('2026-04-01T12:00:00Z');
     const cfg = { dailyUsd: 3, anonUsd: 1 };

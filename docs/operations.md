@@ -22,7 +22,8 @@ Everything is set in Vercel's environment for the project `orb`.
 | `ORB_FREE_DAILY_PER_DEVICE`, `ORB_FREE_DAILY_PER_IP` | Optional daily free build units without an account, per device (default 12, or 10 on Cursor) and per IP address (default 40, or 25 on Cursor; an IP's accounts together get three times that) |
 | `ORB_LIGHT_USD_PER_HOUR` | Optional: US$ an hour for builds on the lighter model, when an account's credits are used up (default 2; `0` turns it off). `ORB_LIGHT_MODEL` picks another model (default Claude Haiku 5.5) |
 | `ORB_FREE_DAILY_USD` | Optional budget in US$ for all free builds together per UTC day (default 20; `0` turns free building off). Once it's spent, the free builder is back tomorrow (see [Free builder budget](#free-builder-budget)) |
-| `ORB_FREE_DAILY_USD_ANON` | Optional part of that budget for builds without an account (default half): once it's spent, people are asked to sign in, and those signed in keep building |
+| `ORB_FREE_DAILY_USD_ANON` | Optional part of that budget for builds without an account (default half): once it's spent, their builds go on with the lighter model (below), and those signed in keep building |
+| `ORB_GUEST_LIGHT_USD_PER_HOUR` | Optional: US$ an hour for builds without an account on the lighter model, once their part of the budget is spent (default 0.25; `0` asks them to sign in instead) |
 | `ORB_FREE_MAX_OUTPUT_TOKENS` | Optional longest reply of one free build (default 12000) |
 | `STRIPE_SECRET_KEY` | Optional Stripe secret key: Pro and credit packs can be bought (see [Plans and credits](#plans-and-credits)). Without it, Pro says "Coming soon" and credits still apply |
 | `ORB_STRIPE_SECRET_KEY` | Optional Stripe secret key that wins over `STRIPE_SECRET_KEY` (which Vercel's Stripe integration manages and may overwrite): set it to sell through a Stripe account of your choosing, e.g. for Production only while previews keep the sandbox |
@@ -50,7 +51,12 @@ one (an IPv6 address counts as its /64, which one home or phone has all of). [Ve
 BotID](https://vercel.com/docs/botid) keeps scripts out of free builds, signing up and signing in
 ([`src/server/botid.ts`](../src/server/botid.ts): on in builds made on Vercel; requests go on if the
 check itself fails, as the quotas still hold), and an IP makes at most 50 accounts a day, so
-accounts can't be farmed for their quotas.
+accounts can't be farmed for their quotas. BotID's stronger **Deep Analysis** (Vercel's Firewall →
+Configure; paid per check) is off for now. A script that gets past it and builds as a new guest
+each time, through a VPN's addresses, gives itself away by sending the very same request from many
+devices: from the 4th device in a day it's turned away and its worlds are hidden from Explore
+([`scripted`](../src/server/buildlimits.ts)). That's what happened on 5 November 2026: 32 "Gray
+Room" worlds, each the start of a chat that used Orb as a free translation service.
 
 The hard cap on money is the free builder's daily budget in US dollars (`ORB_FREE_DAILY_USD`, $20
 by default; [`src/server/budget.ts`](../src/server/budget.ts)), as Cursor can't limit one API key's
@@ -59,8 +65,10 @@ provider reports usage, and estimated for Cursor agents (their stream counts the
 writes; what it reads is estimated generously) and for a model call cut short (Stop, a time limit:
 the prompt it read and what it wrote by then). Once the day's money is spent, running builds
 pause at their next model call and new ones hear that the free builder is back tomorrow (UTC). Builds
-without an account may spend half of it (`ORB_FREE_DAILY_USD_ANON`), so an attack without accounts
-only makes people sign in, and those signed in keep building. Pulse shows each day's spend against
+without an account may spend half of it (`ORB_FREE_DAILY_USD_ANON`); once it's spent, theirs go on
+with the lighter model within a tight hour of its own (`ORB_GUEST_LIGHT_USD_PER_HOUR`, $0.25 by
+default), so an attack without accounts neither stops people building nor touches what accounts
+get, and those signed in keep the full model. Pulse shows each day's spend against
 the budget, and each Cursor build's trace its estimated cost (`costUsd`): compare them with the
 Cursor dashboard's Usage now and then. Builds paid for with bought credits (Pro, packs) are outside
 the budget and the daily caps; how much each person builds in a month is their
@@ -68,6 +76,10 @@ the budget and the daily caps; how much each person builds in a month is their
 model (Claude Haiku 5.5) for free; those builds have their own cap, `ORB_LIGHT_USD_PER_HOUR` ($2
 an hour by default, in 5-minute windows: when a window is spent, builds wait for the next), shown
 on Pulse beside the budget.
+
+Worlds that shouldn't be in Explore (a script's, say) are hidden from the lab's first page
+(`/lab/<key>`): paste their links and **Hide from Explore**; **Back into Explore** undoes it. They
+still play by link, and Explore lists them under "N hidden worlds" after everything else.
 
 With the AI Gateway, also cap it there: buy credits with auto top-up off, and give the project a daily budget with
 spend alerts (AI Gateway → Budgets → Projects, or
