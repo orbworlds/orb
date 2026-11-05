@@ -1226,10 +1226,10 @@ async function run() {
     const curation = fs.readFileSync(new URL('../src/lib/curation.ts', import.meta.url), 'utf8');
     const curated = [...curation.slice(curation.indexOf('CURATED_ORDER'), curation.indexOf('];')).matchAll(/'([\w-]+)'/g)].map((m) => m[1]);
     const present = curated.filter((id) => all.includes(id));
-    check('trending leads with the curated worlds', present.length > 0 && JSON.stringify([...all.slice(0, present.length)].sort()) === JSON.stringify([...present].sort()), all.slice(0, 8));
-    const top = (await request('GET', '/api/worlds?sort=trending&limit=16')).json.worlds.map((x) => x.authorName);
-    check('…with no maker twice among four neighbours', top.length >= 4 && top.every((a, i) => !top.slice(Math.max(0, i - 3), i).includes(a)), top);
-    // Below the plays threshold, a few plays and likes don't reorder the feed.
+    const LEAD = Number(/CURATED_LEAD = (\d+)/.exec(curation)[1]);
+    check('trending leads with Orb’s first picks (CURATED_LEAD), its first one first', present.length > LEAD && all[0] === present[0] && all.slice(0, LEAD).every((id) => curated.includes(id)), all.slice(0, 8));
+    const top = (await request('GET', `/api/worlds?sort=trending&limit=${LEAD}`)).json.worlds.map((x) => x.authorName);
+    check('…with no maker twice among four neighbours', top.length === LEAD && top.every((a, i) => !top.slice(Math.max(0, i - 3), i).includes(a)), top);
     const w = (await create(OWNER, { name: `Trend ${TOKEN}` })).json.world;
     await patch(OWNER, w.id, { tags: ['game'] });
     await request('PUT', `/api/worlds/${w.id}/thumb`, { dev: OWNER, raw: WEBP, type: 'image/webp' });
@@ -1252,12 +1252,20 @@ async function run() {
     await request('POST', `/api/worlds/${w.id}/like`, { dev: OWNER });
     const before = await rank();
     check('…and one like gets it into Trending', before >= 0, before);
+    check('…after the curated worlds nobody has played yet', before >= 0 && (await feed()).slice(0, before).filter((id) => curated.includes(id)).length === present.length, before);
+    // Another world liked once, newer (so a hair fresher); then people play the first one.
+    const w2 = (await create(OWNER, { name: `Trend two ${TOKEN}` })).json.world;
+    await request('PUT', `/api/worlds/${w2.id}/thumb`, { dev: OWNER, raw: WEBP, type: 'image/webp' });
+    await request('POST', `/api/worlds/${w2.id}/like`, { dev: OWNER });
+    const rank2 = async () => (await feed()).indexOf(w2.id);
+    const was = [await rank(), await rank2()];
     for (const dev of [OTHER, THIRD, STORE_DEV, ACCOUNT_DEV]) {
       await request('POST', `/api/worlds/${w.id}/play`, { dev });
       await request('POST', `/api/worlds/${w.id}/like`, { dev });
     }
-    const after = await rank();
-    check('a handful of plays and likes doesn\'t move a world', before >= 0 && after === before, { before, after });
+    const now = [await rank(), await rank2()];
+    check('after Orb’s first picks, what people play moves a world up', was[1] < was[0] && now[0] >= 0 && now[0] < now[1] && now[0] < was[0], { was, now });
+    await request('DELETE', `/api/worlds/${w2.id}`, { dev: OWNER });
     // Topics: several tags at once.
     const multi = (await request('GET', '/api/worlds?sort=trending&tag=art,game&limit=100')).json.worlds.map((x) => x.id);
     check('a topic can span several tags', multi.includes(w.id));

@@ -10,7 +10,7 @@
 //   public WorldCard / WorldFull shapes.
 
 import { cache } from 'react';
-import { CURATED_ORDER, PLAYS_THAT_COUNT } from '@/lib/curation';
+import { CURATED_LEAD, CURATED_ORDER } from '@/lib/curation';
 import { KEYBOARD_TAG } from '@/lib/keyboard';
 import { TEMPLATES } from '@/lib/templates';
 import { PHOTOS_ONLY, REPAIR_REQUEST, VIDEO_ONLY } from '@/lib/engine/prompt';
@@ -498,18 +498,18 @@ const heatBump = (by: number) =>
 
 /**
  * Trending, as seen at snapshot time $t (epoch seconds; fixed per browsing session so pages don't
- * reshuffle). For now Orb's own order ($order: an array of ids, curatedOrder()) comes first;
- * after it: Orb's curation weight, what people are playing right now (decayed heat) and
- * all-time popularity — those two only once a world has PLAYS_THAT_COUNT plays — and a boost for
- * brand-new worlds so they get seen.
+ * reshuffle). The first CURATED_LEAD of Orb's own order ($order: an array of ids, curatedOrder())
+ * lead as they are; after them, how much people play each world: its plays, on a log scale so one
+ * hit doesn't bury the rest, likes and remixes counting a little; Orb's order as a prior (4 for its
+ * first world down to 1 for its last; Orb's pick, `featured`, for a world outside it), so a curated
+ * world few have found yet still comes before one nobody has played; and for a new world's first
+ * days a small boost, so its first players find it (not enough to pass the curated ones by itself).
  */
-const trendExpr = (t: string, order: string) => `coalesce(1000000 - array_position(${order}::text[], w.id), (
-  3 * ln(1 + greatest(w.featured, 0))
-  + case when w.plays >= ${PLAYS_THAT_COUNT} then
-      3 * ln(1 + w.heat * exp(-greatest(0, ${t} - extract(epoch from w.heat_at)) / ${HEAT_TAU}))
-      + 1.5 * ln(1 + ${SCORE})
-    else 0 end
-  + 7 * exp(-greatest(0, ${t} - extract(epoch from w.created_at)) / 172800)
+const trendExpr = (t: string, order: string) => `coalesce(1000000 - nullif(least(array_position(${order}::text[], w.id), ${CURATED_LEAD + 1}), ${CURATED_LEAD + 1}), (
+  coalesce(1 + 3 * (1 - (array_position(${order}::text[], w.id) - 1)::float8 / greatest(cardinality(${order}::text[]), 1)), least(4, 2 * ln(1 + greatest(w.featured, 0))))
+  + 1.5 * ln(1 + w.plays)
+  + 0.5 * ln(1 + w.likes + 2 * w.forks)
+  + 0.5 * exp(-greatest(0, ${t} - extract(epoch from w.created_at)) / 172800)
 ))`;
 
 /** Sort key per order: [SQL expression, cast for the cursor value]. All descending. */

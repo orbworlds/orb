@@ -1,7 +1,7 @@
-// Orb's own order for worlds while there are too few plays to rank them by (temporary): best first.
-// Trending shows these first, in this order, then everything else. A world's plays, likes and
-// remixes only start to move it once it has PLAYS_THAT_COUNT plays — below that they're noise.
-// Ids that aren't listed (hidden, broken, deleted) are simply skipped.
+// Orb's own order of the curated worlds, best first. Trending leads with the first CURATED_LEAD of
+// them, in this order; after those, every world is ranked by what people play (its plays now and
+// all-time, likes and remixes), this order counting a little too, so a world nobody has found yet
+// still has its place. Ids that aren't listed (hidden, broken, deleted) are simply skipped.
 // The start screen's row shows the first five or so: keep them different kinds of worlds (two
 // blocky worlds among them at most, never side by side), and neighbours that don't look alike.
 
@@ -18,7 +18,8 @@ export const CURATED_ORDER: readonly string[] = [
   'aw-lumenshaders', 'aw-ez-tree', 'ext-particleverse', 'ext-song-maker', 'ext-rhythm', 'ext-ancient-earth', 'ext-diablo', 'ext-quake', 'ext-quake-2',
 ];
 
-export const PLAYS_THAT_COUNT = 1000;
+/** How many of Orb's order lead Trending as they are (at home: the lead tile and the row beside it). */
+export const CURATED_LEAD = 6;
 
 /** Position in Orb's order (0 = first), or -1 for a world that isn't in it. */
 export const curatedRank = (id: string): number => CURATED_ORDER.indexOf(id);

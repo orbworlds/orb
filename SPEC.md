@@ -534,8 +534,14 @@ People's own worlds join Trending once they've earned it: a like, 10 plays (`EAR
 pick (`featured`, `verified`). A world just built (changed since it began: version 2 on) gets its first 2 days there
 (`FRESH_DAYS`), wearing a "New" badge, so its first players can find it; Trending's fading boost for
 new worlds does the rest. Untouched templates and bare copies wait. Otherwise they're under New,
-in search and on their maker's page. Trending leads with Orb's own order of the curated worlds
-(`src/lib/curation.ts`), each maker's spread out so none shows twice among four neighbours. Curated
+in search and on their maker's page. Trending leads with Orb's first picks: the first six of its
+order of the curated worlds (`src/lib/curation.ts` `CURATED_LEAD`), each maker's spread out so
+none shows twice among four neighbours. After them, every world by how much people play it: its
+plays, on a log scale so one hit doesn't bury the rest (1.5·ln(1 + plays)), likes and remixes
+counting a little (0.5·ln(1 + likes + 2·remixes)); Orb's order counts too (from 4 points for its
+first world down to 1 for its last; Orb's pick, `featured`, for a world outside it), so a curated
+world few have found yet still comes before one nobody has played; and a new world gets a small
+boost over its first days (at most 0.5), so its first players find it. Curated
 worlds that don't hold up are `hidden` in `src/data/seeds.json` (playable by link), and so are
 people's worlds hidden from the lab (`/lab/<key>`: their links, "Hide from Explore"; "Back into
 Explore" undoes it) or by the script check. A list keeps its hidden worlds after all of its own: its
