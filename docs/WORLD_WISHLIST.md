@@ -259,6 +259,15 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   Rækk du ferga? now opens rekkerduferga.no: its `www.` address sends the frame on there, and Orb's
   frame grants its permissions (fullscreen, sound, gamepads) to the address it was given only;
   `scripts/check-embeds.mjs` now flags such addresses.
+- **Scouted on 6 November 2026**, a quiet day after the mega scout: nothing added. The three.js
+  forum's Showcase still has no topics after 1 November and threejs.org's featured grid is
+  unchanged. Show HN: **Fishtank Atlas** (fishtankatlas.com/play/aquarium: an aquarium that teaches
+  the nitrogen cycle, but flat and mostly panels, and nothing swims until the tank has cycled) and
+  **Engine-X** (engx3d.com: 3D machines to take apart; refuses a frame); a WebGPU wildfire
+  simulation and a desktop-simulation game were not worlds. New in the AI Games Feed: **HarbourLine**
+  (simharbor.net, a cozy port builder) and **SKYWAKE** (a kite flight on usecrayon.ai) refuse a
+  frame; **Glass Break** (Prasenjit Nayak's bottle-shooting range) is slight; Airsup's factory
+  scenes are a company's product demos.
 
 ## Embeds we would add if their sites allowed it
 
@@ -267,8 +276,8 @@ let `orbworld.vercel.app` frame them would be enough: Slow Roads, PolyTrack, Nul
 Haggis Survivors, Field of Command, Astral War, Kart Royale, BuildYourTown, Little Flock, WenWare,
 *Quick, Draw!*, Blob Opera, Infinite Craft, Sandboxels, Coastal World, Igloo Inc, Marble by World
 Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Clash Karts, Kage no
-Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, and the games on genex.games
-(Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
+and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
