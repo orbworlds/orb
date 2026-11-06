@@ -3335,5 +3335,75 @@
       "handle": "flyoverzone",
       "made_with": "Gaussian splats, SuperSplat (PlayCanvas)"
     }
+  },
+  {
+    "id": "aw-riyadh-360",
+    "name": "Riyadh 360",
+    "description": "Walk, drive or fly over Riyadh, from King Fahd Road and Olaya to the old Masmak fort, at noon, sunset or night, or through a sandstorm.",
+    "kind": "external",
+    "external_url": "https://aymn74.github.io/riyadh-360/",
+    "source_url": "https://github.com/Aymn74/riyadh-360",
+    "author_name": "Aymn74",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/aw-riyadh-360.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://github.com/Aymn74/riyadh-360",
+      "platform": "github",
+      "posted_at": "2026-10-24",
+      "handle": "Aymn74",
+      "author_url": "https://github.com/Aymn74",
+      "made_with": "three.js, OpenStreetMap"
+    }
+  },
+  {
+    "id": "ext-sidi-bou-said",
+    "name": "Sidi Bou Said",
+    "description": "Walk the blue-and-white alleys of Sidi Bou Said, Tunisia, under bougainvillea, up to a cliff above the Gulf of Tunis.",
+    "kind": "external",
+    "external_url": "https://claude-directory.pulkitxm.com/3d-games/sidi-bou-said-3d-walk/",
+    "source_url": "https://github.com/pulkitxm/claude-directory/tree/main/3d-games/sidi-bou-said-3d-walk",
+    "author_name": "Pulkit",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-sidi-bou-said.webp",
+    "origin": {
+      "post_url": "https://github.com/pulkitxm/claude-directory",
+      "platform": "github",
+      "posted_at": "2026-07-22",
+      "handle": "pulkitxm",
+      "author_url": "https://github.com/pulkitxm",
+      "made_with": "Claude, three.js, one HTML file"
+    }
+  },
+  {
+    "id": "ext-physics-museum",
+    "name": "Physics Museum",
+    "description": "Walk a sunlit museum of five installations and play with collisions, momentum, waves and gravity.",
+    "kind": "external",
+    "external_url": "https://astra-museum-of-motion.openai.chatgpt.site/",
+    "source_url": null,
+    "author_name": "Katia Gil Guzman",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-physics-museum.webp",
+    "origin": {
+      "post_url": "https://developers.openai.com/showcase/physics-museum",
+      "platform": "blog",
+      "handle": "OpenAI Developers",
+      "made_with": "GPT-6 Astra"
+    }
   }
 ]

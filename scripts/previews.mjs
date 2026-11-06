@@ -748,6 +748,12 @@ const SHOTS = {
   'ext-dr1v3n-wild': { wait: 20000 },
   // Tomb of Ramesses VI: walking down the painted corridor at half its pace (a tap of W first puts its camera in walking mode)
   'ext-ramesses-vi': { query: 'noui', wait: 75000, steps: [{ key: 'w', wait: 15000 }], hold: ['w'], init: halved, crf: [54, 34] },
+  // Riyadh 360: driving the white Land Cruiser down a palm-lined avenue at sunset (its HUD is the page's)
+  'aw-riyadh-360': { wait: 60000, steps: [{ click: [320, 200], wait: 3000 }], lead: { seconds: 1.5, hold: ['w'] }, hold: ['w'], sub: 1, crf: [46, 29] },
+  // Sidi Bou Said: running up the stepped alley between the blue doors and white walls (its title and help are the page's)
+  'ext-sidi-bou-said': { wait: 30000, hold: ['w', 'Shift'] },
+  // Physics Museum: walking into the sunlit hall toward its installations (its buttons and labels are the page's)
+  'ext-physics-museum': { wait: 40000, hold: ['w'] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

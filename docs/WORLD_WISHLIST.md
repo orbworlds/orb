@@ -215,7 +215,10 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   is under "Where many more worlds could come from" below. In Explore now: **SP13KTRA** and
   **DR1V3N WILD** (Frank Force's js13k racers, #13 of 317 in 2026 and #8 of 187 in 2024), embedded
   from his GitHub Pages copies because play.js13kgames.com refuses a frame and their licences
-  reserve all rights; and the **Tomb of Ramesses VI** (a SuperSplat scan by Flyover Zone). More of
+  reserve all rights; the **Tomb of Ramesses VI** (a SuperSplat scan by Flyover Zone); **Riyadh
+  360** (hosted: Aymn74/riyadh-360, MIT, no build step; listed among the Slop Cities, in Arabic and
+  English, with a guided tour and a sandstorm); **Sidi Bou Said** (embedded: its MIT code sits in a
+  12.8 GB repository, far past the importer's download cap); and OpenAI's **Physics Museum**. More of
   this round follows as its videos are recorded. Left out: **Wildbrush** (Danny Limanseta's, 1.24M
   views on X), because Orb's own Original has the same name. Rækk du ferga? now opens
   rekkerduferga.no: its `www.` address sends the frame on there, and Orb's frame grants its
@@ -251,7 +254,8 @@ Counts are each source's own on that day. Ranked by how many good worlds each co
    Riyadh, Seoul, Shanghai, Singapore, Taipei, Buenos Aires, Uruapan…). Most forks keep the MIT
    licence, so Orb can host them. Map data is OpenStreetMap or city open data, which wants
    credit. Quality goes with each city's data and its author's care, so look at each; the
-   repository's `screenshots/` folder makes the first pass quick.
+   repository's `screenshots/` folder makes the first pass quick. Riyadh 360 went in on
+   6 November.
 2. **SuperSplat** (superspl.at, by PlayCanvas): 17,660 public Gaussian-splat scenes, 1,730 of
    them walkable, listed by an open JSON API
    (`playcanvas.com/api/splats/explore?sort=views&order=-1&limit=100&skip=N`, plus `&search=`
