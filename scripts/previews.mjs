@@ -754,6 +754,12 @@ const SHOTS = {
   'ext-sidi-bou-said': { wait: 30000, hold: ['w', 'Shift'] },
   // Physics Museum: walking into the sunlit hall toward its installations (its buttons and labels are the page's)
   'ext-physics-museum': { wait: 40000, hold: ['w'] },
+  // Blue Bajaj Rally: a grand prix begun, the blue bajaj racing its rivals through the highland circuit (its menu and HUD
+  // are the page's)
+  'ext-blue-bajaj-rally': { wait: 30000, steps: [{ click: [148, 333], wait: 15000 }], lead: { seconds: 1, hold: ['w'] }, hold: ['w'] },
+  // Sunshine Golf Classic: a classic round begun, its camera gliding from the first green back down the fairway among
+  // the pines (its buttons and meter are on another canvas)
+  'ext-sunshine-golf': { wait: 20000, steps: [{ click: [324, 348], wait: 300 }], settle: 0 },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

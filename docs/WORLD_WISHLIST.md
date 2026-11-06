@@ -218,9 +218,16 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   reserve all rights; the **Tomb of Ramesses VI** (a SuperSplat scan by Flyover Zone); **Riyadh
   360** (hosted: Aymn74/riyadh-360, MIT, no build step; listed among the Slop Cities, in Arabic and
   English, with a guided tour and a sandstorm); **Sidi Bou Said** (embedded: its MIT code sits in a
-  12.8 GB repository, far past the importer's download cap); and OpenAI's **Physics Museum**. More of
-  this round follows as its videos are recorded. Left out: **Wildbrush** (Danny Limanseta's, 1.24M
-  views on X), because Orb's own Original has the same name. Rækk du ferga? now opens
+  12.8 GB repository, far past the importer's download cap); OpenAI's **Physics Museum**;
+  **Sumiro** (xikhar's, 2.6M views on X: embedded, because four of its models are over 10 MB);
+  **Kettu-Vellam**, the Kerala snake-boat race; **A Game About Capybaras Delivering Food** (Vibe Jam
+  2026's winner); **Blue Bajaj Rally** (a tuk-tuk race in highland Ethiopia); and Frank Force's
+  **Sunshine Golf Classic**. Sumiro's, Kettu-Vellam's and the capybaras' videos are cut from their
+  makers' own: the recorder here never got past Sumiro's title screen, Kettu-Vellam's race is too
+  heavy for software rendering, and the capybaras' run gave it no picture. More of this round follows
+  as its videos are recorded. Left out: **Wildbrush** (Danny Limanseta's, 1.24M
+  views on X), because Orb's own Original has the same name; **Skip a Stone** (a lovely alpine lake,
+  but the recorder couldn't throw a stone, so its clip would be a still, and its post has no video). Rækk du ferga? now opens
   rekkerduferga.no: its `www.` address sends the frame on there, and Orb's frame grants its
   permissions (fullscreen, sound, gamepads) to the address it was given only;
   `scripts/check-embeds.mjs` now flags such addresses.
@@ -268,7 +275,7 @@ Counts are each source's own on that day. Ranked by how many good worlds each co
 3. **Vibe Jam** (vibejam.com/api: every entry of @levelsio's AI game jam as one JSON document,
    no key): 2,028 games, 1,458 still up, 1,250 made with three.js. Its rules mean free, no login
    and an instant start; the winners and the most played are a ready shortlist (A Game About
-   Capybaras Delivering Food won in 2026). Few have public code, so they are embeds.
+   Capybaras Delivering Food, the 2026 winner, went in). Few have public code, so they are embeds.
 4. **AI Games Feed** (games.omgithub.com/catalog.json, refreshed daily): 846 AI-made games with
    X likes, a 1–10 polish score, a reachability check, a poster and a 30-second clip. Without its
    fan games (about 125), itch.io pages (107) and what Orb has, roughly 80–100 working entries

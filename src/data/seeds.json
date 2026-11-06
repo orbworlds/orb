@@ -3405,5 +3405,132 @@
       "handle": "OpenAI Developers",
       "made_with": "GPT-6 Astra"
     }
+  },
+  {
+    "id": "ext-sumiro",
+    "name": "Sumiro",
+    "description": "Climb ink-wash mountains as a wanderer in a straw hat, solving parkour puzzles on the way up.",
+    "kind": "external",
+    "external_url": "https://xikhar.github.io/sumiro/",
+    "source_url": null,
+    "author_name": "xikhar",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 66,
+    "thumb_url": "/seeds/ext-sumiro.webp",
+    "origin": {
+      "post_url": "https://x.com/xikhar/status/2117776295534997818",
+      "platform": "x",
+      "views": 2593836,
+      "likes": 12338,
+      "posted_at": "2026-11-04",
+      "handle": "@xikhar",
+      "author_url": "https://x.com/xikhar",
+      "made_with": "Claude Opus 5.5, Flux, GPT Image, Tripo, Blender, three.js"
+    }
+  },
+  {
+    "id": "ext-kettu-vellam",
+    "name": "Kettu-Vellam",
+    "description": "Race a Kerala snake boat against rival crews on Punnamada Lake, the Kuttanad canals and a stormy Vembanad, or roam a backwater village at your own pace.",
+    "kind": "external",
+    "external_url": "https://www.kettuvellam.com/",
+    "source_url": null,
+    "author_name": "Jessin Sam S",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-kettu-vellam.webp",
+    "origin": {
+      "post_url": "https://x.com/jessinvibe/status/2103565292198838314",
+      "platform": "x",
+      "views": 80431,
+      "likes": 69,
+      "posted_at": "2026-09-25",
+      "handle": "@jessinvibe",
+      "author_url": "https://x.com/jessinvibe",
+      "made_with": "Claude Opus 5.5, v0, three.js"
+    }
+  },
+  {
+    "id": "ext-capybara-delivery",
+    "name": "A Game About Capybaras Delivering Food",
+    "description": "Ride a scooter as a capybara through a seaside city, picking up food orders and delivering them.",
+    "kind": "external",
+    "external_url": "https://capybara-vibejam26.leocoout.dev/",
+    "source_url": null,
+    "author_name": "leo",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-capybara-delivery.webp",
+    "origin": {
+      "post_url": "https://x.com/leocooout/status/2049610251381756307",
+      "platform": "x",
+      "views": 42988,
+      "likes": 250,
+      "posted_at": "2026-04-29",
+      "handle": "@leocooout",
+      "author_url": "https://x.com/leocooout",
+      "made_with": "Claude, Cursor, Tripo, Suno, ElevenLabs, three.js"
+    }
+  },
+  {
+    "id": "ext-blue-bajaj-rally",
+    "name": "Blue Bajaj Rally",
+    "description": "Race a blue three-wheeled bajaj against five rivals round a highland circuit inspired by Bishoftu, Ethiopia.",
+    "kind": "external",
+    "external_url": "https://bajaj.guzo.tech/",
+    "source_url": null,
+    "author_name": "Guzo Technologies",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-blue-bajaj-rally.webp",
+    "origin": {
+      "post_url": "https://x.com/guzotech/status/2096209787864088638",
+      "platform": "x",
+      "views": 3300,
+      "likes": 12,
+      "posted_at": "2026-09-05",
+      "handle": "@guzotech",
+      "author_url": "https://x.com/guzotech",
+      "made_with": "GPT-6 Astra, three.js"
+    }
+  },
+  {
+    "id": "ext-sunshine-golf",
+    "name": "Sunshine Golf Classic",
+    "description": "Play eighteen holes of golf on a sunny low-poly course among the pines, every hole grown from a seed, with a classic three-click swing.",
+    "kind": "external",
+    "external_url": "https://killedbyapixel.github.io/Golf13K/",
+    "source_url": "https://github.com/KilledByAPixel/Golf13K",
+    "author_name": "Frank Force",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/ext-sunshine-golf.webp",
+    "origin": {
+      "post_url": "https://js13kgames.com/2026/games/sunshine-golf-classic",
+      "platform": "js13kGames",
+      "posted_at": "2026-09-07",
+      "handle": "KilledByAPixel",
+      "author_url": "https://github.com/KilledByAPixel",
+      "made_with": "JavaScript, WebGL 2, LittleJS"
+    }
   }
 ]
