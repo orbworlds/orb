@@ -3532,5 +3532,136 @@
       "author_url": "https://github.com/KilledByAPixel",
       "made_with": "JavaScript, WebGL 2, LittleJS"
     }
+  },
+  {
+    "id": "aw-slop-new-york",
+    "name": "Slop New York",
+    "description": "Walk, drive, cycle or fly a helicopter anywhere in a 1:1 Manhattan built from the city's own open data.",
+    "kind": "external",
+    "external_url": "https://mrdoob.github.io/slop-newyork/",
+    "source_url": "https://github.com/mrdoob/slop-newyork",
+    "author_name": "Mr.doob",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/aw-slop-new-york.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://x.com/mrdoob/status/2113177383658561721",
+      "platform": "x",
+      "views": 370473,
+      "likes": 4063,
+      "posted_at": "2026-10-22",
+      "handle": "@mrdoob",
+      "author_url": "https://x.com/mrdoob",
+      "made_with": "three.js (WebGPU, WebGL 2 fallback), NYC Open Data, OpenStreetMap"
+    }
+  },
+  {
+    "id": "aw-bay-ride",
+    "name": "Bay Ride",
+    "description": "Walk a painted seaside pier, then take a little wooden skiff across the bay to the lighthouse island as the day runs from morning to a moonlit night.",
+    "kind": "external",
+    "external_url": "https://starknightt.github.io/bay-ride/",
+    "source_url": "https://github.com/StarKnightt/bay-ride",
+    "author_name": "Prasenjit Nayak",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 63,
+    "thumb_url": "/seeds/aw-bay-ride.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://x.com/prasenx/status/2107451914954911838",
+      "platform": "x",
+      "views": 342655,
+      "likes": 4157,
+      "posted_at": "2026-10-06",
+      "handle": "@prasenx",
+      "author_url": "https://x.com/prasenx",
+      "made_with": "Claude Opus 5.5, three.js, TypeScript, Vite"
+    }
+  },
+  {
+    "id": "ext-sutro-tower",
+    "name": "Sutro Tower",
+    "description": "Fly around a photoreal drone scan of San Francisco's Sutro Tower and the hills and streets below it.",
+    "kind": "external",
+    "external_url": "https://vincentwoo.com/3d/sutro_tower/",
+    "source_url": null,
+    "author_name": "Vincent Woo",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/ext-sutro-tower.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=43120582",
+      "platform": "hn",
+      "likes": 825,
+      "posted_at": "2025-02-20",
+      "handle": "akanet",
+      "author_url": "https://vincentwoo.com/",
+      "made_with": "Gaussian splats from a drone, PlayCanvas"
+    }
+  },
+  {
+    "id": "ext-takibi-biyori",
+    "name": "Takibi Biyori",
+    "description": "Spend an autumn night at a Japanese campsite: pitch the tent, split wood, light the fire and cook.",
+    "kind": "external",
+    "external_url": "https://keikoku-camp.vercel.app/play/",
+    "source_url": null,
+    "author_name": "Zen Works",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-takibi-biyori.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/keikoku-camp-a-camping-sim-where-every-texture-mesh-and-sound-is-generated-in-code/93878",
+      "platform": "three.js forum",
+      "views": 446,
+      "likes": 12,
+      "posted_at": "2026-08-28",
+      "handle": "yohsuke_zw",
+      "made_with": "three.js, Rapier, everything generated in code"
+    }
+  },
+  {
+    "id": "ext-lagoon-tree-village",
+    "name": "Lagoon Tree Village",
+    "description": "Wander, swim and dive around a tree-house village built over a lagoon in a desert oasis.",
+    "kind": "external",
+    "external_url": "https://lagoon-tree-village.netlify.app/",
+    "source_url": null,
+    "author_name": "cryptomanavan",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-lagoon-tree-village.webp",
+    "origin": {
+      "post_url": "https://x.com/cryptomanavan/status/2102772685541347618",
+      "platform": "x",
+      "views": 21823,
+      "likes": 307,
+      "posted_at": "2026-09-23",
+      "handle": "@cryptomanavan",
+      "author_url": "https://x.com/cryptomanavan",
+      "made_with": "Claude Opus 5.5, three.js"
+    }
   }
 ]

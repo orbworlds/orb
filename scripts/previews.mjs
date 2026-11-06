@@ -760,6 +760,9 @@ const SHOTS = {
   // Sunshine Golf Classic: a classic round begun, its camera gliding from the first green back down the fairway among
   // the pines (its buttons and meter are on another canvas)
   'ext-sunshine-golf': { wait: 20000, steps: [{ click: [324, 348], wait: 300 }], settle: 0 },
+  // Sutro Tower: its About card closed (a click beside it), flying slowly sideways past the tower above Twin Peaks, at half
+  // its pace
+  'ext-sutro-tower': { wait: 90000, steps: [{ click: [10, 390], wait: 3000 }], hold: ['a'], init: halved, sub: 1, crf: [58, 35] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

@@ -224,8 +224,14 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   2026's winner); **Blue Bajaj Rally** (a tuk-tuk race in highland Ethiopia); and Frank Force's
   **Sunshine Golf Classic**. Sumiro's, Kettu-Vellam's and the capybaras' videos are cut from their
   makers' own: the recorder here never got past Sumiro's title screen, Kettu-Vellam's race is too
-  heavy for software rendering, and the capybaras' run gave it no picture. More of this round follows
-  as its videos are recorded. Left out: **Wildbrush** (Danny Limanseta's, 1.24M
+  heavy for software rendering, and the capybaras' run gave it no picture. Then **Slop New York** and
+  **Bay Ride** (both hosted, MIT: mrdoob's Manhattan in plain ES modules, and Prasenjit Nayak's painted
+  bay, a Vite and TypeScript project the importer runs from source), **Sutro Tower** (Vincent Woo's
+  drone scan), **Takibi Biyori** (a camping game made entirely in code; it sells optional cosmetic
+  packs) and **Lagoon Tree Village**. These five draw inside Orb but are too heavy for this machine
+  to record in reasonable time (Bay Ride's sea shader takes minutes to compile here), so all but
+  Sutro Tower's videos are cut from their makers' posts. More of this round follows as its videos
+  are recorded. Left out: **Wildbrush** (Danny Limanseta's, 1.24M
   views on X), because Orb's own Original has the same name; **Skip a Stone** (a lovely alpine lake,
   but the recorder couldn't throw a stone, so its clip would be a still, and its post has no video). Rækk du ferga? now opens
   rekkerduferga.no: its `www.` address sends the frame on there, and Orb's frame grants its
@@ -261,8 +267,8 @@ Counts are each source's own on that day. Ranked by how many good worlds each co
    Riyadh, Seoul, Shanghai, Singapore, Taipei, Buenos Aires, Uruapan…). Most forks keep the MIT
    licence, so Orb can host them. Map data is OpenStreetMap or city open data, which wants
    credit. Quality goes with each city's data and its author's care, so look at each; the
-   repository's `screenshots/` folder makes the first pass quick. Riyadh 360 went in on
-   6 November.
+   repository's `screenshots/` folder makes the first pass quick. Slop New York and Riyadh 360
+   went in on 6 November.
 2. **SuperSplat** (superspl.at, by PlayCanvas): 17,660 public Gaussian-splat scenes, 1,730 of
    them walkable, listed by an open JSON API
    (`playcanvas.com/api/splats/explore?sort=views&order=-1&limit=100&skip=N`, plus `&search=`
