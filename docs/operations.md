@@ -370,7 +370,9 @@ words written, checked inside Orb, and live on orbworlds.com the same day.
      is small and general; otherwise say in the wishlist what would unlock it.
    - Only a world that truly can't be hosted (needs a build server or React/webpack build, over
      200 MB, private code) is embedded by its address, after `node scripts/check-embeds.mjs`
-     shows that its site lets Orb frame it.
+     shows that its site lets Orb frame it. Use the address it ends up at: Orb's frame grants
+     fullscreen, sound and gamepads to the origin it is given, so a site that sends the frame on
+     (to `www.` or away from it) loses them, and a game that reads its gamepads every frame stops.
 3. **Check it inside Orb** (`/w/<id>`): it draws, nothing important is cut off, controls work, no
    errors that matter, and on a phone it either plays or is tagged `keyboard`. Worlds the test
    machine's software GPU can't start (WebGPU) wait in the wishlist for a check on a real GPU.

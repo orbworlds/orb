@@ -23,6 +23,8 @@ for (const s of seeds) {
     if (!res.ok) verdict = `HTTP ${res.status}`;
     else if (xfo === 'DENY' || xfo === 'SAMEORIGIN') verdict = `x-frame-options ${xfo}`;
     else if (fa && !allowsOrb(fa)) verdict = `frame-ancestors ${fa}`;
+    // the frame's permissions (fullscreen, sound, gamepads…) go to the origin it was given, not to one it is sent on to
+    else if (!s.native && new URL(res.url).origin !== new URL(s.external_url).origin) verdict = `moves to ${res.url}: use that address`;
   } catch (e) {
     verdict = `unreachable (${e.cause?.code || e.message})`;
   }

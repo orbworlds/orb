@@ -3097,7 +3097,7 @@
     "name": "Rækk du ferga?",
     "description": "Race down the island roads of Ytterøy in Norway to catch the ferry before it leaves, crashing through houses and dodging exploding sheep.",
     "kind": "external",
-    "external_url": "https://www.rekkerduferga.no/",
+    "external_url": "https://rekkerduferga.no/",
     "source_url": null,
     "author_name": "Tor Martin Norvik",
     "tags": [
@@ -3262,6 +3262,78 @@
       "handle": "fullstackwife",
       "author_url": "https://x.com/gtanczyk",
       "made_with": "Diorama (Meta Muse, SAM 3.1), three.js"
+    }
+  },
+  {
+    "id": "ext-sp13ktra",
+    "name": "SP13KTRA",
+    "description": "Race an anti-gravity craft against seven rivals around eight neon circuits, a whole season in a 13 KB game.",
+    "kind": "external",
+    "external_url": "https://killedbyapixel.github.io/SP13KTRA/",
+    "source_url": "https://github.com/KilledByAPixel/SP13KTRA",
+    "author_name": "Frank Force",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-sp13ktra.webp",
+    "origin": {
+      "post_url": "https://js13kgames.com/2026/games/sp13ktra",
+      "platform": "js13kGames",
+      "posted_at": "2026-09-13",
+      "handle": "KilledByAPixel",
+      "author_url": "https://github.com/KilledByAPixel",
+      "made_with": "JavaScript, WebGL 2, its own renderer and music"
+    }
+  },
+  {
+    "id": "ext-dr1v3n-wild",
+    "name": "DR1V3N WILD",
+    "description": "Drive a sports car flat out through ten stages of sunny roadside scenery that flow into one another.",
+    "kind": "external",
+    "external_url": "https://killedbyapixel.github.io/Drive13K/",
+    "source_url": "https://github.com/KilledByAPixel/Drive13K",
+    "author_name": "Frank Force",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-dr1v3n-wild.webp",
+    "origin": {
+      "post_url": "https://js13kgames.com/2024/games/dr1v3n-wild",
+      "platform": "js13kGames",
+      "posted_at": "2024-09-04",
+      "handle": "KilledByAPixel",
+      "author_url": "https://github.com/KilledByAPixel",
+      "made_with": "JavaScript, WebGL 2, ZzFX"
+    }
+  },
+  {
+    "id": "ext-ramesses-vi",
+    "name": "Tomb of Ramesses VI",
+    "description": "Walk down the painted corridor of Ramesses VI's tomb in the Valley of the Kings, gods and stars on every wall.",
+    "kind": "external",
+    "external_url": "https://superspl.at/s?id=e78bd968",
+    "source_url": null,
+    "author_name": "Flyover Zone",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/ext-ramesses-vi.webp",
+    "origin": {
+      "post_url": "https://superspl.at/scene/e78bd968",
+      "platform": "SuperSplat",
+      "views": 889,
+      "likes": 7,
+      "posted_at": "2026-01-04",
+      "handle": "flyoverzone",
+      "made_with": "Gaussian splats, SuperSplat (PlayCanvas)"
     }
   }
 ]

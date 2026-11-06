@@ -742,6 +742,12 @@ const SHOTS = {
       await new Promise((r) => setTimeout(r, 3000));
     },
   },
+  // SP13KTRA: its title screen's own race through the neon city (its title and menu are on another canvas)
+  'ext-sp13ktra': { wait: 20000 },
+  // DR1V3N WILD: its title screen's own drive along the palm-lined coast road (its title is on another canvas)
+  'ext-dr1v3n-wild': { wait: 20000 },
+  // Tomb of Ramesses VI: walking down the painted corridor at half its pace (a tap of W first puts its camera in walking mode)
+  'ext-ramesses-vi': { query: 'noui', wait: 75000, steps: [{ key: 'w', wait: 15000 }], hold: ['w'], init: halved, crf: [54, 34] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

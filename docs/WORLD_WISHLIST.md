@@ -64,7 +64,12 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   (dgreenheck/tidewater, MIT: a cozy island fishing game with a simulated ocean, among the best
   found), Powder Rush, Three.js Punk Drive, Transformer and Elysium Commons (scottsun.io), Deep Sea
   Fish, Voxel City, Spring Ramble, Mars GT and Pandora Flower. Check each on a machine with a real
-  GPU before adding it.
+  GPU before adding it. (On 5 November Chromium's software Vulkan, `--enable-unsafe-webgpu
+  --use-webgpu-adapter=swiftshader --enable-features=Vulkan --use-vulkan=swiftshader` plus a shim
+  turning today's string `swizzle` of a texture view into the object this Chromium wants, ran
+  three.js's WebGPU examples at 2–3 frames a second; but Tidewater and Tokyo DisneySea didn't finish
+  a frame in two minutes, Transformer and Voxel City hit a Dawn bug writing 3D textures, and
+  Highvale needs more than 256 texture layers. So they still wait for a real GPU.)
 - **Above the Clouds** (a Burj Khalifa concept site) and **Procedural Planets** were left out: an
   advert, and a generator with sliders more than a world. So were Procedural Terrains (an editor
   app), Regolith (its maker ties it to a token), Off Road Earth (bare terrain where it starts) and
@@ -204,6 +209,18 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   with Meta's models), but the world itself is a build the tool's command line makes and isn't in
   the repository, so it can't be hosted. The three.js forum's Showcase has had no new topics since
   1 November (checked its feed, its search and the topic numbers after it).
+- **Mega scout on 5 and 6 November 2026**: seven searches at once (the three.js forum's best of
+  the year, Hacker News, the catalogues of AI-made games, js13kGames, real places and scans, engine
+  showcases and GitHub) found about 180 worlds Orb didn't have; where more could come from in bulk
+  is under "Where many more worlds could come from" below. In Explore now: **SP13KTRA** and
+  **DR1V3N WILD** (Frank Force's js13k racers, #13 of 317 in 2026 and #8 of 187 in 2024), embedded
+  from his GitHub Pages copies because play.js13kgames.com refuses a frame and their licences
+  reserve all rights; and the **Tomb of Ramesses VI** (a SuperSplat scan by Flyover Zone). More of
+  this round follows as its videos are recorded. Left out: **Wildbrush** (Danny Limanseta's, 1.24M
+  views on X), because Orb's own Original has the same name. Rækk du ferga? now opens
+  rekkerduferga.no: its `www.` address sends the frame on there, and Orb's frame grants its
+  permissions (fullscreen, sound, gamepads) to the address it was given only;
+  `scripts/check-embeds.mjs` now flags such addresses.
 
 ## Embeds we would add if their sites allowed it
 
@@ -222,3 +239,70 @@ walking a WebGPU planet of a million grass blades and flowers, the most beautifu
 neon Kowloon to drive and fly; 181 MB built) and **Halcyon** (billpwchan/halcyon: a tropical atoll
 with an FFT ocean, scanned reef and whales; about 560 MB, with scanned assets under their own
 licences). Hosting them needs worlds that can be bigger, or their large files served from a CDN.
+
+## Where many more worlds could come from
+
+Surveyed on 5 November 2026, for growing Explore from a few hundred worlds towards many thousands.
+Counts are each source's own on that day. Ranked by how many good worlds each could give:
+
+1. **Slop Cities** (github.com/zz85/slop-cities): Slop New York (mrdoob, MIT, plain ES modules,
+   no build) remixed into other real cities. `cities.yml` lists 83 live addresses; 66 frame; 29
+   cities are outside Europe and Japan (Abuja, Kaduna, Nairobi, Bangkok, Dubai, Hong Kong,
+   Riyadh, Seoul, Shanghai, Singapore, Taipei, Buenos Aires, Uruapan…). Most forks keep the MIT
+   licence, so Orb can host them. Map data is OpenStreetMap or city open data, which wants
+   credit. Quality goes with each city's data and its author's care, so look at each; the
+   repository's `screenshots/` folder makes the first pass quick.
+2. **SuperSplat** (superspl.at, by PlayCanvas): 17,660 public Gaussian-splat scenes, 1,730 of
+   them walkable, listed by an open JSON API
+   (`playcanvas.com/api/splats/explore?sort=views&order=-1&limit=100&skip=N`, plus `&search=`
+   and `&features=walkable`) with views, likes, size, licence and thumbnails. The player frames
+   fine. Only about a third of even the most viewed are places (the rest are objects, food and
+   test scans), so pick by hand from the top of the walkable list, preferring scenes under about
+   300 MB. Of the 688 most seen, 505 have no licence (embed them) and 145 are CC BY. Makers worth
+   following for places: flyoverzone, sa3d, schindelar3d, tosolini, azadbal, wu3d, misha_m, vwoo
+   and project_eternal.
+3. **Vibe Jam** (vibejam.com/api: every entry of @levelsio's AI game jam as one JSON document,
+   no key): 2,028 games, 1,458 still up, 1,250 made with three.js. Its rules mean free, no login
+   and an instant start; the winners and the most played are a ready shortlist (A Game About
+   Capybaras Delivering Food won in 2026). Few have public code, so they are embeds.
+4. **AI Games Feed** (games.omgithub.com/catalog.json, refreshed daily): 846 AI-made games with
+   X likes, a 1–10 polish score, a reachability check, a poster and a 30-second clip. Without its
+   fan games (about 125), itch.io pages (107) and what Orb has, roughly 80–100 working entries
+   score 8 or more. Most have no public code. Velven, the best hand-picked catalogue until now,
+   has answered HTTP 402 since 4 November.
+5. **awesome-opus-5.5-games** (AgentsLoop's list, kept alive in the fork
+   gamingnews5/awesome-opus-5.5-games: `games.json`): 3,581 games, each with its GitHub
+   repository, 1,560 with a live demo (339 three.js). Mostly jam quality (about 1 in 10 of the
+   rated ones is good enough), but it is the one big list where every world has code, about half
+   of it MIT: the place to mine for hostable, remixable worlds (Furkiozknn's no-build series of
+   Turkish places, Çay Ocağı among them, is a seam of about ten).
+6. **Playground Arcade** (playgroundarcade.com/games.js): 2,627 games, about 100 more a day,
+   tagged by genre (114 sports, many learning games); 1,501 are itch.io pages Orb can't frame and
+   only 232 link source. Best for niches Explore lacks.
+7. **Sketchfab** (`api.sketchfab.com/v3/search?type=models&categories=places-travel`, no key):
+   millions of models whose embeds frame, but mostly objects to orbit. The real places sit with a
+   few accounts: Global Digital Heritage (600+), CyArk (219), the Zamani Project (158, African
+   heritage), RaizVR (146) and the Hallwyl Museum. Licences are per model.
+8. **CyArk Tapestry** (tapestry.cyark.org/library): 77 narrated 3D tours of heritage sites (Petra,
+   Great Zimbabwe, Djenné, Wat Arun, Rapa Nui, Chan Chan…), which frame and run on phones. Their
+   policy allows free embedding only on non-commercial sites, and Orb sells plans: they need
+   CyArk's written permission first (info@cyark.org).
+9. **Smaller, steady streams**: threejs.org's featured grid (75 projects, about 30 added since
+   September, nearly all worth a look; `api.fxtwitter.com/status/<id>` gives each post's numbers),
+   PlayCanvas's published apps (`playcanvas.com/api/apps?sort=-plays`: about 60,000, all frame,
+   but only 20–40 good), Babylon.js's demo and game pages (5–10), Awwwards' Games category (two
+   or three a month among adverts), studios with many games on their own site (meticulai.com/games:
+   16), js13kGames (each year's ranked entries; play.js13kgames.com refuses a frame, but many
+   makers host a copy that frames, and their licences vary), and Arrival Space (walkable scans
+   with visit counts; not checked in a browser yet).
+
+Not sources: itch.io (answers a frame with a "hotlinked" page), Polycam, Scaniverse, KIRI Engine
+and Google Arts & Culture (refuse frames), Luma (its gallery is gone), Spline (25,000 CC BY scenes,
+but design pieces, and a scene can only be framed once its maker publishes it from an account),
+Shadertoy (a Cloudflare challenge, a non-commercial licence, and its best-known artist forbids
+showing his work elsewhere), wasmga.me (refuses frames; large GPL ports) and Teleport by Varjo
+(splat captures with almost no audience).
+
+To reach thousands, the step after this is a scout job that reads these listings every day,
+drops what refuses a frame, is unreachable or is already in Explore, screenshots the rest and
+queues them for a look, hosting whatever has code and a licence.
