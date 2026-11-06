@@ -30,7 +30,7 @@ async function ask(request, when, one, two) {
     model,
     maxOutputTokens: 2000,
     messages: [{ role: 'user', content: [
-      { type: 'text', text: `Someone asked Orb, an AI that makes small 3D web worlds and games, for: "${request}". Here are two worlds Orb made for it, each ${when}. World 1:` },
+      { type: 'text', text: `Someone asked Orb, an AI that makes 3D web worlds and games, for: "${request}". Here are two worlds Orb made for it, each ${when}. World 1:` },
       image(one),
       { type: 'text', text: 'World 2:' },
       image(two),

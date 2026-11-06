@@ -1,10 +1,10 @@
 # Orb
 
-> Orb (https://orbworlds.com) is a place to play, remix and make small 3D worlds and games in the browser. People describe a world and Orb's AI builds it; anyone can play it, and remix it when its maker allows.
+> Orb (https://orbworlds.com) is a place to play, remix and make 3D worlds and games in the browser, from a quick toy to an ambitious open world or multiplayer game. People describe a world and Orb's AI builds it; anyone can play it, and remix it when its maker allows.
 
 ## Make a world
 
-An Orb world is a small web project: an `index.html` and the files it loads with relative URLs. Plain ES modules, no build step. three.js comes from jsdelivr through an import map:
+An Orb world is a web project: an `index.html` and the files it loads with relative URLs, as many as it needs. Plain ES modules, no build step. three.js comes from jsdelivr through an import map:
 
 ```html
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"}}</script>

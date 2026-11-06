@@ -2,7 +2,7 @@
 
 Play and test [Orb](https://orbworlds.com) worlds on your own computer, the way Orb runs them.
 
-An Orb world is a small web project: an `index.html` and the files it loads. On Orb a world gets
+An Orb world is a web project: an `index.html` and the files it loads. On Orb a world gets
 `window.orb`: saves that follow the player, state everyone shares (leaderboards, guestbooks),
 realtime rooms, shops. The kit gives a world all of that on `localhost`, so you can work on it in
 your own editor and test it in CI.

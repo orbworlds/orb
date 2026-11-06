@@ -5,7 +5,7 @@ Make worlds and games by talking, then play them with anyone. **[orbworlds.com](
 You describe a world, an AI agent builds it while you watch, and you share the link. No install,
 no account needed. Anyone can remix a public world and make it their own.
 
-A world is a small web project: an `index.html` and the files it loads. It runs in a sandboxed
+A world is a web project: an `index.html` and the files it loads. It runs in a sandboxed
 iframe and gets `window.orb` for saves, shared state, multiplayer rooms and a shop.
 
 ## Run it
