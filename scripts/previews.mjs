@@ -763,6 +763,8 @@ const SHOTS = {
   // Sutro Tower: its About card closed (a click beside it), flying slowly sideways past the tower above Twin Peaks, at half
   // its pace
   'ext-sutro-tower': { wait: 90000, steps: [{ click: [10, 390], wait: 3000 }], hold: ['a'], init: halved, sub: 1, crf: [58, 35] },
+  // Sedona Sunset: from its mid-wash viewpoint (the 2 key), jogging up the dry wash toward the low sun between the buttes
+  'aw-sedona-sunset': { wait: 150000, steps: [{ click: [320, 200], wait: 3000 }, { key: 'Digit2', wait: 10000 }], hold: ['w', 'Shift'], sub: 1, crf: [52, 34] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

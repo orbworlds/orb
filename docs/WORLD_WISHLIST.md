@@ -228,14 +228,36 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   **Bay Ride** (both hosted, MIT: mrdoob's Manhattan in plain ES modules, and Prasenjit Nayak's painted
   bay, a Vite and TypeScript project the importer runs from source), **Sutro Tower** (Vincent Woo's
   drone scan), **Takibi Biyori** (a camping game made entirely in code; it sells optional cosmetic
-  packs) and **Lagoon Tree Village**. These five draw inside Orb but are too heavy for this machine
-  to record in reasonable time (Bay Ride's sea shader takes minutes to compile here), so all but
-  Sutro Tower's videos are cut from their makers' posts. More of this round follows as its videos
-  are recorded. Left out: **Wildbrush** (Danny Limanseta's, 1.24M
+  packs) and **Lagoon Tree Village**. All but Sutro Tower draw inside Orb but are too heavy for this
+  machine to record in reasonable time (Bay Ride's sea shader takes minutes to compile here), so
+  their videos are cut from their makers' posts. Last, **Sedona Sunset** (hosted: Prasenjit Nayak's
+  walk up a red-rock wash in Arizona, MIT, plain ES modules; its video took 50 minutes to record
+  here). Left out: **Wildbrush** (Danny Limanseta's, 1.24M
   views on X), because Orb's own Original has the same name; **Skip a Stone** (a lovely alpine lake,
-  but the recorder couldn't throw a stone, so its clip would be a still, and its post has no video). Rækk du ferga? now opens
-  rekkerduferga.no: its `www.` address sends the frame on there, and Orb's frame grants its
-  permissions (fullscreen, sound, gamepads) to the address it was given only;
+  but the recorder couldn't throw a stone, so its clip would be a still, and its post has no video);
+  **Koi Pond Garden** (souranyp-stack/koi-pond-garden, MIT, one HTML file: it hosts and draws inside
+  Orb, but its own camera gives a letterboxed, nearly still clip here and its post's video is a
+  16-minute screen recording; Explore also has Koi Canal and Kōyō-en); **Hard Road** (the endless
+  winter drive the "Agreed" list asks for: WebGPU first, it was still compiling its shaders when
+  checked here, and then its site answered our checks with 429; check it on a real GPU). Found and
+  worth a later look: Camping Season, Terrain Rider (real mountain-bike trails), Roadarium (119
+  real cities, made for learner drivers), Angkor Heritage (Cambodia in voxels), BOALT (sport
+  fishing), Momiji Lake, Rivets & Roses (its interface opens in German), Volley Rally, Pelota (an
+  alpha of the Mesoamerican ballgame), Willowmere, Emberfall (an engine demo), Mint's playground
+  (Genesis Grove putting over splat landscapes, Breakline, Boulder Cove: MIT, but Next.js builds),
+  Meticulai's Lost Marbles and Marble Golf, Neil the Seal, Eagle's Descent (the Apollo landing),
+  Island Three (an O'Neill cylinder), Riviera Rivals, Snooker Sim, putt.day, Three Pins,
+  InFlightSimulator, Biplane Skirmish and Cosmos Journeyer (AGPL, 443 MB). Hostable once looked at:
+  Felt World (MIT, no build), ABYSSAL (MIT, Vite), Summer Cycle (MIT, but 460 MB of screenshots in
+  its repository), Furkiozknn's Turkish series (Çay Ocağı and more: MIT, no build), Tiny Yurts and
+  Dante (MIT js13k entries), Mistwood Cottage (CC BY) and Atlas of Space (Apache-2.0). Places:
+  SuperSplat's Datang Everbright City (Xi'an), a Tehran mirror hall, the Queen's Hamlet at
+  Versailles, Mont-Saint-Michel and Wat Paknam; CyArk's Tapestry tours need CyArk's permission
+  first, and Park Atlas is built on other companies' brands. Made for WebGPU, so for a real GPU:
+  Prasenjit Nayak's Island (MIT), Galaxium, Snow Day, Graveyard Pinball, Fractal Worlds, Jelly Baby
+  and Abuja Tour.
+  Rækk du ferga? now opens rekkerduferga.no: its `www.` address sends the frame on there, and Orb's
+  frame grants its permissions (fullscreen, sound, gamepads) to the address it was given only;
   `scripts/check-embeds.mjs` now flags such addresses.
 
 ## Embeds we would add if their sites allowed it
