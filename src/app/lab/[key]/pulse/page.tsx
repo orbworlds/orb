@@ -54,6 +54,11 @@ function Problems({ list, now }: { list: PulseProblem[]; now: number }) {
   );
 }
 
+/** Megabytes, as Supabase counts the database's space. */
+const mb = (bytes: number) => `${Math.round(bytes / 1_000_000).toLocaleString('en-US')} MB`;
+/** Past this the card turns red: most of a free Supabase project's 500 MB. */
+const DB_WARN = 400_000_000;
+
 export default async function PulsePage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
   if (key !== LAB_KEY) notFound();
@@ -85,6 +90,16 @@ export default async function PulsePage({ params }: { params: Promise<{ key: str
           </div>
           <div className="mt-0.5 text-ink-2">
             Today (UTC): {usd(p.builder.today.all)} of the {usd(p.builder.budget.dailyUsd)} budget · without an account {usd(p.builder.today.anon)} of {usd(p.builder.budget.anonUsd)} · paid for with credits people bought {usd(p.builder.today.paid)} · on the lighter model (out of credits, or without an account past their part) {usd(p.builder.today.light)} (at most {usd(p.builder.lightPerHour)} an hour, and {usd(p.builder.guestLightPerHour)} more without an account)
+          </div>
+        </div>
+      </section>
+
+      <section className={`${CARD} mt-4 flex items-start gap-3`}>
+        <span aria-hidden className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${p.database.bytes > DB_WARN ? 'bg-[var(--bad)]' : 'bg-[var(--ok)]'}`} />
+        <div className="min-w-0 text-[14px] text-ink">
+          <div className="font-medium">Database: {mb(p.database.bytes)}</div>
+          <div className="mt-0.5 text-ink-2">
+            Biggest: {p.database.tables.map((t) => `${t.name.replace(/^orb_/, '')} ${mb(t.bytes)}`).join(' · ')}
           </div>
         </div>
       </section>

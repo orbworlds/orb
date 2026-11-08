@@ -45,6 +45,8 @@ export interface Pulse {
   problems: { server: PulseProblem[]; pages: PulseProblem[] };
   /** Plans (./billing.ts): Stripe set up, Pro accounts (and how many of them end), credit packs sold. */
   plans: { payments: boolean; testMode: boolean; pro: number; ending: number; packs: number; packCredits: number };
+  /** The space the database takes (bytes), and its biggest tables (with their indexes and large values). */
+  database: { bytes: number; tables: Array<{ name: string; bytes: number }> };
 }
 
 const iso = (v: Date | string) => (v instanceof Date ? v : new Date(v)).toISOString();
@@ -55,7 +57,7 @@ const toProblem = (p: ProblemRow): PulseProblem => ({ kind: p.kind, message: p.m
 export async function pulse(db: Db): Promise<Pulse> {
   const people = `(w.owner_user is not null or w.owner_device is not null)`;
   const on = (col: string) => `${col} >= d.day and ${col} < d.day + interval '24 hours'`;
-  const [days, totals, down, server, pages, spend, plans] = await Promise.all([
+  const [days, totals, down, server, pages, spend, plans, size, tables] = await Promise.all([
     db.query<{ day: string; visitors: number; started: number; built: number; remixes: number; builds: number; failed: number; accounts: number }>(
       `with d as (select generate_series(date_trunc('day', now() at time zone 'utc') - interval '6 days', date_trunc('day', now() at time zone 'utc'), interval '1 day') at time zone 'utc' as day)
        select to_char(d.day at time zone 'utc', 'YYYY-MM-DD') as day,
@@ -85,6 +87,11 @@ export async function pulse(db: Db): Promise<Pulse> {
               (select count(*) from orb_credit_log where kind = 'topup')::int as packs,
               (select coalesce(sum(micros), 0) from orb_credit_log where kind = 'topup') as micros`,
     ),
+    db.query<{ bytes: number }>(`select pg_database_size(current_database())::float8 as bytes`),
+    db.query<{ name: string; bytes: number }>(
+      `select c.relname as name, pg_total_relation_size(c.oid)::float8 as bytes from pg_class c join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public' and c.relkind = 'r' order by bytes desc limit 6`,
+    ),
   ]);
   return {
     now: Date.now(),
@@ -101,5 +108,6 @@ export async function pulse(db: Db): Promise<Pulse> {
     },
     problems: { server: server.map(toProblem), pages: pages.map(toProblem) },
     plans: { payments: paymentsOn(), testMode: stripeTestMode(), pro: Number(plans[0]?.pro) || 0, ending: Number(plans[0]?.ending) || 0, packs: Number(plans[0]?.packs) || 0, packCredits: toCredits(Number(plans[0]?.micros) || 0) },
+    database: { bytes: Number(size[0]?.bytes) || 0, tables: tables.map((t) => ({ name: t.name, bytes: Number(t.bytes) || 0 })) },
   };
 }
