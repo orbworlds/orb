@@ -765,6 +765,16 @@ const SHOTS = {
   'ext-sutro-tower': { wait: 90000, steps: [{ click: [10, 390], wait: 3000 }], hold: ['a'], init: halved, sub: 1, crf: [58, 35] },
   // Sedona Sunset: from its mid-wash viewpoint (the 2 key), jogging up the dry wash toward the low sun between the buttes
   'aw-sedona-sunset': { wait: 150000, steps: [{ click: [320, 200], wait: 3000 }, { key: 'Digit2', wait: 10000 }], hold: ['w', 'Shift'], sub: 1, crf: [52, 34] },
+  // Walking Into Van Gogh: the view it opens on, the starry night over the village, its camera swaying gently (its buttons
+  // are the page's; walking is by clicking the ground); drawn at one device pixel per CSS pixel, its painted look being too
+  // slow here at two
+  'ext-walking-into-van-gogh': { wait: 45000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['w'], scale: 1, size: [1280, 800], sub: 1 },
+  // Horizonte Quetzal: the fall begun (its button), the quetzal weaving right and back between the rocks toward the black
+  // hole (it follows the pointer until a key is pressed, so the pointer waits where it flies; its HUD is the page's)
+  'aw-horizonte-quetzal': { wait: 40000, steps: [{ click: [113, 328], wait: 3000 }, { look: [0, 120], wait: 9000 }], press: [['d', 0.4, 1.2], ['a', 2.0, 2.8]], sub: 1, crf: [46, 31] },
+  // Rhyflitzer: Cruise begun (its button), then its autopilot (O, and Enter for the first place it offers) driving the car
+  // along the village streets on the Rhine (its menu and HUD are the page's)
+  'aw-rhyflitzer': { wait: 60000, steps: [{ click: [220, 40], wait: 20000 }, { key: 'o', wait: 2000 }, { key: 'Enter', wait: 5000 }], settle: 2.5, sub: 1 },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

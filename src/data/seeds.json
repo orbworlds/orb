@@ -3691,5 +3691,135 @@
       "author_url": "https://github.com/StarKnightt",
       "made_with": "three.js, procedural terrain and sky"
     }
+  },
+  {
+    "id": "ext-walking-into-van-gogh",
+    "name": "Walking Into Van Gogh",
+    "description": "Walk with other visitors through Van Gogh's starry-night village and into his bedroom in Arles, gather sunflower seeds and paint at an easel.",
+    "kind": "external",
+    "external_url": "https://walkingintovangogh.com",
+    "source_url": null,
+    "author_name": "Float",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-walking-into-van-gogh.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/walking-into-van-gogh-a-multiplayer-three-js-world-built-from-van-goghs-paintings/96731",
+      "platform": "three.js forum",
+      "views": 21,
+      "likes": 0,
+      "posted_at": "2026-11-07",
+      "handle": "FloatInc",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "aw-rhyflitzer",
+    "name": "Rhyflitzer",
+    "description": "Race any of twenty cars through real towns along the Rhine on the Swiss–German border, or get out and walk, fly a helicopter or drive a steam engine.",
+    "kind": "external",
+    "external_url": "https://rhyflitzer.freaxnx01.ch/",
+    "source_url": "https://github.com/freaxnx01/game-rhyflitzer",
+    "author_name": "freaxnx01",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/aw-rhyflitzer.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/rhyflitzer-map-madness-open-world-arcade-racer-on-real-swiss-towns-three-js-buildless/96708",
+      "platform": "three.js forum",
+      "views": 12,
+      "likes": 0,
+      "posted_at": "2026-11-07",
+      "handle": "freax_nx01",
+      "author_url": "https://github.com/freaxnx01",
+      "made_with": "three.js, OpenStreetMap, swisstopo terrain, no build step"
+    }
+  },
+  {
+    "id": "aw-horizonte-quetzal",
+    "name": "Horizonte Quetzal",
+    "description": "Fly a quetzal into a black hole, dodging rocks, as millions of years pass outside and your family's messages (in Spanish) become signals from the far future.",
+    "kind": "external",
+    "external_url": "https://gersoncode-prog.github.io/horizonte-quetzal/",
+    "source_url": "https://github.com/GersonCode-prog/horizonte-quetzal",
+    "author_name": "Gersón Enrique Batun Suriano",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/aw-horizonte-quetzal.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/horizonte-quetzal-fall-into-a-ray-traced-black-hole-while-millions-of-years-pass-outside/96690",
+      "platform": "three.js forum",
+      "views": 13,
+      "likes": 0,
+      "posted_at": "2026-11-07",
+      "handle": "GersonCode-prog",
+      "author_url": "https://github.com/GersonCode-prog",
+      "made_with": "three.js, GLSL ray tracing"
+    }
+  },
+  {
+    "id": "ext-latteart",
+    "name": "Latte Art",
+    "description": "Pour steamed milk into an espresso and draw hearts and rosettas in the foam with low pours, high pours and a toothpick.",
+    "kind": "external",
+    "external_url": "https://www.latteart.app/",
+    "source_url": null,
+    "author_name": "Justas",
+    "tags": [
+      "toy"
+    ],
+    "verified": false,
+    "featured": 56,
+    "thumb_url": "/seeds/ext-latteart.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/latteart-app-interactive-latte-art-simulator/96677",
+      "platform": "three.js forum",
+      "views": 11,
+      "likes": 0,
+      "posted_at": "2026-11-07",
+      "handle": "rudasrudas",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "ext-driftit",
+    "name": "DRIFTIT",
+    "description": "Drift a little car round twenty top-down tracks in low-poly desert, alpine, autumn and night worlds.",
+    "kind": "external",
+    "external_url": "https://driftit.app",
+    "source_url": null,
+    "author_name": "Vladyslav Khrystych",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-driftit.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/driftit-top-down-drift-game-with-custom-car-physics-and-procedural-low-poly-worlds/96702",
+      "platform": "three.js forum",
+      "views": 11,
+      "likes": 0,
+      "posted_at": "2026-11-07",
+      "handle": "vkhrystych",
+      "made_with": "three.js, a custom tyre model"
+    }
   }
 ]

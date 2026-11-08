@@ -268,6 +268,27 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   (simharbor.net, a cozy port builder) and **SKYWAKE** (a kite flight on usecrayon.ai) refuse a
   frame; **Glass Break** (Prasenjit Nayak's bottle-shooting range) is slight; Airsup's factory
   scenes are a company's product demos.
+- **Scouted on 7 November 2026**: the three.js forum's Showcase woke up with about 35 new topics.
+  Added **Walking Into Van Gogh** (Float's multiplayer walk through the starry-night village and
+  Vincent's bedroom; only talking with Vincent needs a login), **Horizonte Quetzal**
+  (GersonCode-prog, MIT, hosted: a quetzal falling into a ray-traced black hole; its text is in
+  Spanish), **Rhyflitzer** (freaxnx01, MIT, hosted: an open-world racer through real towns on the
+  Hochrhein, built from OpenStreetMap and swisstopo data), **Latte Art** (latteart.app) and
+  **DRIFTIT** (driftit.app). **Coccolith** (iwakicyan/coccolith, CC BY 4.0 by its page's footer: a
+  tiny pixel-art planet whose creatures keep to your clock) draws on its own site but not hosted:
+  its 3D parts are a git submodule (iwakicyan/my-3d-parts), which GitHub's tarballs leave out, its
+  code reads a Vite `define` (`__CHANGELOG__`, from `git log`), and its page's inline style loads
+  `/ui/` from the site's top. Hosting it needs the importer to fetch submodules (False Earth's
+  engine is one too), give a `define` a value and rewrite root paths in inline styles; as an embed
+  it would still need its check inside Orb. Left out: **Stovetop** (frustum.me: five dishes on a gas
+  hob with heat, oil and flame simulated) and **Vizbite** (fruits cut open to show their nutrients)
+  refuse a frame; **Beyond Portals** asks for a Google sign-in; **Toonda** is a commercial MMO
+  behind tracking cookies; **Gargantua** is Interstellar's black hole; **Slug Thug** is 21+ (cartoon
+  weed growing); The Happy Hour & Co., Abdel rahman Ghannoum's portfolio and Homecraft are a
+  studio's and people's own sites; Piramidka and CHROMA VIVA 008 are slight toys; CLANG! is a
+  shooter shown only in a video; Lightverse gave no link; GitHub Planet, PrintHaus, NeuralSpecOcean,
+  Cinematic Decks, SpinMi, Three-Live, Mokizen, a discography and a splat advert for AUREA Residences
+  were not worlds.
 
 ## Embeds we would add if their sites allowed it
 
@@ -277,7 +298,7 @@ Haggis Survivors, Field of Command, Astral War, Kart Royale, BuildYourTown, Litt
 *Quick, Draw!*, Blob Opera, Infinite Craft, Sandboxels, Coastal World, Igloo Inc, Marble by World
 Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Clash Karts, Kage no
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
-and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Stovetop, Vizbite, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
