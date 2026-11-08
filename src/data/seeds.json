@@ -3821,5 +3821,55 @@
       "handle": "vkhrystych",
       "made_with": "three.js, a custom tyre model"
     }
+  },
+  {
+    "id": "ext-freeze-out",
+    "name": "Freeze Out",
+    "description": "Throw snowballs in a four-against-four fight with bots on eight winter maps, where a hit on the head counts twice and three hits freeze you solid.",
+    "kind": "external",
+    "external_url": "https://newkrok.com/games/freeze-out/",
+    "source_url": null,
+    "author_name": "Krisztian Somoracz",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-freeze-out.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/freeze-out-a-first-person-4v4-snowball-fight-in-the-browser-three-js-webgpu-mobile-gamepad/96804",
+      "platform": "three.js forum",
+      "views": 18,
+      "likes": 0,
+      "posted_at": "2026-11-07",
+      "handle": "NewKrok",
+      "author_url": "https://github.com/newkrok",
+      "made_with": "three.js (WebGPU, with a WebGL 2 fallback), Vite, everything built in code"
+    }
+  },
+  {
+    "id": "ext-millipool",
+    "name": "Millipool",
+    "description": "Two millipedes made of billiard balls crawl around a pool table: shatter them with the cue ball and sink every last ball.",
+    "kind": "external",
+    "external_url": "https://millipool.metalturtle.net/",
+    "source_url": null,
+    "author_name": "metalturtle",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-millipool.webp",
+    "origin": {
+      "post_url": "https://x.com/metalturtle297/status/2117697361199948034",
+      "platform": "x",
+      "views": 8254,
+      "likes": 11,
+      "posted_at": "2026-11-03",
+      "handle": "@metalturtle297",
+      "author_url": "https://x.com/metalturtle297",
+      "made_with": "three.js"
+    }
   }
 ]

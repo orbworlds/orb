@@ -63,8 +63,9 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   can't start them, so nobody has seen them play inside Orb yet. **Tidewater**
   (dgreenheck/tidewater, MIT: a cozy island fishing game with a simulated ocean, among the best
   found), Powder Rush, Three.js Punk Drive, Transformer and Elysium Commons (scottsun.io), Deep Sea
-  Fish, Voxel City, Spring Ramble, Mars GT and Pandora Flower. Check each on a machine with a real
-  GPU before adding it. (On 5 November Chromium's software Vulkan, `--enable-unsafe-webgpu
+  Fish, Voxel City, Spring Ramble, Mars GT, Pandora Flower and Particle Fighter
+  (particlefighter.andrewblumson.com). Check each on a machine with a real GPU before adding it.
+  (On 5 November Chromium's software Vulkan, `--enable-unsafe-webgpu
   --use-webgpu-adapter=swiftshader --enable-features=Vulkan --use-vulkan=swiftshader` plus a shim
   turning today's string `swizzle` of a texture view into the object this Chromium wants, ran
   three.js's WebGPU examples at 2–3 frames a second; but Tidewater and Tokyo DisneySea didn't finish
@@ -289,6 +290,17 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   shooter shown only in a video; Lightverse gave no link; GitHub Planet, PrintHaus, NeuralSpecOcean,
   Cinematic Decks, SpinMi, Three-Live, Mokizen, a discography and a splat advert for AUREA Residences
   were not worlds.
+- **Scouted on 8 November 2026**: added **Freeze Out** (Krisztian Somoracz's four-against-four
+  snowball fight with bots, from the three.js forum; embedded at `newkrok.com/games/freeze-out/`,
+  the address its Share button gives, since its page reserves all other rights) and **Millipool**
+  (metalturtle's pool table overrun by billiard-ball millipedes, from the AI Games Feed and
+  @threejs on X; its preview is cut from its maker's video). Left out: **Reges Town**
+  (regestown.com, a city of AI citizens to walk, drive, cycle and fly through, from Show HN) sells
+  advertising on billboards inside the city; **Particle Fighter** (Andrew Blumson's arcade fighters
+  of 120,000 particles) runs on WebGPU only, with no fallback, so it waits for a real GPU; **Spiral
+  Nest** (an ant colony in a bubble chamber) is 2D. The forum's other new topic, a renderer for
+  vertical shorts, is not a world. Reddit answers this machine with a block page, so r/threejs and
+  r/webgl went unread.
 
 ## Embeds we would add if their sites allowed it
 

@@ -775,6 +775,9 @@ const SHOTS = {
   // Rhyflitzer: Cruise begun (its button), then its autopilot (O, and Enter for the first place it offers) driving the car
   // along the village streets on the Rhine (its menu and HUD are the page's)
   'aw-rhyflitzer': { wait: 60000, steps: [{ click: [220, 40], wait: 20000 }, { key: 'o', wait: 2000 }, { key: 'Enter', wait: 5000 }], settle: 2.5, sub: 1 },
+  // Freeze Out: Snowball TV (its button, then Start watching), a four-against-four match of bots filmed like a live
+  // broadcast (its menu and HUD are the page's)
+  'ext-freeze-out': { wait: 45000, steps: [{ click: [363, 219], wait: 4000 }, { click: [320, 264], wait: 25000 }], settle: 8 },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */
