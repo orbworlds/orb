@@ -3871,5 +3871,54 @@
       "author_url": "https://x.com/metalturtle297",
       "made_with": "three.js"
     }
+  },
+  {
+    "id": "ext-ghana-street-games",
+    "name": "Ghana Street Games",
+    "description": "Play 35 Ghanaian street games, from street football, penalties and One Pole to Ab3d3mu, Four Corners and Laski, in 3D compounds and streets.",
+    "kind": "external",
+    "external_url": "https://www.ghanastreetgames.com/",
+    "source_url": null,
+    "author_name": "samuelaidoo45",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 56,
+    "thumb_url": "/seeds/ext-ghana-street-games.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=50414117",
+      "platform": "hn",
+      "likes": 4,
+      "posted_at": "2026-11-08",
+      "handle": "samuelaidoo45",
+      "made_with": "three.js, CC0 characters and Poly Haven materials"
+    }
+  },
+  {
+    "id": "ext-formulazero",
+    "name": "FormulaZero",
+    "description": "Race a hybrid-era car against the clock round Brianza Park, an Italian circuit rebuilt from open map data, and post your lap to a global leaderboard.",
+    "kind": "external",
+    "external_url": "https://playformula0.com/",
+    "source_url": null,
+    "author_name": "builtbydimi",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 56,
+    "thumb_url": "/seeds/ext-formulazero.webp",
+    "origin": {
+      "post_url": "https://x.com/threejs/status/2119550567362211913",
+      "platform": "x",
+      "views": 6507,
+      "likes": 82,
+      "posted_at": "2026-11-08",
+      "handle": "@builtbydimi",
+      "author_url": "https://x.com/builtbydimi",
+      "made_with": "three.js, OpenStreetMap and Lombardy elevation data"
+    }
   }
 ]

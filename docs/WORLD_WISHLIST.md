@@ -301,6 +301,23 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   Nest** (an ant colony in a bubble chamber) is 2D. The forum's other new topic, a renderer for
   vertical shorts, is not a world. Reddit answers this machine with a block page, so r/threejs and
   r/webgl went unread.
+- **Scouted on 9 November 2026**: added **Ghana Street Games** (samuelaidoo45's 35 Ghanaian street
+  games in 3D compounds and streets, from Show HN; CC0 characters and Poly Haven materials) and
+  **FormulaZero** (builtbydimi's hybrid-era race car round Brianza Park, Monza's layout from
+  OpenStreetMap and Lombardy elevation data, featured by @threejs; its preview is cut from its
+  maker's trailer). Nothing was hosted: the database is over a free Supabase project's 500 MB, so
+  open-source finds go in as embeds or wait until it has room. Left out: **Tides of Fortune**
+  (tides-of-fortune.fr, silvestroz/tides-of-fortune: a 17th-century Caribbean pirate game, every ship,
+  island and sound generated in code, among the best found) sits behind Vercel's bot checkpoint,
+  which our headless checks can't pass ("Failed to verify your browser"), so nobody has seen it
+  inside Orb, and its PolyForm Noncommercial licence rules out an Orb-hosted copy while Orb sells
+  plans. **COO** (coo.mx: a spy pigeon over a hand-drawn downtown Toronto, featured by @threejs)
+  was still on its loading screen ("calibrating near vision", phase 3 of 4) after seven minutes on
+  this machine's software GPU, so it waits for a check on a real GPU. **Cake Farm** (a cozy communal
+  farm) lets only itch.io frame it; **Midgarth Quest** is set in Tolkien's Middle-earth;
+  **Samenland** (a medieval village that grows in real time, MIT) draws in 2D; **Camera Lab** (an exploded DSLR) is an object to turn rather than a world; a web client
+  for 1995's WorldsAway, a PC configurator, a hiking roguelike and a chiptune tracker are not 3D
+  worlds.
 
 ## Embeds we would add if their sites allowed it
 
@@ -310,7 +327,7 @@ Haggis Survivors, Field of Command, Astral War, Kart Royale, BuildYourTown, Litt
 *Quick, Draw!*, Blob Opera, Infinite Craft, Sandboxels, Coastal World, Igloo Inc, Marble by World
 Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Clash Karts, Kage no
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
-Stovetop, Vizbite, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Stovetop, Vizbite, Cake Farm, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut

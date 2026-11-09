@@ -778,6 +778,9 @@ const SHOTS = {
   // Freeze Out: Snowball TV (its button, then Start watching), a four-against-four match of bots filmed like a live
   // broadcast (its menu and HUD are the page's)
   'ext-freeze-out': { wait: 45000, steps: [{ click: [363, 219], wait: 4000 }, { click: [320, 264], wait: 25000 }], settle: 8 },
+  // Ghana Street Games: Street Football begun (Enter the street, its card, Let's play), dribbling up the compound pitch
+  // and shooting (its menus and buttons are the page's)
+  'ext-ghana-street-games': { wait: 35000, steps: [{ click: [320, 303], wait: 4000 }, { click: [167, 330], wait: 4000 }, { click: [250, 388], wait: 15000 }], hold: ['w', 'Shift'], press: [['Space', 2.2, 2.9]] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */
