@@ -12,7 +12,6 @@ import {
   ensureWallet,
   grantTopup,
   markSynced,
-  monthOf,
   plansConfig,
   readWallet,
   setCustomer,
@@ -21,6 +20,7 @@ import {
   TYPICAL_BUILD_CREDITS,
   userOfPayer,
   walletOfCustomer,
+  weekOf,
   type PlansConfig,
   type Wallet,
 } from './credits';
@@ -35,7 +35,7 @@ const GRACE_MS = 3 * 86400_000;
 /** A Pro period that ended is looked up in Stripe once, then at most this often. */
 const SYNC_EVERY_MS = 10 * 60_000;
 
-/** The payer's wallet as it stands: guest and Free months refreshed, an ended Pro period checked with Stripe. */
+/** The payer's wallet as it stands: its week's credits refreshed, an ended Pro period checked with Stripe. */
 export async function currentWallet(db: Db, payer: string, cfg: PlansConfig = plansConfig(), now: Date = new Date()): Promise<Wallet> {
   let w = await ensureWallet(db, payer, cfg, now);
   if (w.plan !== 'pro' || Date.parse(w.periodEnd) > now.getTime()) return w;
@@ -79,16 +79,18 @@ export const paidWallet = (w: Wallet): boolean => w.plan === 'pro' || w.topup > 
 /** What the plans and the viewer's credits look like, for the page (GET /api/billing). */
 export function billingInfo(w: Wallet | null, cfg: PlansConfig = plansConfig(), now: Date = new Date(), payments: boolean = paymentsOn()): BillingInfo {
   const plan = w?.plan ?? 'guest';
-  const monthly = w?.monthly ?? allowanceOf(plan, cfg);
+  const allowance = w?.allowance ?? allowanceOf(plan, cfg);
+  const week = weekOf(now).end.toISOString();
   return {
     plan,
     credits: {
-      left: Math.round((w?.left ?? monthly) * 100) / 100,
-      monthly,
-      used: Math.round((w?.usedMonthly ?? 0) * 100) / 100,
+      left: Math.round((w?.left ?? allowance) * 100) / 100,
+      allowance,
+      used: Math.round((w?.used ?? 0) * 100) / 100,
+      refreshAt: w?.refreshAt ?? week,
       topup: Math.round((w?.topup ?? 0) * 100) / 100,
       bonus: Math.round((w?.bonus ?? 0) * 100) / 100,
-      periodEnd: w?.periodEnd ?? monthOf(now).end.toISOString(),
+      periodEnd: w?.periodEnd ?? week,
       cancelAt: w?.cancelAt ?? null,
       pastDue: w?.status === 'past_due',
     },

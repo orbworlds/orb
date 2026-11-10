@@ -42,7 +42,7 @@ describe('buying and wearing', () => {
   let pg;
   let db;
   const cfg = C.plansConfig({ ORB_FREE_CREDITS: '1500', ORB_PRO_CREDITS: '3000' });
-  const env = { ORB_SHOP_DAILY: '1000' };
+  const env = { ORB_SHOP_DAILY: '250' };
   const as = (userId) => ({ deviceHash: null, deviceId: null, userId });
   const fail = (fn, status, error) => assert.rejects(fn, (e) => e.status === status && e.code === error, `${status} ${error}`);
   const item = (id) => L.lookItem(id);

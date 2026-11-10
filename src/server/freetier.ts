@@ -6,7 +6,7 @@
 // - Without an account: the same per device and per IP (device keys are free to mint, so the IP
 //   quotas are the backstop).
 // - Paying for their credits (Pro, top-ups): only the burst and an hourly limit.
-// How much each person builds in a month is their credits (./credits.ts); these quotas guard
+// How much each person builds in a week is their credits (./credits.ts); these quotas guard
 // against abuse. What all free builds together may cost in a day is the budget in US dollars
 // (./budget.ts).
 // Daily windows end at UTC midnight. Pure module (no imports), unit-tested in

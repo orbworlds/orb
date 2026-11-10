@@ -1008,7 +1008,7 @@ async function run() {
 
     v = (await shop(asB)).json;
     const start = v?.credits;
-    check('signed in: their credits', v?.signedIn === true && start > 100 && v.owned.length === 0, v);
+    check('signed in: their credits (a week of Free’s is enough for the hat and the boots)', v?.signedIn === true && start >= 40 + 25 && v.owned.length === 0, v);
     const stale = await buy(asB, 'star-hat', 30);
     check('a price that isn’t the price → 409 price_changed, with the price', stale.status === 409 && stale.json?.error === 'price_changed' && stale.json.price === 40, stale.json);
     const nope = await buy(asB, 'unicorn', 5);
@@ -1053,6 +1053,8 @@ async function run() {
       // A buyer who hasn't spent anything today: the title alone is a day's spending on this test server (ORB_SHOP_DAILY = 100).
       const fan = await join(device('shop-vz'), `Night fan ${RUN}`);
       const asF = { dev: fan.dev, cookie: fan.cookie };
+      // The title costs more than a week of Free credits: Orb gives this fan the difference (bonus credits buy in worlds too).
+      await request('POST', '/api/admin/credits', { headers: { 'x-admin-token': ADMIN_TOKEN }, body: { handle: fan.handle, credits: priceOf('title-patron'), ref: `vz-fan-${RUN}` } });
       const fanStart = (await shop(asF, 'orb-vampirez')).json?.credits;
       const title = await buy(asF, 'title-patron', priceOf('title-patron'), 'orb-vampirez');
       check('buying in Orb’s own world: Orb keeps it (no maker to pay)', title.status === 200 && title.json.charged === priceOf('title-patron') && title.json.credits === fanStart - priceOf('title-patron'), title.json);
@@ -1073,7 +1075,7 @@ async function run() {
     const r = await request('POST', '/api/auth/signup', { dev: LOOKS_DEV, body: { username: `Blob ${RUN}`, password: 'friendly pass 1' } });
     const as = { dev: LOOKS_DEV, cookie: cookieOf(r) };
     const fresh = (await request('GET', '/api/looks', as)).json;
-    // The cheapest look: it fits a Free month and this test server's day of spending (ORB_SHOP_DAILY).
+    // The cheapest look: it fits a week of Free credits and this test server's day of spending (ORB_SHOP_DAILY).
     const cheap = fresh.items?.reduce((a, b) => (b.price < a.price ? b : a));
     const pricey = fresh.items?.find((i) => i.id !== cheap?.id);
     check('signed in: their credits, nothing worn yet', fresh.signedIn === true && typeof fresh.credits === 'number' && fresh.look.wear.length === 0 && !!cheap && !!pricey, fresh);

@@ -13,13 +13,13 @@ import { useUi } from '@/state/ui';
 import { useWorld } from '@/state/world';
 import { groupClass, SectionHeader, Skeleton, useHydrated } from './WorldCard';
 
-/** How much of this period's plan credits is left, as a bar. */
+/** How much of this week's plan credits is left, as a bar. */
 function CreditsMeter({ left, total }: { left: number; total: number }) {
   const share = total > 0 ? Math.min(1, Math.max(0, left / total)) : 0;
   return (
     <div
       role="meter"
-      aria-label="Credits left this month"
+      aria-label="Credits left this week"
       aria-valuemin={0}
       aria-valuemax={Math.round(total)}
       aria-valuenow={Math.max(0, Math.round(left))}
@@ -75,7 +75,7 @@ export function PlanCard() {
   if (info.plan === 'guest') return null; // the account card above asks for an account
 
   const pro = info.plan === 'pro';
-  const when = pro ? (c.cancelAt ? `Pro ends ${shortDate(c.cancelAt)}` : `Renews ${shortDate(c.periodEnd)}`) : `More on ${shortDate(c.periodEnd)}`;
+  const when = pro && c.cancelAt ? `More on ${shortDate(c.refreshAt)} · Pro ends ${shortDate(c.cancelAt)}` : `More on ${shortDate(c.refreshAt)}`;
   return (
     <section aria-labelledby="orb-plan-h">
       {header}
@@ -98,7 +98,7 @@ export function PlanCard() {
           )}
         </div>
         <div className="mt-3">
-          <CreditsMeter left={Math.max(0, c.monthly - c.used)} total={c.monthly} />
+          <CreditsMeter left={Math.max(0, c.allowance - c.used)} total={c.allowance} />
         </div>
         {info.earnings && (
           <div className="mt-3 rounded-[14px] bg-[var(--field-bg)] px-3 py-2.5">

@@ -20,20 +20,20 @@ export interface Look {
 }
 
 /**
- * Priced like Roblox's avatar shop (a credit is worth about a Robux): a month of Free credits gets
- * two or three things, as Premium's monthly Robux do there; a month of Pro gets most of them.
+ * Priced for weekly credits, which don't add up: a week of Free credits gets two or three things,
+ * a week of Pro most of them.
  */
 export const LOOK_ITEMS: readonly LookItem[] = [
-  { id: 'sprout', name: 'Sprout', slot: 'head', price: 75 },
-  { id: 'flower', name: 'Flower', slot: 'head', price: 100 },
-  { id: 'party-hat', name: 'Party hat', slot: 'head', price: 150 },
-  { id: 'bunny-ears', name: 'Bunny ears', slot: 'head', price: 200 },
-  { id: 'top-hat', name: 'Top hat', slot: 'head', price: 250 },
-  { id: 'halo', name: 'Halo', slot: 'head', price: 400 },
-  { id: 'crown', name: 'Crown', slot: 'head', price: 750 },
-  { id: 'blush', name: 'Blush', slot: 'face', price: 50 },
-  { id: 'round-glasses', name: 'Round glasses', slot: 'face', price: 100 },
-  { id: 'shades', name: 'Shades', slot: 'face', price: 150 },
+  { id: 'sprout', name: 'Sprout', slot: 'head', price: 15 },
+  { id: 'flower', name: 'Flower', slot: 'head', price: 25 },
+  { id: 'party-hat', name: 'Party hat', slot: 'head', price: 35 },
+  { id: 'bunny-ears', name: 'Bunny ears', slot: 'head', price: 45 },
+  { id: 'top-hat', name: 'Top hat', slot: 'head', price: 60 },
+  { id: 'halo', name: 'Halo', slot: 'head', price: 90 },
+  { id: 'crown', name: 'Crown', slot: 'head', price: 175 },
+  { id: 'blush', name: 'Blush', slot: 'face', price: 10 },
+  { id: 'round-glasses', name: 'Round glasses', slot: 'face', price: 25 },
+  { id: 'shades', name: 'Shades', slot: 'face', price: 35 },
 ];
 
 /** The colors new players get one of at random. */

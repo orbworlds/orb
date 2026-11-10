@@ -254,7 +254,7 @@ If you change a contract, update this file in the same change.
   credits through `orb.shop` (§7). Its page lists them with their prices; buying always goes
   through Orb's own sheet, at the price in Orb's saved copy of the page, and what's bought belongs
   to the account (one of each per world, on every device). Paid credits go first in worlds (Pro's:
-  the month's, then packs; Free: packs, then the month's free credits, which stay for building),
+  the week's, then packs; Free: packs, then the week's free credits, which stay for building),
   and the world's maker earns `ORB_SHOP_SHARE` (100%: Orb takes no fee for now) of the part that was paid for: free credits
   buy things too but earn nobody anything, so accounts made for their free credits pay nothing
   out. Orb's sheet says how much goes to the maker. Makers try their own things for free and hear when something sells. Earnings show
@@ -266,7 +266,7 @@ If you change a contract, update this file in the same change.
   sales. An account spends at most
   `ORB_SHOP_DAILY` credits a day in worlds. Things are priced like Roblox's (a credit is worth
   about a Robux): the builders suggest 50–300 credits for most things, up to 1,000 for something
-  special, so a month of Free credits buys a few things rather than a whole shop.
+  special, so free credits buy a small thing now and then rather than a whole shop.
   Making money is said where makers look: before their first sale the plan card says "Make money
   with your worlds" (with **Add a shop**, which puts that request in the chat, when a world of
   theirs is on screen), the plans sheet says it too, and after a build the builders' three next
@@ -307,8 +307,8 @@ If you change a contract, update this file in the same change.
   character: a soft blob, or a glowing orb up in the air) is theirs to dress, in the You tab (after their worlds). A
   color of the palette is free (guests' stays on the device); things to wear (`src/lib/looks.ts`:
   sprout, flower, party hat, bunny ears, top hat, halo, crown on the head; blush, round glasses,
-  shades on the face; 50–750 credits, like Roblox's avatar shop: a Free month gets two or three,
-  a Pro month most of them) are Orb's own, bought with credits like things in worlds (Orb keeps
+  shades on the face; 10–175 credits: a week of Free credits gets two or three, a week of Pro
+  most of them) are Orb's own, bought with credits like things in worlds (Orb keeps
   these sales, and they count toward the day's cap). Tap one to try it on, then **Get it**; it's put on
   right away, one per slot. The account's color and what it wears follow it to every device and
   into every world: presence carries it to the others in a room (a change shows within seconds),
@@ -413,8 +413,8 @@ Browser (Next.js client)                              Vercel Functions (Node)   
 | `ORB_STRIPE_SECRET_KEY` | optional; a Stripe secret key that wins over `STRIPE_SECRET_KEY` (which Vercel's Stripe integration manages and may overwrite), e.g. a live account's key for Production while previews keep the sandbox |
 | `STRIPE_WEBHOOK_SECRET` | optional; the signing secret of a webhook endpoint you made yourself (`/api/billing/webhook`); Orb then registers none. `ORB_STRIPE_WEBHOOK_URL` sets the address Orb registers instead (tests) |
 | `ORB_STRIPE_TEST_ACCOUNTS` | optional; with a sandbox's key (`sk_test_…`) on the production deployment, only these usernames (comma-separated) may check out (`payments` is false for everyone else); previews, local runs and live keys aren't limited |
-| `ORB_GUEST_CREDITS`, `ORB_FREE_CREDITS` | optional; credits a month per device without an account (default 100; never shown in the app, so it can change) and per account on Free (default 300). A credit is US$0.01 of AI at the model's list price |
-| `ORB_PRO_CREDITS`, `ORB_PRO_USD` | optional; Pro's credits a month (default 2000) and price in US$ a month (default 20) |
+| `ORB_GUEST_CREDITS`, `ORB_FREE_CREDITS` | optional; credits a week per device without an account (default 25; never shown in the app, so it can change) and per account on Free (default 70). Every plan's credits refresh on Mondays at 00:00 UTC and don't carry over. A credit is US$0.01 of AI at the model's list price |
+| `ORB_PRO_CREDITS`, `ORB_PRO_USD` | optional; Pro's credits a week (default 460) and price in US$ a month (default 20) |
 | `ORB_TOPUPS` | optional; the credit packs any account can buy, `usd:credits` comma-separated (default `10:800,25:2100,50:4200`) |
 | `ORB_SHOP_SHARE`, `ORB_SHOP_DAILY` | optional; what part of the paid credits spent in a world's shop its maker earns (0–1, default 1), and the credits an account may spend in worlds in a day (default 2000) |
 | `ORB_MOCK_AI=1` | local testing: builds follow a scripted agent (`src/server/agent/mock.ts`, no network, no cost) |
@@ -630,11 +630,12 @@ the last 30 days are shown. All go with their accounts.
 
 Plans and credits (`src/server/credits.ts`, `src/server/billing.ts`): `orb_wallets` is one row
 per payer (`payer`: `u:<user id>` or `d:<device hash>` without an account), in millionths of a
-US$ (a credit is 10,000): `plan` ('free'|'pro'; devices are guests), the period of the plan's
-credits (`period_start`, `period_end`: the UTC month, or the Stripe subscription's), its
-`allowance_micros` and `used_micros`, `topup_micros` (bought packs; may go below 0 after a
+US$ (a credit is 10,000): `plan` ('free'|'pro'; devices are guests), the period
+(`period_start`, `period_end`: the week, or for Pro the Stripe subscription's paid month), the week
+whose plan credits count (`week_start`, Monday 00:00 UTC: every plan's refresh weekly), its
+`allowance_micros` (a week's) and `used_micros` (this week's), `topup_micros` (bought packs; may go below 0 after a
 build's last step), `bonus_micros` (credits given, not bought: earnings put into building, and plan
-credits a refund gives back after their period; builds take plan credits, then bonus, then top-ups,
+credits a refund gives back after their week; builds take plan credits, then bonus, then top-ups,
 and a build's refund gives top-ups back only what it took from them, `orb_agent_jobs.charged_topup_micros`;
 in worlds' shops bonus credits, like free ones, earn nobody anything), `earned_micros` (what the account's worlds' shops earned it, not yet used) and
 `earned_total_micros` (all it ever earned), and for Pro `stripe_customer`, `stripe_subscription`,
@@ -720,7 +721,7 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `POST /api/agent/jobs` | `BuildRequest` (`worldId` required); the person's own key: `x-orb-agent-provider` (anthropic\|openai\|openrouter\|cursor), `x-orb-agent-key`, `x-orb-agent-model`, `x-orb-agent-effort` | starts a build (every build is an agent job) and streams its output (§8), the job's handle first. 400 `bad_request` (no world) or `bad_key`; 404; 429 `{error:'rate_limited', retryAfter}` (also with 3 builds of yours running, or 12 changing the world); 503 `{error:'ai_unavailable'}`; on Orb's AI: 403 `{error:'bot_detected'}`, 403 `{error:'account_required'}` (the script check), 402 `{error:'out_of_credits', plan}` |
 | `GET /api/agent/jobs/:id` | `?from=N` | the job's output from character N, then live (after a reload, a dropped connection or a request's time limit). This, Stop and answering its looks are only for whoever started the job (its device, or account); anyone else gets 404 |
 | `POST /api/agent/jobs/:id/cancel` | | Stop: `{ ok }`; the job ends within a moment and keeps what it saved |
-| `GET /api/billing` | | `BillingInfo`: the viewer's `plan` (guest\|free\|pro), `credits` (`left`, `monthly`, `used`, `topup`, `periodEnd`, `cancelAt`, `pastDue`; the app shows them to accounts only), `payments` (Stripe set up), `manage` (has a Stripe customer), `earnings` (accounts: `credits` earned in their worlds' shops and not yet used, `total` ever, and `payouts` once they're open: `account` none\|pending\|ready, `payable`, `minimum`, `holdDays`, `buyers` and `minBuyers`, `requested`, `paid`, `currency`, `usdPer`, `country` from the connection), and the `plans` (Free's and Pro's credits, Pro's price, packs, `typicalBuild`, `shopShare`: what makers earn of paid credits spent in their worlds) |
+| `GET /api/billing` | | `BillingInfo`: the viewer's `plan` (guest\|free\|pro), `credits` (`left`, `allowance` and `used`: the week's plan credits, `refreshAt`: next Monday, `topup`, `bonus`, `periodEnd`: when Pro renews, `cancelAt`, `pastDue`; the app shows them to accounts only), `payments` (Stripe set up), `manage` (has a Stripe customer), `earnings` (accounts: `credits` earned in their worlds' shops and not yet used, `total` ever, and `payouts` once they're open: `account` none\|pending\|ready, `payable`, `minimum`, `holdDays`, `buyers` and `minBuyers`, `requested`, `paid`, `currency`, `usdPer`, `country` from the connection), and the `plans` (Free's and Pro's credits, Pro's price, packs, `typicalBuild`, `shopShare`: what makers earn of paid credits spent in their worlds) |
 | `POST /api/billing/checkout` | `{ item: 'pro' \| <pack id>, from? }` (signed in; packs on any plan) | `{ url }` of a Stripe Checkout page (back at `/api/billing/return`, or `from` if cancelled). 401 `account_required`, 409 `already_pro`, 503 `payments_off`. A Stripe customer the account doesn't have (another Stripe account's, from before Orb's key changed) is forgotten and the checkout starts without it |
 | `POST /api/billing/payouts/setup` | `{ country, from? }` (signed in) | `{ url }` of Stripe's onboarding for the account's payouts (its Express account made in `country` the first time), back at `/api/billing/payouts/return`. 400 `bad_country` / `country_unsupported`, 503 `payouts_off`. `GET ?to=` (Stripe's refresh link): a fresh onboarding page, by redirect |
 | `GET /api/billing/payouts/return` | `?to=<path>` | reads the payout account from Stripe, then 303 to `to` with `?billing=payouts` (ready) or `payouts-pending` |

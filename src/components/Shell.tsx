@@ -623,7 +623,7 @@ function welcomeBack(): void {
   if (note === 'pro' || note === 'topup') {
     track('checkout_done', { item: note });
     void billing.load(true).then((info) => {
-      const text = note === 'topup' ? 'Your credits are in ✨ — happy building!' : `Welcome to Pro ✨ ${info ? `${info.plans.pro.credits.toLocaleString('en-US')} credits are yours this month.` : ''}`.trim();
+      const text = note === 'topup' ? 'Your credits are in ✨ — happy building!' : `Welcome to Pro ✨ ${info ? `${info.plans.pro.credits.toLocaleString('en-US')} credits are yours every week.` : ''}`.trim();
       useToasts.getState().push({ text, tone: 'success' }, 7000);
       useUi.getState().openPanel('you');
     });

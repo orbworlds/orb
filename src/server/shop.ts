@@ -184,7 +184,7 @@ export async function charge(db: Db, sale: Sale, cfg: PlansConfig = plansConfig(
     `with w as (
        select payer, plan, greatest(0, allowance_micros - used_micros) as m, topup_micros as t, greatest(0, bonus_micros) as b from orb_wallets where payer = $1 for update
      ), first as (
-       -- Paid credits first: Pro's period credits then top-ups; Free: top-ups, then the month's free credits.
+       -- Paid credits first: Pro's week's credits then top-ups; Free: top-ups, then the week's free credits.
        select payer, plan, m, t, b,
          case when plan = 'pro' then least($2::bigint, m) else least($2::bigint - least($2::bigint, greatest(0, t)), m) end as from_plan,
          case when plan = 'pro' then least($2::bigint - least($2::bigint, m), greatest(0, t)) else least($2::bigint, greatest(0, t)) end as from_topup

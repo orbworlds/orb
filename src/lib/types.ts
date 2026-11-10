@@ -339,16 +339,18 @@ export interface CreditPack {
 export interface BillingInfo {
   plan: Plan;
   credits: {
-    /** Credits left in all: this period's plan credits, then top-ups. */
+    /** Credits left in all: this week's plan credits, then top-ups. */
     left: number;
-    /** This period's plan credits, and how many of them are used. */
-    monthly: number;
+    /** This week's plan credits, and how many of them are used. */
+    allowance: number;
     used: number;
+    /** When the plan credits refresh: next Monday, 00:00 UTC (ISO). */
+    refreshAt: string;
     /** Top-up credits left (they stay until used). */
     topup: number;
     /** Credits from earnings put into building (given, not bought). */
     bonus: number;
-    /** When the plan credits refresh, or Pro renews (ISO). */
+    /** When Pro renews (its paid month ends); otherwise when the plan credits refresh (ISO). */
     periodEnd: string;
     /** Pro ends then instead of renewing (ISO). */
     cancelAt: string | null;

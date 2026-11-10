@@ -2,7 +2,7 @@
 // End-to-end tests for plans and credits (src/server/credits.ts, src/server/billing.ts): builds on
 // Orb's AI charged in credits, running out, going Pro and buying credit packs through Stripe
 // Checkout, Stripe's webhook (signed), coming back from a checkout, the customer portal,
-// renewals and cancelling — with the webhook and without it.
+// renewals and cancelling — with the webhook and without it. Plan credits refresh every Monday.
 //
 //   node scripts/test-billing.mjs
 //
@@ -89,7 +89,8 @@ try {
   b = await billing(GUEST);
   check('…the device’s credits went down by that', near(b.credits.left, 24 - used1), { left: b.credits.left, used1 });
   check('Orb’s model built it (Claude Opus 5.5, the same for everyone)', newest(fakeCursor).model?.id === 'claude-opus-5-5', newest(fakeCursor).model);
-  const second = await build(GUEST, w.id, 'more flowers');
+  // "mockspend": the fake agent writes a lot in its first step (about 60 credits), whatever a build costs now.
+  const second = await build(GUEST, w.id, 'more flowers mockspend');
   check('the build that uses the credits up pauses, keeping what it saved', /so I'll pause here — what I made so far is saved\. Create a free account/.test(second.text) && /"t":"version"/.test(second.text) && !/<orb:error>/.test(second.text), second.text.slice(-500));
   check('…its agent is stopped at Cursor', fakeCursor.log.includes(`POST /v1/agents/${newest(fakeCursor).id}/runs/${newest(fakeCursor).runs[0].id}/cancel`));
   const third = await build(GUEST, w.id, 'and a pond');
@@ -100,7 +101,8 @@ try {
   console.log('\nAn account');
   const maker = await signUp(GUEST);
   b = await billing(GUEST, maker.cookie);
-  check('signed up: the Free plan’s credits, for the calendar month', b?.plan === 'free' && b.credits.left === 20 && b.credits.monthly === 20 && new Date(b.credits.periodEnd).getUTCDate() === 1, b?.credits);
+  const monday = (t) => new Date(t).getUTCDay() === 1 && new Date(t).toISOString().endsWith('T00:00:00.000Z') && Date.parse(t) > Date.now() && Date.parse(t) <= Date.now() + 7 * 86_400_000;
+  check('signed up: the Free plan’s credits, for the week (until Monday)', b?.plan === 'free' && b.credits.left === 20 && b.credits.allowance === 20 && monday(b.credits.refreshAt), b?.credits);
   const pack = await request('POST', '/api/billing/checkout', { dev: GUEST, cookie: maker.cookie, body: { item: 'usd10' } });
   const freePack = [...stripe.sessions.values()].at(-1);
   check('a Free account can buy a credit pack too: a payment for 800 credits, no Stripe customer yet', pack.status === 200 && pack.json?.url === freePack?.url && freePack.mode === 'payment' && freePack.customer === null && freePack.metadata.credits === '800', { pack: pack.json, freePack });
@@ -126,10 +128,10 @@ try {
   const paid = await stripe.complete(session.id);
   check('paying: Stripe’s signed events are accepted', stripe.deliveries.length >= 3 && stripe.deliveries.every((d) => d.status === 200), stripe.deliveries);
   b = await billing(GUEST, maker.cookie);
-  check('…and the account is Pro, with Pro’s credits until next month', b?.plan === 'pro' && b.credits.left === 60 && b.credits.monthly === 60 && b.manage === true && Date.parse(b.credits.periodEnd) > Date.now() + 29 * 86_400_000, b?.credits);
+  check('…and the account is Pro for the month, with Pro’s credits for the week', b?.plan === 'pro' && b.credits.left === 60 && b.credits.allowance === 60 && monday(b.credits.refreshAt) && b.manage === true && Date.parse(b.credits.periodEnd) > Date.now() + 29 * 86_400_000, b?.credits);
   const back = await request('GET', `/api/billing/return?session_id=${session.id}&to=${encodeURIComponent(from)}`);
   check('coming back from Stripe lands on the page they left, saying so', back.status === 303 && back.headers.get('location') === `${from}?billing=pro`, { status: back.status, location: back.headers.get('location') });
-  check('…without starting the month again', (await billing(GUEST, maker.cookie)).credits.left === 60);
+  check('…without adding the week’s credits again', (await billing(GUEST, maker.cookie)).credits.left === 60);
   const twice = await request('POST', '/api/billing/checkout', { dev: GUEST, cookie: maker.cookie, body: { item: 'pro' } });
   check('Pro again → 409 already_pro', twice.status === 409 && twice.json?.error === 'already_pro', twice.json);
 
@@ -160,13 +162,13 @@ try {
   console.log('\nRenewing and cancelling');
   await stripe.renew(paid.subscription.id);
   b = await billing(GUEST, maker.cookie);
-  check('a renewal brings the month’s credits back; the pack stays', b.plan === 'pro' && b.credits.used === 0 && near(b.credits.left, 860), b.credits);
+  check('a renewal goes on with the week’s credits (they refresh on Mondays); the pack stays', b.plan === 'pro' && near(b.credits.used, usedBest) && near(b.credits.left, 60 - usedBest + 800) && Date.parse(b.credits.periodEnd) > Date.now() + 59 * 86_400_000, b.credits);
   await stripe.cancelAtPeriodEnd(paid.subscription.id);
   b = await billing(GUEST, maker.cookie);
   check('cancelling in the portal: Pro until the period ends', b.plan === 'pro' && b.credits.cancelAt === new Date(paid.subscription.items.data[0].current_period_end * 1000).toISOString(), b.credits);
   await stripe.end(paid.subscription.id);
   b = await billing(GUEST, maker.cookie);
-  check('then back on Free, with the bought credits still there', b.plan === 'free' && b.credits.monthly === 20 && b.credits.topup === 800 && near(b.credits.left, 820), b.credits);
+  check('then back on Free (what’s used this week stays used), with the bought credits still there', b.plan === 'free' && b.credits.allowance === 20 && b.credits.topup === 800 && near(b.credits.left, Math.max(0, 20 - usedBest) + 800), b.credits);
   const after = await build(GUEST, w.id, 'a moon too', { cookie: maker.cookie });
   check('…and builds go on', after.status === 200 && /"t":"version"/.test(after.text), after.json ?? after.text.slice(-200));
 
@@ -200,7 +202,7 @@ try {
   await new Promise((r) => setTimeout(r, 6500));
   await stripe.renew(quietPaid.subscription.id);
   b = await billing(D2, quiet.cookie);
-  check('a Pro period that ended is looked up in Stripe: renewed, with fresh credits', b.plan === 'pro' && b.credits.used === 0 && b.credits.left === 60 && Date.parse(b.credits.periodEnd) > Date.now(), b.credits);
+  check('a Pro period that ended is looked up in Stripe: renewed, going on with the week’s credits', b.plan === 'pro' && b.credits.allowance === 60 && b.credits.used > 0 && near(b.credits.left, 60 - b.credits.used) && Date.parse(b.credits.periodEnd) > Date.now(), b.credits);
   stripe.state.webhooks = true;
   stripe.state.period = 30 * 86_400;
 
@@ -217,13 +219,13 @@ try {
   await request('POST', '/api/billing/checkout', { dev: FAN, cookie: fan.cookie, body: { item: 'usd10', from: '/' } });
   await stripe.complete([...stripe.sessions.values()].at(-1).id);
   b = await billing(FAN, fan.cookie);
-  check('a Free account’s pack: its credits on top of the month’s', b.plan === 'free' && b.credits.topup === 800 && b.credits.left === 820, b.credits);
+  check('a Free account’s pack: its credits on top of the week’s', b.plan === 'free' && b.credits.topup === 800 && b.credits.left === 820, b.credits);
   const shopView = (await request('GET', `/api/worlds/${shopWorld.id}/shop`, { dev: FAN, cookie: fan.cookie })).json;
   check('…the shop knows 800 of the 820 are paid for', shopView?.credits === 820 && shopView.paid === 800, shopView);
   const hat = await buy(FAN, fan.cookie, 'star-hat', 30);
   let earn = await earned();
   b = await billing(FAN, fan.cookie);
-  check('a 30-credit hat comes out of the pack first (the month’s free credits stay for building): the maker earns all of it', hat.status === 200 && near(hat.json.credits, 790) && b.credits.topup === 770 && b.credits.used === 0 && near(earn?.credits, 30) && near(earn.total, 30), { hat: hat.json, credits: b.credits, earn });
+  check('a 30-credit hat comes out of the pack first (the week’s free credits stay for building): the maker earns all of it', hat.status === 200 && near(hat.json.credits, 790) && b.credits.topup === 770 && b.credits.used === 0 && near(earn?.credits, 30) && near(earn.total, 30), { hat: hat.json, credits: b.credits, earn });
   await buy(FAN, fan.cookie, 'boots', 10);
   earn = await earned();
   check('boots: 10 more', near(earn?.credits, 40), earn);
@@ -234,7 +236,7 @@ try {
   await stripe.complete([...stripe.sessions.values()].at(-1).id);
   const proHat = await buy(PRO_FAN, proFan.cookie, 'star-hat', 30);
   earn = await earned();
-  check('Pro’s monthly credits are paid for: 30 more', proHat.status === 200 && near(proHat.json.credits, 30) && near(earn?.credits, 70) && near(earn.total, 70), { proHat: proHat.json, earn });
+  check('Pro’s weekly credits are paid for: 30 more', proHat.status === 200 && near(proHat.json.credits, 30) && near(earn?.credits, 70) && near(earn.total, 70), { proHat: proHat.json, earn });
   const saleNotes = (await request('GET', '/api/friends', { dev: SELLER, cookie: seller.cookie })).json?.notes?.filter((n) => n.kind === 'sale') ?? [];
   check('the maker has one note for the world, adding up the sales and what they earned', saleNotes.length === 1 && saleNotes[0].sale.count === 3 && near(saleNotes[0].sale.credits, 70) && saleNotes[0].sale.item === 'Star Hat', saleNotes);
   const sellerBefore = (await billing(SELLER, seller.cookie)).credits;

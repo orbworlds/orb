@@ -738,7 +738,7 @@ export async function listWorlds(db: Db, viewer: Viewer, p: ListParams): Promise
   const keyDefs: Array<[string, string]> = rank ? [[rank, 'int'], ...SORT_KEYS[p.sort]] : SORT_KEYS[p.sort];
   const cursor = p.cursor ? decodeCursor(p.sort, p.cursor, keyDefs.map(([, type]) => type)) : null;
   // Trending is scored as of one moment for a whole browsing session (carried in the cursor).
-  const snapshot = cursor?.t ?? Math.floor(Date.now() / 1000);
+  const snapshot = cursor?.t ?? Date.now() / 1000;
   const trend = p.sort === 'trending' ? trendExpr(`${$(snapshot)}::float8`, $(await curatedOrder(db, tag))) : '';
   const keys = keyDefs.map(([expr, type]) => [expr === 'TREND' ? trend : expr, type] as [string, string]);
   if (cursor) {

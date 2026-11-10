@@ -100,7 +100,7 @@ describe('buying', () => {
     close(r.credits, 90);
     const w = await wallet('fan');
     close(w.topup, 70, 'from the pack');
-    close(w.usedMonthly, 0, 'the month’s free credits stay for building');
+    close(w.used, 0, 'the week’s free credits stay for building');
     const maker = await wallet('maker');
     close(maker.earned, 21);
     close(maker.earnedTotal, 21);
@@ -110,11 +110,11 @@ describe('buying', () => {
     assert.deepEqual({ credits: v.credits, paid: v.paid }, { credits: 90, paid: 70 });
   });
 
-  test('a top-up smaller than the price: the rest from the month, which earns nothing', async () => {
+  test('a top-up smaller than the price: the rest from the week’s, which earns nothing', async () => {
     await C.grantTopup(db, 'u:mixed', 10, 'cs_mixed', cfg);
     const r = await buy('mixed', 'shopw', 'hat', 30);
     close(r.credits, 0);
-    close((await wallet('mixed')).usedMonthly, 20);
+    close((await wallet('mixed')).used, 20);
     close((await wallet('maker')).earned, 28, '70% of the 10 bought ones');
   });
 
@@ -122,7 +122,7 @@ describe('buying', () => {
     await C.setProPeriod(db, 'u:pro', { start: new Date(Date.now() - 86_400_000), end: new Date(Date.now() + 20 * 86_400_000), credits: 60, customer: 'cus_pro', subscription: 'sub_pro', status: 'active', cancelAt: null });
     assert.equal((await S.shopView(db, as('pro'), 'shopw', cfg)).paid, 60);
     await buy('pro', 'shopw', 'boots', 10);
-    close((await wallet('pro')).usedMonthly, 10, 'the month’s first');
+    close((await wallet('pro')).used, 10, 'the week’s first');
     close((await wallet('maker')).earned, 35);
   });
 
@@ -228,7 +228,7 @@ describe('buying', () => {
   test('earnings passed on to another maker’s shop earn them nothing: only bought credits do', async () => {
     await db.query(`insert into orb_users (id, name) values ('other', 'Other')`);
     await db.query(`insert into orb_worlds (id, name, code, owner_user, visibility) values ('otherw', 'Other Shop', $1, 'other', 'public')`, [page(items)]);
-    // Only bonus credits left: the month's are used up and there are no top-ups.
+    // Only bonus credits left: the week's are used up and there are no top-ups.
     await db.query(`update orb_wallets set topup_micros = 0, used_micros = allowance_micros where payer = 'u:maker'`);
     const m = await wallet('maker');
     assert.ok(m.bonus >= 10, `the maker has bonus credits to spend (${m.bonus})`);
@@ -245,13 +245,13 @@ describe('buying', () => {
     await C.ensureWallet(db, 'u:builder', cfg);
     await db.query(`update orb_wallets set bonus_micros = $2, topup_micros = $3 where payer = $1`, ['u:builder', C.toMicros(15), C.toMicros(40)]);
     const w = await C.chargeCredits(db, 'u:builder', C.toMicros(45), cfg);
-    close(w.usedMonthly, 20, 'the month’s 20');
+    close(w.used, 20, 'the week’s 20');
     close(w.bonus, 0, 'the 15 bonus');
     close(w.topup, 30, '10 from the top-ups');
     close(C.toCredits(w.fromTopup), 10);
     const back = await C.refundCredits(db, 'u:builder', C.toMicros(45), 'job-builder', w.fromTopup);
     close(back.topup, 40);
-    close(back.usedMonthly, 0);
+    close(back.used, 0);
     close(back.bonus, 15);
   });
 });

@@ -29,8 +29,8 @@ Everything is set in Vercel's environment for the project `orb`.
 | `ORB_STRIPE_SECRET_KEY` | Optional Stripe secret key that wins over `STRIPE_SECRET_KEY` (which Vercel's Stripe integration manages and may overwrite): set it to sell through a Stripe account of your choosing, e.g. for Production only while previews keep the sandbox |
 | `STRIPE_WEBHOOK_SECRET` | Optional signing secret of a webhook endpoint you made yourself in Stripe; without it Orb registers its own |
 | `ORB_STRIPE_TEST_ACCOUNTS` | Optional usernames (comma-separated) that may check out on the live site while `STRIPE_SECRET_KEY` is a sandbox's (`sk_test_…`); everyone else sees Pro as "Coming soon", as a test card would get them Pro for free. With a live key, everyone can pay |
-| `ORB_GUEST_CREDITS`, `ORB_FREE_CREDITS` | Optional credits a month per device without an account (default 100) and per free account (default 300) |
-| `ORB_PRO_CREDITS`, `ORB_PRO_USD` | Optional Pro credits a month (default 2000) and its price in US$ a month (default 20) |
+| `ORB_GUEST_CREDITS`, `ORB_FREE_CREDITS` | Optional credits a week per device without an account (default 25) and per free account (default 70) |
+| `ORB_PRO_CREDITS`, `ORB_PRO_USD` | Optional Pro credits a week (default 460) and its price in US$ a month (default 20) |
 | `ORB_TOPUPS` | Optional credit packs any account can buy, `usd:credits` (default `10:800,25:2100,50:4200`) |
 | `ORB_SHOP_SHARE`, `ORB_SHOP_DAILY` | Optional: makers' part of the paid credits spent in their worlds' shops (default 1: all of it), and the credits an account may spend in worlds a day (default 2000) |
 | `ORB_PAYOUTS`, `ORB_PAYOUT_HOLD_DAYS`, `ORB_PAYOUT_MIN`, `ORB_PAYOUT_BUYERS`, `ORB_PAYOUT_REVIEW`, `ORB_USD_PER_EUR` | Optional cash payouts of makers' earnings (see [Shops in worlds](#shops-in-worlds)): `0` keeps them closed (they open by themselves once the Stripe account has Connect); days before a sale's earnings can be cashed out (default 30); fewest credits per cash-out (default 10000: US$100); fewest different players behind them (default 10); `0` sends cash-outs without Orb's check (default: every one is a request Orb approves on Pulse); a fixed US$-per-euro rate instead of the ECB's |
@@ -71,7 +71,7 @@ default), so an attack without accounts neither stops people building nor touche
 get, and those signed in keep the full model. Pulse shows each day's spend against
 the budget, and each Cursor build's trace its estimated cost (`costUsd`): compare them with the
 Cursor dashboard's Usage now and then. Builds paid for with bought credits (Pro, packs) are outside
-the budget and the daily caps; how much each person builds in a month is their
+the budget and the daily caps; how much each person builds in a week is their
 [credits](#plans-and-credits). An account whose credits are used up keeps building on the lighter
 model (Claude Haiku 5.5) for free; those builds have their own cap, `ORB_LIGHT_USD_PER_HOUR` ($2
 an hour by default, in 5-minute windows: when a window is spent, builds wait for the next), shown
@@ -119,13 +119,14 @@ keeps everyone's wallet, [`src/server/billing.ts`](../src/server/billing.ts) and
 [`src/server/stripe.ts`](../src/server/stripe.ts) sell Pro and the packs; people see it all at
 `/pricing` and in *You → Plan*.
 
-| | Price | Credits a month | Also |
+| | Price | Credits a week | Also |
 |---|---|---|---|
-| Free | $0 | 300 (about 10 builds) | |
-| Pro | $20 a month | 2,000 (about 70 builds) | the same builder as Free; never paused by the free builder's budget or daily caps |
+| Free | $0 | 70 (about 2 builds) | |
+| Pro | $20 a month | 460 (about 15 builds) | the same builder as Free; never paused by the free builder's budget or daily caps |
 
-Without an account a device gets a small allowance to try Orb (`ORB_GUEST_CREDITS`, 100 by
-default). The app never says how much, so it can change (say, when it's abused); running out
+Plan credits refresh every Monday at 00:00 UTC, like Claude's weekly limits; a month holds about
+4.35 weeks, so Free is about 300 a month and Pro about 2,000. Without an account a device gets a
+small allowance to try Orb (`ORB_GUEST_CREDITS`, 25 a week by default). The app never says how much, so it can change (say, when it's abused); running out
 asks people to make a free account.
 
 Credit packs (any account): $10 for 800, $25 for 2,100, $50 for 4,200. Pro is Orb's cost if a member
@@ -133,16 +134,17 @@ uses every credit (Stripe's fee aside); the packs also cover Stripe's fee; Free 
 Packs give a little less per dollar than what Pro adds over Free (85 credits a dollar), so Pro is
 the better deal for regular builders, but not by enough that a second account with a second
 subscription would pay off.
-A month's plan credits don't carry over (Free's month is the calendar month in UTC, Pro's the
-subscription's); pack credits stay until used, also after leaving Pro, and are spent after the
-plan's. Builds with people's own keys use no credits.
+A week's plan credits don't carry over, on any plan (Pro is paid by the month, but its credits
+refresh weekly too); pack credits stay until used, also after leaving Pro, and are spent after the
+plan's. Going Pro mid-week adds the difference to what's left of the week; leaving it, what was
+used this week stays used. Builds with people's own keys use no credits.
 
 ### Shops in worlds
 
 Credits also buy things inside worlds: a world lists what it sells in its page and calls
 `orb.shop.buy(id)`, and Orb's own sheet asks the player at the price in Orb's saved copy of the
 page ([`src/server/shop.ts`](../src/server/shop.ts), SPEC §7). Credits people paid for go first in
-worlds (a Free account's packs before its month's free credits, which stay for building), and the
+worlds (a Free account's packs before its week's free credits, which stay for building), and the
 world's maker earns all of that paid part (`ORB_SHOP_SHARE`, 1: Orb takes no fee for now; credit
 packs sell credits above a cent, which covers Stripe's fees); free credits buy things too but earn
 nothing, so making accounts for their free credits pays nobody. Makers see what they

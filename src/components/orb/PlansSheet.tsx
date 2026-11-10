@@ -51,7 +51,7 @@ function Plans({ info, signedIn, onClose }: { info: BillingInfo; signedIn: boole
     <>
       <p className="text-[14px] leading-relaxed text-ink-2">Credits pay for the AI that builds your worlds, and for things you get in worlds. A typical build uses about {p.typicalBuild}.</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <Plan name="Free" usd={0} credits={p.free} typical={p.typicalBuild} current={info.plan === 'free'} status={info.plan === 'free' ? standing(`more on ${shortDate(c.periodEnd)}`) : undefined}>
+        <Plan name="Free" usd={0} credits={p.free} typical={p.typicalBuild} current={info.plan === 'free'} status={info.plan === 'free' ? standing(`more on ${shortDate(c.refreshAt)}`) : undefined}>
           {info.plan === 'guest' && (
             <Button variant="primary" className="w-full" onClick={() => signUp()}>
               Create a free account
@@ -65,7 +65,7 @@ function Plans({ info, signedIn, onClose }: { info: BillingInfo; signedIn: boole
           typical={p.typicalBuild}
           current={pro}
           extra="Everything in Free, with more credits."
-          status={pro ? standing(c.cancelAt ? `ends ${shortDate(c.cancelAt)}` : `renews ${shortDate(c.periodEnd)}`) : undefined}
+          status={pro ? standing(`more on ${shortDate(c.refreshAt)} · ${c.cancelAt ? `ends ${shortDate(c.cancelAt)}` : `renews ${shortDate(c.periodEnd)}`}`) : undefined}
         >
           {pro ? (
             info.manage && (
@@ -116,7 +116,7 @@ function Plans({ info, signedIn, onClose }: { info: BillingInfo; signedIn: boole
       <p className="mt-4 text-[13px] leading-snug text-ink-2">
         <span className="font-medium text-ink">Make money with your worlds</span> by adding a shop.
       </p>
-      <p className="mt-3 text-[12.5px] leading-snug text-ink-3">Credits refresh monthly. Top-ups never expire. Cancel anytime.</p>
+      <p className="mt-3 text-[12.5px] leading-snug text-ink-3">Credits refresh every Monday. Top-ups never expire. Cancel anytime.</p>
     </>
   );
 }
@@ -151,7 +151,7 @@ function Plan({
         <span className="text-[13px] text-ink-2">a month</span>
       </div>
       <p className="mt-3 text-[14px] text-ink">
-        <span className="font-medium tabular-nums">{formatCredits(credits)} credits</span> a month <span className="text-ink-3">· {aboutBuilds(credits, typical)}</span>
+        <span className="font-medium tabular-nums">{formatCredits(credits)} credits</span> a week <span className="text-ink-3">· {aboutBuilds(credits, typical)}</span>
       </p>
       {extra && <p className="mt-1 text-[13px] leading-snug text-ink-2">{extra}</p>}
       {status && <p className="mt-3 text-[12.5px] text-ink-2 tabular-nums">{status}</p>}

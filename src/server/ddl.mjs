@@ -437,6 +437,9 @@ alter table orb_wallets add column if not exists earned_total_micros bigint not 
 -- plan credits, before top-ups) and buy things in worlds, but there, like free credits, they earn
 -- nobody anything: only bought credits do (so earnings can't be passed on to be cashed out elsewhere).
 alter table orb_wallets add column if not exists bonus_micros bigint not null default 0;
+-- The week (from Monday 00:00 UTC) whose plan credits used_micros counts: they refresh every week, on
+-- every plan (src/server/credits.ts ensureWallet). Pro's period_start/end stay Stripe's.
+alter table orb_wallets add column if not exists week_start timestamptz;
 -- What moved credits: a build's cost, a refund, a top-up (ref: the job or the Stripe checkout).
 create table if not exists orb_credit_log (
   id bigserial primary key,
