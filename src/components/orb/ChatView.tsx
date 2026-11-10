@@ -130,7 +130,7 @@ export function ChatView({
 
   const lastIndex = messages.length - 1;
   // Undo: on the newest reply that changed the world.
-  const lastChange = canEdit ? messages.findLast((m) => m.build?.toVersion != null) : undefined;
+  const lastChange = canEdit ? [...messages].reverse().find((m) => m.build?.toVersion != null) : undefined;
   const showIntro = !!intro && intro.chatKey === chatKey;
   const empty = messages.length === 0;
 

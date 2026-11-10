@@ -40,7 +40,7 @@ type Phase = 'hidden' | 'building' | 'done';
 export function BuildingPill({ isBuilding, progress, messages, top }: { isBuilding: boolean; progress: BuildProgress | null; messages: ChatMessage[]; top: string }) {
   const [phase, setPhase] = useState<Phase>('hidden');
   const wasBuilding = useRef(false);
-  const last = messages.findLast((m) => m.role === 'assistant');
+  const last = [...messages].reverse().find((m) => m.role === 'assistant');
   const b = last?.build;
 
   useEffect(() => {

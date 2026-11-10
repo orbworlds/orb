@@ -258,7 +258,7 @@ export function popLayer(): boolean {
     ownPop = false;
     return true;
   }
-  const top = layers.findLast((l) => l.entry);
+  const top = [...layers].reverse().find((l) => l.entry);
   if (!top || (history.state?.orbLayer ?? 0) >= top.id) return false;
   top.entry = false;
   top.close();
@@ -267,7 +267,7 @@ export function popLayer(): boolean {
 
 /** Going to another page from inside a layer: true when it should take that layer's entry. */
 export function takeLayerEntry(): boolean {
-  const top = layers.findLast((l) => l.entry);
+  const top = [...layers].reverse().find((l) => l.entry);
   if (!top || history.state?.orbLayer !== top.id) return false;
   top.entry = false;
   return true;
