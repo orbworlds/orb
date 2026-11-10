@@ -781,6 +781,9 @@ const SHOTS = {
   // Ghana Street Games: Street Football begun (Enter the street, its card, Let's play), dribbling up the compound pitch
   // and shooting (its menus and buttons are the page's)
   'ext-ghana-street-games': { wait: 35000, steps: [{ click: [320, 303], wait: 4000 }, { click: [167, 330], wait: 4000 }, { click: [250, 388], wait: 15000 }], hold: ['w', 'Shift'], press: [['Space', 2.2, 2.9]] },
+  // Streets of Nice: the shop opened (any key), Play, and its opening scene: the looters gathering outside the shop window
+  // (its menus are the page's)
+  'ext-streets-of-nice': { wait: 35000, steps: [{ key: 'Enter', wait: 5000 }, { key: 'Enter', wait: 35000 }], settle: 3, crf: [50, 33] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

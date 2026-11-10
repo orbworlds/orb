@@ -3920,5 +3920,29 @@
       "author_url": "https://x.com/builtbydimi",
       "made_with": "three.js, OpenStreetMap and Lombardy elevation data"
     }
+  },
+  {
+    "id": "ext-streets-of-nice",
+    "name": "Streets of Nice",
+    "description": "Defend a video game shop in Nice from a gang of looters with combos, throws and whatever is lying around.",
+    "kind": "external",
+    "external_url": "https://streetsofnice.com/",
+    "source_url": null,
+    "author_name": "Gwendall",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-streets-of-nice.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/streets-of-nice-an-arcade-beat-em-up-built-with-three-js/96927",
+      "platform": "three.js forum",
+      "views": 4,
+      "likes": 0,
+      "posted_at": "2026-11-10",
+      "handle": "gwendall",
+      "made_with": "three.js and its maker's own game tools"
+    }
   }
 ]

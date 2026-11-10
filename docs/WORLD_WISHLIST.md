@@ -318,6 +318,18 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   **Samenland** (a medieval village that grows in real time, MIT) draws in 2D; **Camera Lab** (an exploded DSLR) is an object to turn rather than a world; a web client
   for 1995's WorldsAway, a PC configurator, a hiking roguelike and a chiptune tracker are not 3D
   worlds.
+- **Scouted on 10 November 2026**: added **Streets of Nice** (Gwendall's arcade beat 'em up in a
+  game shop in Nice, from the three.js forum; its preview is its opening scene, the looters gathering
+  outside and flying back through the window, which runs for minutes on this machine before the
+  fight). Nothing was hosted: the database is still over its space. **AFK City** (afkcity.com:
+  Kushal Chudiwala's low-poly city that builds itself, which drew and grew to a town of 2,000 inside
+  Orb) waits for a good video: its title screen's backdrop is a video, and at the recorder's size its
+  own camera stays far overhead and dim, even zoomed; its maker's trailer is on YouTube
+  (M6BRkQA0zZg), which this machine can't fetch. Left out: **Stop Walking** (stopwalking.online: one-button jumps through a psychedelic
+  forest under a heckling fake live chat) is slight; Steam Deck OLED's and a branding studio's 3D
+  showcases, a walk-through portfolio, room and gym planners (FormaNest, Spatium), an antenna
+  simulator, music visuals (Lampjack), an atlas of LEGO sets and a conformal-geometry demo are not
+  worlds. The AI Games Feed had nothing new.
 
 ## Embeds we would add if their sites allowed it
 
