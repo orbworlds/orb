@@ -237,6 +237,9 @@ describe('the script check (src/server/buildlimits.ts scripted)', () => {
     const third = await built('d3', `  an EMPTY gray room.\n keep it minimal.`); // case and spacing aside, the same
     const own = await built('d4', 'hello'); // the device's own world of the day
     assert.equal(await scripted(db_, 'd4', 'make it nighttime'), false, 'a short request never counts');
+    const { REPAIR_REQUEST } = await import('../prompt.ts');
+    for (const d of ['r1', 'r2', 'r3']) await built(d, REPAIR_REQUEST);
+    assert.equal(await scripted(db_, 'r4', REPAIR_REQUEST), false, 'Orb’s own repair round, the same for everyone, never counts');
     assert.equal(await scripted(db_, 'd4', text), true, 'three other devices: a script');
     assert.deepEqual(await hidden(), ['w3', 'w4', third, own].sort(), 'its worlds of the day and the other three devices’ (not the older one, not someone else’s)');
     assert.ok(![mine, earlier].some((id) => ['w3', 'w4', third, own].includes(id)));

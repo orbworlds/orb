@@ -2,6 +2,7 @@
 // on people's own keys only get light abuse limits), and the builder's credits (./credits.ts),
 // for /api/agent/jobs. The quota rules themselves live in ./freetier.ts.
 
+import { REPAIR_REQUEST } from '@/lib/engine/prompt';
 import type { BuildRequest } from '@/lib/types';
 import { getViewer } from './auth';
 import { currentWallet, paidWallet, paymentsForPayer } from './billing';
@@ -82,7 +83,8 @@ export const SCRIPTED = "Orb couldn't tell that a person sent this — sign in (
  * still works, as it does for a person.
  */
 export async function scripted(db: Db, deviceHash: string, text: string): Promise<boolean> {
-  if (text.trim().length < SCRIPTED_MIN) return false;
+  // Orb's own words are the same for everyone: its repair round after a build that didn't work.
+  if (text.trim().length < SCRIPTED_MIN || text === REPAIR_REQUEST) return false;
   const same = `select world_id, owner_device from orb_agent_jobs
     where created_at > now() - interval '1 day' and owner_user is null and owner_device is not null
       and left(lower(regexp_replace(btrim(prompt), '\\s+', ' ', 'g')), 120) = left(lower(regexp_replace(btrim($2::text), '\\s+', ' ', 'g')), 120)`;
