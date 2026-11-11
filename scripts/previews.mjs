@@ -57,6 +57,17 @@ const hop = (p) => (t) => { const m = p.length - 1, k = Math.floor(t / 0.7), f =
 // for a camera flight or a walk that's too slow or too quick for a four-second clip
 const threefold = () => { const raf = window.requestAnimationFrame; window.requestAnimationFrame = (cb) => raf((ts) => cb(ts * 3)); };
 const halved = () => { const raf = window.requestAnimationFrame; window.requestAnimationFrame = (cb) => raf((ts) => cb(ts / 2)); };
+// Math.random from a fixed seed (mulberry32), for a world that lays itself out at random each time it loads: the same
+// layout in every take, so a path steered through it in a quick take holds in the recording
+const seeded = () => {
+  let s = 3;
+  Math.random = () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
 // Orb's own games dress up for the month they're in (pumpkins in October): their clips are of a day in May, as Orbcraft's
 // thumbnail is, so they don't date (an `init`: the recorder's clock, moved to that day)
 const inMay = () => {
@@ -784,6 +795,17 @@ const SHOTS = {
   // Streets of Nice: the shop opened (any key), Play, and its opening scene: the looters gathering outside the shop window
   // (its menus are the page's)
   'ext-streets-of-nice': { wait: 35000, steps: [{ key: 'Enter', wait: 5000 }, { key: 'Enter', wait: 35000 }], settle: 3, crf: [50, 33] },
+  // Pastel Drive: Start (its button), the talking car's four lines read through (Enter once each has finished typing:
+  // an Enter while one types only finishes it), then the parcel van out of its drive, right onto the road and right again
+  // round its first bend, past a crop field. Its countryside and traffic are laid out at random, so from a seed; the gas is
+  // on the recorder's clock (`lead`, then `press`), not `hold`, whose keys go down while the world still runs in real
+  // time, so the van starts from the same place every take (its menus and dialogue are the page's)
+  'ext-pastel-drive': {
+    wait: 40000, steps: [{ click: [320, 257], wait: 12000 }, ...Array(3).fill({ key: 'Enter', wait: 10000 }), { key: 'Enter', wait: 3000 }],
+    init: seeded, lead: { seconds: 1.1, hold: ['w'] }, settle: 0, press: [['w', 0, 9], ['d', 0.05, 1.3], ['d', 1.6, 2.0]],
+  },
+  // BEYOND: Explore freely (its button), flying on towards the Earth from orbit (its cockpit HUD is the page's)
+  'ext-beyond': { wait: 60000, steps: [{ click: [450, 310], wait: 20000 }], hold: ['w'], sub: 1 },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

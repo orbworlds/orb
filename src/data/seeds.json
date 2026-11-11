@@ -3944,5 +3944,105 @@
       "handle": "gwendall",
       "made_with": "three.js and its maker's own game tools"
     }
+  },
+  {
+    "id": "ext-what-the-water-keeps",
+    "name": "What the Water Keeps",
+    "description": "Steer a small boat by lantern light along a quiet waterway through a chain of dreamlike realms, or let the current carry you.",
+    "kind": "external",
+    "external_url": "https://what-the-water-keeps.vercel.app/",
+    "source_url": null,
+    "author_name": "Kevin Ngo",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-what-the-water-keeps.webp",
+    "origin": {
+      "post_url": "https://x.com/kevin_t_ngo/status/2119868968307695818",
+      "platform": "x",
+      "views": 438324,
+      "likes": 4087,
+      "posted_at": "2026-11-09",
+      "handle": "@kevin_t_ngo",
+      "author_url": "https://x.com/kevin_t_ngo",
+      "made_with": "Claude Fable 5.2, three.js"
+    }
+  },
+  {
+    "id": "ext-dimension-9",
+    "name": "Backrooms: Dimension 9",
+    "description": "Explore an endless, self-evolving Backrooms whose rooms, characters and entities an AI keeps building, alone or with friends.",
+    "kind": "external",
+    "external_url": "https://dimension9.space/",
+    "source_url": null,
+    "author_name": "apek",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-dimension-9.webp",
+    "origin": {
+      "post_url": "https://x.com/apekshik/status/2118847014071120179",
+      "platform": "x",
+      "views": 236176,
+      "likes": 3703,
+      "posted_at": "2026-11-06",
+      "handle": "@apekshik",
+      "author_url": "https://x.com/apekshik",
+      "made_with": "Claude Opus 5.5, three.js"
+    }
+  },
+  {
+    "id": "ext-beyond",
+    "name": "BEYOND",
+    "description": "Fly the solar system at true scale and land anywhere on real terrain, among the stars of a real star catalogue.",
+    "kind": "external",
+    "external_url": "https://beyondexplore.org/spela",
+    "source_url": null,
+    "author_name": "Afshin",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-beyond.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/beyond-interactive-space-exploration-with-real-scientific-data/96995",
+      "platform": "three.js forum",
+      "views": 16,
+      "likes": 0,
+      "posted_at": "2026-11-10",
+      "handle": "Beyondexplore",
+      "author_url": "https://beyondexplore.org",
+      "made_with": "three.js (WebGPU, WebGL 2 fallback), TSL"
+    }
+  },
+  {
+    "id": "ext-pastel-drive",
+    "name": "Pastel Drive",
+    "description": "Deliver parcels across blocky pastel landscapes to bring the colors back after a storm turned Pastel County gray.",
+    "kind": "external",
+    "external_url": "https://play.pasteldrive.com/",
+    "source_url": null,
+    "author_name": "iolmao",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-pastel-drive.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/pastel-drive-a-cozy-browser-driving-game-where-deliveries-bring-the-colors-back/97000",
+      "platform": "three.js forum",
+      "views": 15,
+      "likes": 0,
+      "posted_at": "2026-11-10",
+      "handle": "iolmao",
+      "author_url": "https://muliache.itch.io",
+      "made_with": "three.js r128, procedural Web Audio music"
+    }
   }
 ]

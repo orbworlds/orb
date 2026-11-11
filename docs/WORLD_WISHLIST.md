@@ -330,6 +330,23 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   showcases, a walk-through portfolio, room and gym planners (FormaNest, Spatium), an antenna
   simulator, music visuals (Lampjack), an atlas of LEGO sets and a conformal-geometry demo are not
   worlds. The AI Games Feed had nothing new.
+- **Scouted on 11 November 2026**: added **What the Water Keeps** (Kevin Ngo's small boat steered by
+  lantern light along a waterway through a chain of dreamlike realms, made with Claude Fable 5.2)
+  and **Backrooms: Dimension 9** (apek's endless Backrooms whose rooms, characters and entities an
+  AI keeps building, alone or with friends), both from X, their previews cut from their makers'
+  videos; **BEYOND** (Afshin's solar system at true scale under the Gaia DR3 star catalogue, with
+  real elevation data to land on; WebGPU with a WebGL 2 fallback, which is what drew here) and
+  **Pastel Drive** (iolmao's cozy delivery game: parcels bring the colors back to a county a storm
+  turned gray), both from the three.js forum. All four are embedded: the database is still over its
+  space. Pastel Drive lays its countryside and traffic out at random, so its preview's take is
+  seeded (the recorder's `seeded` init). Left out: **Akira Toriyama's drawing room**
+  (bird.jacomakes.com, from Show HN) refuses frames; **Tiny València** (tinyvalencia.com, Valencia
+  as an isometric city map, 220 points on Show HN) is drawn in 2D; **Alum Builder**
+  (alum-builder.pages.dev) is an 18-step crystallography lesson rather than a world; a fan-made GTA
+  6 radio wheel and Phoam (Android apps run in the browser; its demos are others' games) are others'
+  work; a web studio's walk-in showroom, two landing pages (Modus, a black hole), a photo slider, a
+  pergola configurator, a name picker, an AI face and Meanwhile on Earth (a globe of what distant
+  observers would see of it) are not worlds.
 
 ## Embeds we would add if their sites allowed it
 
@@ -339,7 +356,7 @@ Haggis Survivors, Field of Command, Astral War, Kart Royale, BuildYourTown, Litt
 *Quick, Draw!*, Blob Opera, Infinite Craft, Sandboxels, Coastal World, Igloo Inc, Marble by World
 Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Clash Karts, Kage no
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
-Stovetop, Vizbite, Cake Farm, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
