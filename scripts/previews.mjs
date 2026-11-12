@@ -806,6 +806,31 @@ const SHOTS = {
   },
   // BEYOND: Explore freely (its button), flying on towards the Earth from orbit (its cockpit HUD is the page's)
   'ext-beyond': { wait: 60000, steps: [{ click: [450, 310], wait: 20000 }], hold: ['w'], sub: 1 },
+  // Portals: its hands-free flight, hurried on (→) from the portal hall into the next world
+  'ext-portals': { wait: 45000, steps: [{ key: 'ArrowRight', wait: 25000 }], settle: 1, crf: [46, 31] },
+  // Tilt Labyrinth: started from its title, the board tilted round in a circle by the mouse so the steel ball rolls along
+  // its walls (cropped in on the board)
+  'ext-tilt-labyrinth': { wait: 25000, steps: [{ click: [145, 286], wait: 3000 }], mouse: (t) => [320 + 260 * Math.sin(t * 2.2), 200 + 160 * Math.cos(t * 2.2), false], crop: [60, 30, 520, 325] },
+  // Mist-Locked Gate: started from its title, the swordsman walking up the snowy, lantern-lit path to the temple gate; in a
+  // 16:9 window, as it draws (the clip is cut to 16:10), at one device pixel per CSS pixel: at two its grass and mist stall
+  // this machine
+  'ext-mist-locked-gate': { viewport: [640, 360], scale: 1, size: [1280, 800], sub: 1, wait: 50000, steps: [{ click: [320, 180], wait: 20000 }], hold: ['w'], settle: 1, crf: [50, 34] },
+  // Indiranagar, Live: its Orbit view (its button), zoomed in and turned slowly round the streets by the mouse. At this
+  // size its panels cover the middle of the map, so pointer events pass through them to the map (they aren't in the clip)
+  'ext-indiranagar': {
+    wait: 60000,
+    init: () => document.addEventListener('DOMContentLoaded', () => {
+      const style = document.createElement('style');
+      style.textContent = 'body * { pointer-events: none !important } canvas, button { pointer-events: auto !important }';
+      document.head.append(style);
+    }),
+    steps: [{ click: [122, 91], wait: 5000 }, { wheel: -300, wait: 1500 }, { wheel: -300, wait: 3000 }],
+    drag: (t) => [470 - 30 * t, 160],
+    crf: [54, 35],
+  },
+  // Tiny Planet: past its title (a click) and its dive from space to the ground, looking slowly round the village square
+  // with the mouse (walking on, it soon walks into a cottage); at one device pixel per CSS pixel: at two it stalls this machine
+  'ext-round-world': { scale: 1, size: [1280, 800], sub: 1, wait: 40000, steps: [{ click: [320, 200], wait: 8000 }], settle: 3, mouse: (t) => [320 + 50 * t, 200, false] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

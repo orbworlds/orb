@@ -4044,5 +4044,128 @@
       "author_url": "https://muliache.itch.io",
       "made_with": "three.js r128, procedural Web Audio music"
     }
+  },
+  {
+    "id": "ext-portals",
+    "name": "Portals: Endless Worlds",
+    "description": "Drift hands-free through hundreds of generated worlds inspired by books, art and places, each opening onto the next through a portal.",
+    "kind": "external",
+    "external_url": "https://portals-endless-worlds.netlify.app/",
+    "source_url": "https://github.com/emollick/ai-portals",
+    "author_name": "Ethan Mollick",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-portals.webp",
+    "origin": {
+      "post_url": "https://x.com/emollick/status/2119918307457577163",
+      "platform": "x",
+      "views": 104824,
+      "likes": 1907,
+      "posted_at": "2026-11-09",
+      "handle": "@emollick",
+      "author_url": "https://x.com/emollick",
+      "made_with": "Claude Fable 5.2, three.js"
+    }
+  },
+  {
+    "id": "ext-indiranagar",
+    "name": "Indiranagar, Live",
+    "description": "Look around a square kilometre of Bengaluru's Indiranagar, its metro line, 1,991 buildings and street trees, at any hour and season.",
+    "kind": "external",
+    "external_url": "https://indiranagar-live.vercel.app/",
+    "source_url": null,
+    "author_name": "Aishwarya Das",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-indiranagar.webp",
+    "origin": {
+      "post_url": "https://x.com/anshu4321/status/2119938067758772403",
+      "platform": "x",
+      "views": 111669,
+      "likes": 1151,
+      "posted_at": "2026-11-09",
+      "handle": "@anshu4321",
+      "author_url": "https://x.com/anshu4321",
+      "made_with": "Claude Fable 5.2, three.js, OpenStreetMap"
+    }
+  },
+  {
+    "id": "ext-tilt-labyrinth",
+    "name": "Tilt Labyrinth",
+    "description": "Tilt an oak board in a walnut box to roll a steel ball past every hole into the brass ring.",
+    "kind": "external",
+    "external_url": "https://blog.silencestar.com/posts/tilt-labyrinth/play/",
+    "source_url": null,
+    "author_name": "lifcc",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-tilt-labyrinth.webp",
+    "origin": {
+      "post_url": "https://x.com/mylifcc/status/2120054646282870910",
+      "platform": "x",
+      "views": 4124,
+      "likes": 31,
+      "posted_at": "2026-11-10",
+      "handle": "@mylifcc",
+      "author_url": "https://x.com/mylifcc",
+      "made_with": "Claude Fable 5.2, three.js"
+    }
+  },
+  {
+    "id": "ext-mist-locked-gate",
+    "name": "Mist-Locked Gate",
+    "description": "Fight your way up a misty, snowbound mountain path in a top-down xianxia action game, past a band of foes to its boss.",
+    "kind": "external",
+    "external_url": "https://op7418.github.io/guizang-game-skill/",
+    "source_url": "https://github.com/op7418/guizang-game-skill",
+    "author_name": "歸藏",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-mist-locked-gate.webp",
+    "origin": {
+      "post_url": "https://github.com/op7418/guizang-game-skill",
+      "platform": "github",
+      "stars": 85,
+      "posted_at": "2026-11-11",
+      "handle": "op7418",
+      "author_url": "https://github.com/op7418",
+      "made_with": "Claude Fable 5.2, three.js"
+    }
+  },
+  {
+    "id": "ext-round-world",
+    "name": "Tiny Planet",
+    "description": "Walk and fly round a little planet of beaches, pine woods and a village, from noon on one side to sunset and night on the other.",
+    "kind": "external",
+    "external_url": "https://starknightt.github.io/tiny-planet/",
+    "source_url": "https://github.com/StarKnightt/tiny-planet",
+    "author_name": "Prasenjit Nayak",
+    "tags": [
+      "world",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-round-world.webp",
+    "origin": {
+      "post_url": "https://github.com/StarKnightt/tiny-planet",
+      "platform": "github",
+      "posted_at": "2026-11-10",
+      "handle": "StarKnightt",
+      "author_url": "https://github.com/StarKnightt",
+      "made_with": "Claude Fable 5.2, Claude Opus 5.5, three.js"
+    }
   }
 ]

@@ -347,6 +347,36 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   work; a web studio's walk-in showroom, two landing pages (Modus, a black hole), a photo slider, a
   pergola configurator, a name picker, an AI face and Meanwhile on Earth (a globe of what distant
   observers would see of it) are not worlds.
+- **Scouted on 12 November 2026**: added **Portals: Endless Worlds** (Ethan Mollick's hands-free
+  flight through 471 generated worlds inspired by books, art and places, each opening onto the next
+  through a portal; CC BY-NC-SA, so an Orb copy is ruled out while Orb sells plans), **Indiranagar,
+  Live** (Aishwarya Das's square kilometre of Bengaluru from OpenStreetMap, the city's tree census
+  and open building data), **Tilt Labyrinth** (lifcc's wooden ball maze), **Mist-Locked Gate** (歸藏's
+  top-down xianxia action game with a boss and voice acting, the demo of an agent skill, AGPL) and
+  **Tiny Planet** (Prasenjit Nayak's little round world to walk and fly round, MIT), all embedded
+  while the database is over its space. Mist-Locked Gate's and Tiny Planet's previews are drawn at
+  one device pixel per CSS pixel: at two they stall this machine's software GPU, as Walking Into Van
+  Gogh did. Held for another day (five a day at most): **Turbo Tails** (Peter Yang's kart racer,
+  turbo-tails.vercel.app; the recorder stalls on it at two device pixels too, so record it at one,
+  and its trailer has titles over nearly every shot), **Saltwind** (a cozy sailing game with quests,
+  ports and a giant squid, sheshadharihariharan.github.io/saltwind), **Cayley** (a flight simulator
+  over real terrain in live weather, lauramionel.github.io/cayley-flight-simulator), **Lanternfall**
+  (an idle battler by lantern light, loktar00.github.io/lanternfall, 182,000 views on X; not yet
+  checked inside Orb), **Vancouver From Above** (vancouver.webly.site) and **Season World** (an
+  alpine basin through four seasons, ryx168.github.io/maple-larch-d5e5). Left out: **Collection of
+  Beauty** (a walkable museum of public-domain art, from Show HN), **Tour du Pain** (a cycling game
+  for smart trainers round a lake in southern France, from the three.js forum), **Mini Racing** and
+  **Threshold** refuse frames; **Rage Garage** (wrecking a supercar six ways) is WebGPU only and was
+  still compiling its shaders here; **ELITE WARFARE** (a body-cam tactical shooter) is built on
+  Karen Warfare's code, which has no licence, with models of unknown authorship; **I Would Have
+  Gotten Away With It** is a reverse Scooby-Doo; howsmallarewe.com and Faraway fly the solar system
+  as yesterday's BEYOND does; Common Crawl's CCBot platformer, a transit-planning game for the Bay
+  Area, Isometric Burlington and a map of Persia through time are 2D; a portfolio in a cave, a
+  juggling animation tool set in Paris, Escapee (a countdown page), landing-page comparisons,
+  Perigee (a satellite viewer) and a voxel algorithm playground are not worlds. Repositories with no
+  live site: Pickleball 3D (phantom0708/pickleball-3d, MIT: bots, online doubles, ten courts; a
+  sports game to host once the database has room) and Shohorer Pothe (Dhaka's streets). Dustfall
+  (dustfalls.netlify.app, an open-world western) didn't load in the screenshot pass, so look again.
 
 ## Embeds we would add if their sites allowed it
 
@@ -356,7 +386,8 @@ Haggis Survivors, Field of Command, Astral War, Kart Royale, BuildYourTown, Litt
 *Quick, Draw!*, Blob Opera, Infinite Craft, Sandboxels, Coastal World, Igloo Inc, Marble by World
 Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Clash Karts, Kage no
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
-Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, Collection of Beauty, Tour du Pain, Mini Racing,
+Threshold, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
@@ -420,8 +451,9 @@ Counts are each source's own on that day. Ranked by how many good worlds each co
    but only 20–40 good), Babylon.js's demo and game pages (5–10), Awwwards' Games category (two
    or three a month among adverts), studios with many games on their own site (meticulai.com/games:
    16), js13kGames (each year's ranked entries; play.js13kgames.com refuses a frame, but many
-   makers host a copy that frames, and their licences vary), and Arrival Space (walkable scans
-   with visit counts; not checked in a browser yet).
+   makers host a copy that frames, and their licences vary), Arrival Space (walkable scans
+   with visit counts; not checked in a browser yet), and lists of one model's best work
+   (fengyiqicoder/awesome-fable-5.2: 57 live pieces with their posts' likes; Portals and Indiranagar came from it).
 
 Not sources: itch.io (answers a frame with a "hotlinked" page), Polycam, Scaniverse, KIRI Engine
 and Google Arts & Culture (refuse frames), Luma (its gallery is gone), Spline (25,000 CC BY scenes,
