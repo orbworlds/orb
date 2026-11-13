@@ -831,6 +831,10 @@ const SHOTS = {
   // Tiny Planet: past its title (a click) and its dive from space to the ground, looking slowly round the village square
   // with the mouse (walking on, it soon walks into a cottage); at one device pixel per CSS pixel: at two it stalls this machine
   'ext-round-world': { scale: 1, size: [1280, 800], sub: 1, wait: 40000, steps: [{ click: [320, 200], wait: 8000 }], settle: 3, mouse: (t) => [320 + 50 * t, 200, false] },
+  // TukTuk: started (its button), weaving the tuk-tuk left and right down the Egyptian street
+  'ext-tuktuk': { wait: 25000, steps: [{ click: [320, 334], wait: 4000 }], press: [['ArrowLeft', 0.4, 0.8], ['ArrowRight', 1.6, 2.2], ['ArrowLeft', 3.0, 3.4]], crf: [48, 32] },
+  // Riverlight: started (a click), the kayak paddling on down the river
+  'ext-riverlight': { wait: 25000, steps: [{ click: [320, 163], wait: 6000 }], settle: 1 },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

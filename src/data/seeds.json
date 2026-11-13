@@ -4167,5 +4167,51 @@
       "author_url": "https://github.com/StarKnightt",
       "made_with": "Claude Fable 5.2, Claude Opus 5.5, three.js"
     }
+  },
+  {
+    "id": "ext-tuktuk",
+    "name": "TukTuk",
+    "description": "Weave a tuk-tuk down a crowded Egyptian street, past microbuses, taxis and watermelon carts, picking up fares.",
+    "kind": "external",
+    "external_url": "https://basemazab.github.io/tuktuk/",
+    "source_url": "https://github.com/basemazab/tuktuk",
+    "author_name": "basemazab",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-tuktuk.webp",
+    "origin": {
+      "post_url": "https://github.com/basemazab/tuktuk",
+      "platform": "github",
+      "posted_at": "2026-11-11",
+      "handle": "basemazab",
+      "author_url": "https://github.com/basemazab",
+      "made_with": "Claude Fable 5.2, three.js"
+    }
+  },
+  {
+    "id": "ext-riverlight",
+    "name": "Riverlight",
+    "description": "Paddle a kayak down an endless river through quiet woods, at your own pace.",
+    "kind": "external",
+    "external_url": "https://dumdimdumdim.github.io/riverlight-webgl/",
+    "source_url": "https://github.com/dumdimdumdim/riverlight-webgl",
+    "author_name": "KK",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-riverlight.webp",
+    "origin": {
+      "post_url": "https://github.com/dumdimdumdim/riverlight-webgl",
+      "platform": "github",
+      "posted_at": "2026-11-13",
+      "handle": "dumdimdumdim",
+      "author_url": "https://kisleyko.com/",
+      "made_with": "WebGL 2"
+    }
   }
 ]

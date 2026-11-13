@@ -377,6 +377,29 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   live site: Pickleball 3D (phantom0708/pickleball-3d, MIT: bots, online doubles, ten courts; a
   sports game to host once the database has room) and Shohorer Pothe (Dhaka's streets). Dustfall
   (dustfalls.netlify.app, an open-world western) didn't load in the screenshot pass, so look again.
+- **Scouted on 13 November 2026**, a quieter day (no new topics in the three.js forum's Showcase):
+  added **TukTuk** (basemazab's tuk-tuk weaving down a crowded Egyptian street past microbuses and
+  watermelon carts, everything drawn in code; its words are in Arabic; found through Fable52.games)
+  and **Riverlight** (KK's quiet kayak paddle down an endless river, from GitHub), both embedded
+  while the database is over its space. Held for another day: **Pocket Soccer 3D** (Shaun Price's
+  seven-a-side football with referees, offside and cards, shaunprice.github.io/soccer-3d: its
+  stadium flight doesn't run on the recorder's clock and a match is three taps in, past an artwork
+  screen and the intro, so its clip needs working out), **Ironvale** (SharpWizard's real-time
+  strategy game with a four-chapter campaign, sharpwizard.github.io/ironvale: its first view is a
+  small lit patch in fog under a large HUD), **Evensong** (a souls-like duel in a drowned cathedral,
+  evensong-phi.vercel.app, the most beautiful of the day: neither it nor Fable52.games names its
+  maker), **Dustfall** (dustfalls.netlify.app, an open-world western whose first scene is plain),
+  **Time on the Water** (fishing on a lake at dawn, daiyu3659.github.io/fish) and **Saltwind** (its
+  ship stays moored until the first quest, so the recorder's sail went nowhere). Seen only at their
+  title screens, for a later look: Bayhaven (fablestar.games, an open-world crime game written live
+  by Fable 5.2), Daedalus (a clockwork puzzle), Emberdeep (a torchlit dungeon), Rali Rodopi (a rally
+  in Bulgaria's Rhodopes) and Schiffsbruch 3D (naval combat). Left out: **Hong Kong Birthday
+  Patrol** (lyfar.com: flying presents to Hong Kong's buildings on their birthdays) refuses frames;
+  **MAAD MAXXING** (a buggy chase featured by @threejs) is WebGPU only; Fable52.games also lists a
+  Black Myth: Wukong boss fight and a League of Legends mode, others' games; Hanford Reach (a cozy
+  settlement builder) and hahaliu1029's four (MOTHLIGHT, Tidebell, 青云宗, MISREMEMBER) have no site of
+  their own that I found; EARTH_PLAN (a climate-disaster simulator round a globe) and an elevation
+  atlas are not worlds.
 
 ## Embeds we would add if their sites allowed it
 
@@ -387,7 +410,7 @@ Haggis Survivors, Field of Command, Astral War, Kart Royale, BuildYourTown, Litt
 Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Clash Karts, Kage no
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
 Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, Collection of Beauty, Tour du Pain, Mini Racing,
-Threshold, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Threshold, Hong Kong Birthday Patrol, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
@@ -453,7 +476,8 @@ Counts are each source's own on that day. Ranked by how many good worlds each co
    16), js13kGames (each year's ranked entries; play.js13kgames.com refuses a frame, but many
    makers host a copy that frames, and their licences vary), Arrival Space (walkable scans
    with visit counts; not checked in a browser yet), and lists of one model's best work
-   (fengyiqicoder/awesome-fable-5.2: 57 live pieces with their posts' likes; Portals and Indiranagar came from it).
+   (fengyiqicoder/awesome-fable-5.2: 57 live pieces with their posts' likes; Portals and Indiranagar came from it;
+   Fable52.games: about 35 Fable 5.2 games whose play pages frame their makers' own sites and link their code).
 
 Not sources: itch.io (answers a frame with a "hotlinked" page), Polycam, Scaniverse, KIRI Engine
 and Google Arts & Culture (refuse frames), Luma (its gallery is gone), Spline (25,000 CC BY scenes,
