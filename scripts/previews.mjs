@@ -835,6 +835,19 @@ const SHOTS = {
   'ext-tuktuk': { wait: 25000, steps: [{ click: [320, 334], wait: 4000 }], press: [['ArrowLeft', 0.4, 0.8], ['ArrowRight', 1.6, 2.2], ['ArrowLeft', 3.0, 3.4]], crf: [48, 32] },
   // Riverlight: started (a click), the kayak paddling on down the river
   'ext-riverlight': { wait: 25000, steps: [{ click: [320, 163], wait: 6000 }], settle: 1 },
+  // Hillside Days: its note closed and its Slow orbit view (its buttons) turning round the little hillside cottage (cropped
+  // in on the island, which this window's layout draws small and high)
+  'ext-hillside-days': { wait: 25000, steps: [{ click: [500, 197], wait: 1000 }, { click: [293, 298], wait: 4000 }], settle: 1, crop: [110, 10, 400, 250], crf: [46, 31] },
+  // Mistvale Farm: Begin a new life (its button), the farmer walking across the misty valley farm
+  'ext-mistvale-farm': { wait: 40000, steps: [{ click: [174, 292], wait: 10000 }], hold: ['w'], settle: 1 },
+  // Turbo Tails: Single player (Enter), its flyover of Wild Isle and the racers shown on the grid (at one device pixel per
+  // CSS pixel: at two it stalls this machine)
+  'ext-turbo-tails': { scale: 1, size: [1280, 800], sub: 1, wait: 30000, steps: [{ key: 'Enter', wait: 25000 }], hold: ['ArrowUp'], crf: [48, 33] },
+  // Cayley: the Cessna over Sion at noon in clear air (its Noon, Clear and Airborne buttons, then Fly), seen from its chase
+  // camera (2)
+  'ext-cayley': { wait: 30000, steps: [{ click: [166, 161], wait: 500 }, { click: [101, 202], wait: 500 }, { click: [196, 243], wait: 500 }, { click: [115, 340], wait: 25000 }, { key: '2', wait: 3000 }], settle: 1 },
+  // Season World: the autumn basin its menu opens on, turned by the mouse (its panels are the page's)
+  'ext-season-world': { wait: 30000, settle: 1, drag: [40, 0] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

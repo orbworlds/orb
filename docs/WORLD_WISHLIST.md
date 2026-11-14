@@ -400,6 +400,23 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   settlement builder) and hahaliu1029's four (MOTHLIGHT, Tidebell, 青云宗, MISREMEMBER) have no site of
   their own that I found; EARTH_PLAN (a climate-disaster simulator round a globe) and an elevation
   atlas are not worlds.
+- **Scouted on 14 November 2026**, a quiet day for new posts (nothing new in the three.js forum, on
+  Show HN or on Fable52.games), so the best of those held on earlier days went in: **Turbo Tails**
+  (Peter Yang's kart racer round Wild Isle; its clip is drawn at one device pixel per CSS pixel, as
+  at two it stalls this machine), **Cayley** (lauramionel's flight simulator: a Cessna over Sion in
+  live weather, seen from its chase camera) and **Season World** (ryx168's alpine basin through the
+  four seasons), with two from GitHub: **Hillside Days** (LanCodevex's hand-painted-looking cottage
+  on a floating hillside, to turn from morning to a starry night) and **Mistvale Farm** (NorwinYu's
+  farm in a misty valley, MIT), all embedded while the database is over its space. Still held:
+  **Lanternfall** (its moor is very dark at this size), **Vancouver From Above** (not yet recorded),
+  **NightClub: Drift & Speed** (www.nightclub-driftspeed.xyz, night drifting through a neon Tokyo,
+  featured by @threejs; not yet checked inside Orb), and the ones held on 13 November (Pocket Soccer
+  3D, Ironvale, Evensong, Dustfall, Time on the Water, Saltwind). Left out from GitHub: Plumb 3D (a
+  skyline parkour run) and Aetheria (an open-world adventure) showed only their instructions or
+  loading screens; FPV Sim (a drone simulator) is a settings panel first; Chatmalo (a calico kitten)
+  is a model to turn; Neo Earth 2226, Grothendieckian Universe (a puzzle game of mathematics), a
+  Moon-and-Mars archive for children and a 3D tour of a computer's power supply are for another look
+  or not worlds.
 
 ## Embeds we would add if their sites allowed it
 

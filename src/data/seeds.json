@@ -4213,5 +4213,124 @@
       "author_url": "https://kisleyko.com/",
       "made_with": "WebGL 2"
     }
+  },
+  {
+    "id": "ext-turbo-tails",
+    "name": "Turbo Tails",
+    "description": "Race six animal karts round Wild Isle, drifting, jumping ramps and firing items, alone or with friends.",
+    "kind": "external",
+    "external_url": "https://turbo-tails.vercel.app/",
+    "source_url": null,
+    "author_name": "Peter Yang",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-turbo-tails.webp",
+    "origin": {
+      "post_url": "https://x.com/petergyang/status/2119901658394358005",
+      "platform": "x",
+      "views": 32238,
+      "likes": 138,
+      "posted_at": "2026-11-09",
+      "handle": "@petergyang",
+      "author_url": "https://x.com/petergyang",
+      "made_with": "Claude Fable 5.2"
+    }
+  },
+  {
+    "id": "ext-cayley",
+    "name": "Cayley",
+    "description": "Fly a Cessna or eight other aircraft over real terrain anywhere on Earth, in live weather, from a working cockpit.",
+    "kind": "external",
+    "external_url": "https://lauramionel.github.io/cayley-flight-simulator/",
+    "source_url": "https://github.com/lauramionel/cayley-flight-simulator",
+    "author_name": "lauramionel",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-cayley.webp",
+    "origin": {
+      "post_url": "https://github.com/lauramionel/cayley-flight-simulator",
+      "platform": "github",
+      "stars": 2,
+      "posted_at": "2026-11-11",
+      "handle": "lauramionel",
+      "author_url": "https://github.com/lauramionel",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "ext-hillside-days",
+    "name": "Hillside Days",
+    "description": "Turn a little hillside cottage with its tall tree, swing, garden and windmill, from morning to a starry night.",
+    "kind": "external",
+    "external_url": "https://lancodevex.github.io/hillside-days/",
+    "source_url": "https://github.com/LanCodevex/hillside-days",
+    "author_name": "LanCodevex",
+    "tags": [
+      "art"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-hillside-days.webp",
+    "origin": {
+      "post_url": "https://github.com/LanCodevex/hillside-days",
+      "platform": "github",
+      "posted_at": "2026-11-13",
+      "handle": "LanCodevex",
+      "author_url": "https://github.com/LanCodevex",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "ext-mistvale-farm",
+    "name": "Mistvale Farm",
+    "description": "Clear, sow and tend a little farm in a misty valley of pine woods, through slow days, nights and weather.",
+    "kind": "external",
+    "external_url": "https://norwinyu.github.io/mistvale-farm/",
+    "source_url": "https://github.com/NorwinYu/mistvale-farm",
+    "author_name": "NorwinYu",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-mistvale-farm.webp",
+    "origin": {
+      "post_url": "https://github.com/NorwinYu/mistvale-farm",
+      "platform": "github",
+      "posted_at": "2026-11-13",
+      "handle": "NorwinYu",
+      "author_url": "https://github.com/NorwinYu",
+      "made_with": "three.js r169, Vite"
+    }
+  },
+  {
+    "id": "ext-season-world",
+    "name": "Season World",
+    "description": "Watch an alpine basin turn through the four seasons, then walk its lakeshore village in any of them.",
+    "kind": "external",
+    "external_url": "https://ryx168.github.io/maple-larch-d5e5/",
+    "source_url": "https://github.com/ryx168/maple-larch-d5e5",
+    "author_name": "ryx168",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 56,
+    "thumb_url": "/seeds/ext-season-world.webp",
+    "origin": {
+      "post_url": "https://github.com/ryx168/maple-larch-d5e5",
+      "platform": "github",
+      "posted_at": "2026-11-12",
+      "handle": "ryx168",
+      "author_url": "https://github.com/ryx168",
+      "made_with": "three.js r169"
+    }
   }
 ]
