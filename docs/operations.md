@@ -378,10 +378,11 @@ words written, checked inside Orb, and live on orbworlds.com the same day.
 3. **Check it inside Orb** (`/w/<id>`): it draws, nothing important is cut off, controls work, no
    errors that matter, and on a phone it either plays or is tagged `keyboard`. Worlds the test
    machine's software GPU can't start (WebGPU) wait in the wishlist for a check on a real GPU.
-4. **Package it** in `seeds.json` like the others: an `ext-` or `aw-` id, its name, one plain
-   sentence of Explore copy (what you do there, no hype), tags, `featured` near similar worlds, the
-   maker's name as they give it, and `origin` from the post that shared it (link, views, likes,
-   date, handle, what it was made with). Then:
+4. **Package it** in `seeds.json` like the others: an `ext-` or `aw-` id no other world has (two
+   worlds can share a name, and seeds are upserted by id: a taken one overwrites that world), its
+   name, one plain sentence of Explore copy (what you do there, no hype), tags, `featured` near
+   similar worlds, the maker's name as they give it, and `origin` from the post that shared it
+   (link, views, likes, date, handle, what it was made with). Then:
    - **Picture**: from inside the world at its most beautiful, `public/seeds/<id>.webp`
      (1280 × 800, webp, no loading screens or menus).
    - **Video**: the looping preview its card plays, recorded the same day:

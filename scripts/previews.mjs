@@ -848,6 +848,18 @@ const SHOTS = {
   'ext-cayley': { wait: 30000, steps: [{ click: [166, 161], wait: 500 }, { click: [101, 202], wait: 500 }, { click: [196, 243], wait: 500 }, { click: [115, 340], wait: 25000 }, { key: '2', wait: 3000 }], settle: 1 },
   // Season World: the autumn basin its menu opens on, turned by the mouse (its panels are the page's)
   'ext-season-world': { wait: 30000, settle: 1, drag: [40, 0] },
+  // Last Light: begun (its button), the chick setting off across the Antarctic ice among the colony
+  'ext-last-light': { wait: 25000, steps: [{ click: [81, 339], wait: 10000 }], hold: ['w'], settle: 1 },
+  // Komok: the big sticky ball its title screen rolls through the town behind its menu (the menu is the page's)
+  'ext-komok': { wait: 25000, settle: 1, crf: [46, 32] },
+  // A Little Corner of Japan: the street corner at dusk (its clock's slider moved to seven), windows lit and bikes going by,
+  // turned a little by the mouse and back; filmed as a page at a laptop's size (its canvas is see-through over a sky
+  // of the page's), with only the scene kept and its words and buttons hidden
+  'ext-corner-of-japan': {
+    viewport: [1280, 800], scale: 1.6, size: [1280, 800], crop: [180, 56, 400, 250], screenshot: true,
+    wait: 20000, steps: [{ click: [1020, 712], wait: 4000 }], settle: 1, drag: swing(-70, 0, 760, 380),
+    setup: () => { for (const el of document.querySelectorAll('.intro, .stage-tools')) el.style.visibility = 'hidden'; },
+  },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

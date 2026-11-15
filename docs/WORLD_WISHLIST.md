@@ -417,6 +417,29 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   is a model to turn; Neo Earth 2226, Grothendieckian Universe (a puzzle game of mathematics), a
   Moon-and-Mars archive for children and a 3D tour of a computer's power supply are for another look
   or not worlds.
+- **Scouted on 15 November 2026** (the three.js forum's Showcase woke up again, plus Show HN, GitHub
+  and Fable52.games): added **Last Light** (Kylian Mallet's long Antarctic day as an emperor penguin
+  chick, from GitHub), **Komok** (Norra Dev's multiplayer sticky ball rolling up an island town,
+  coins and pencils first, cars and a house later) and **A Little Corner of Japan** (paladium's
+  Komorebi, from GitHub: an isometric street corner to turn, with a ramen shop, a tea room and a
+  study to step into, a clock to run into the night, and a city builder behind its Build a city
+  button; its clip is filmed as a page at a laptop's size, as its canvas is see-through), all
+  embedded while the database is over its space. Its first draft took the id of the Komorebi
+  already in Explore (Sulat's pagoda garden): two worlds can share a name, so check the id is free.
+  Held: **Woodangtang Seoul** (12-player co-op boss fights round Seoul, for phones too; its clip
+  never got past the parachute drop into Gwanghwamun Plaza), **Vancouver From Above** (@tokifyi's
+  city stands still as it opens: it needs a flight to film), **NightClub: Drift & Speed** (the car
+  hardly moved in its clip), **The Lost Storm** (an isometric action RPG, MIT on GitHub, that starts
+  at a name and sign-in screen) and **Aali** (satyasairay's marble game under a banyan: its clip
+  needs a scripted flick of the shooter). Left out: Boys Theft Auto (an open world on Dhaka
+  Cantonment's real map, under a GTA-parody name), Hornmere Square (a heavy splat scene that never
+  finished a screenshot), Fable52.games' four new entries (Makinamon Pulso, Riftline, The County and
+  Tidemark link only GitHub and aiarcade.games copies, no sites of their own), Midnight Grid,
+  Thunder Valley and Deep Protocol from GitHub (title or settings screens first: for another look),
+  Domino Rally (a 2D designer first, the 3D a click away), and Bagholder Online (a crypto trading
+  room), Our Special World (a photo gift), Orbital Mechanics Sandbox (an N-body simulator) and an
+  ink-wash wuxia inn (a studio's website), which aren't worlds. Tangle (Daniel Stephenson's game of
+  strange loops) and Omnistew (a 3D multiplayer strategy game like Risk) refuse a frame.
 
 ## Embeds we would add if their sites allowed it
 
@@ -427,7 +450,7 @@ Haggis Survivors, Field of Command, Astral War, Kart Royale, BuildYourTown, Litt
 Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Clash Karts, Kage no
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
 Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, Collection of Beauty, Tour du Pain, Mini Racing,
-Threshold, Hong Kong Birthday Patrol, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Threshold, Hong Kong Birthday Patrol, Tangle, Omnistew, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut

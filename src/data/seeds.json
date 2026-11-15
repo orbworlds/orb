@@ -4332,5 +4332,75 @@
       "author_url": "https://github.com/ryx168",
       "made_with": "three.js r169"
     }
+  },
+  {
+    "id": "ext-last-light",
+    "name": "Last Light",
+    "description": "Spend one long Antarctic day as an emperor penguin chick, the day its parents leave for the sea.",
+    "kind": "external",
+    "external_url": "https://kylian-mallet.github.io/last-light/",
+    "source_url": "https://github.com/Kylian-Mallet/last-light",
+    "author_name": "Kylian Mallet",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-last-light.webp",
+    "origin": {
+      "post_url": "https://github.com/Kylian-Mallet/last-light",
+      "platform": "github",
+      "posted_at": "2026-11-14",
+      "handle": "Kylian-Mallet",
+      "author_url": "https://github.com/Kylian-Mallet",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "ext-komok",
+    "name": "Komok",
+    "description": "Roll a sticky ball round an island town, picking up everything smaller than you, from coins and pencils to cars and a house.",
+    "kind": "external",
+    "external_url": "https://komok.fun/",
+    "source_url": null,
+    "author_name": "Norra Dev",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-komok.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/komok-multiplayer-browser-game-where-a-sticky-ball-rolls-up-a-whole-town-three-js-r160/97219",
+      "platform": "three.js forum",
+      "views": 15,
+      "likes": 0,
+      "posted_at": "2026-11-14",
+      "handle": "norradev",
+      "made_with": "three.js r160"
+    }
+  },
+  {
+    "id": "ext-corner-of-japan",
+    "name": "A Little Corner of Japan",
+    "description": "Order ramen, pour tea and run the day into night on a tiny Japanese street corner, or build your own town of townhouses, shops and cherry groves.",
+    "kind": "external",
+    "external_url": "https://paladium.github.io/IsometricWorld/",
+    "source_url": "https://github.com/paladium/IsometricWorld",
+    "author_name": "paladium",
+    "tags": [
+      "toy"
+    ],
+    "verified": false,
+    "featured": 56,
+    "thumb_url": "/seeds/ext-corner-of-japan.webp",
+    "origin": {
+      "post_url": "https://github.com/paladium/IsometricWorld",
+      "platform": "github",
+      "posted_at": "2026-11-14",
+      "handle": "paladium",
+      "author_url": "https://github.com/paladium",
+      "made_with": "three.js"
+    }
   }
 ]
