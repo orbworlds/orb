@@ -4402,5 +4402,77 @@
       "author_url": "https://github.com/paladium",
       "made_with": "three.js"
     }
+  },
+  {
+    "id": "ext-oil-paint",
+    "name": "Oil Paint",
+    "description": "Walk a wanderer with a lantern along a snowy ridge under the aurora, or through an autumn wood, all of it painted stroke by stroke.",
+    "kind": "external",
+    "external_url": "https://tianxiuyangyang.github.io/oil-paint/",
+    "source_url": "https://github.com/tianxiuyangyang/oil-paint",
+    "author_name": "tianxiuyangyang",
+    "tags": [
+      "art",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-oil-paint.webp",
+    "origin": {
+      "post_url": "https://github.com/tianxiuyangyang/oil-paint",
+      "platform": "github",
+      "posted_at": "2026-11-15",
+      "handle": "tianxiuyangyang",
+      "author_url": "https://github.com/tianxiuyangyang",
+      "made_with": "three.js r186"
+    }
+  },
+  {
+    "id": "ext-nutmeg-street",
+    "name": "Nutmeg Street",
+    "description": "Curl a football through the legs of people crossing a busy street and into the target, over thirty stages.",
+    "kind": "external",
+    "external_url": "https://nutmegstreet.com/",
+    "source_url": null,
+    "author_name": "Vatsal Upadhyay",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/ext-nutmeg-street.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/a-football-game-where-you-need-to-nutmeg-for-every-goal/97255",
+      "platform": "three.js forum",
+      "views": 19,
+      "likes": 1,
+      "posted_at": "2026-11-15",
+      "handle": "Vatsal_Upadhyay",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "ext-night-nabbers",
+    "name": "Night Nabbers",
+    "description": "Sneak a raccoon past dogs and searchlights to steal eggs, hatch little buddies and raid dens with other players.",
+    "kind": "external",
+    "external_url": "https://nightnabbers.com/play",
+    "source_url": null,
+    "author_name": "nightnabbers",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-night-nabbers.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/night-nabbers-a-free-3d-raccoon-stealth-heist-game-in-the-browser-three-js-webgl2-runs-on-phones/97257",
+      "platform": "three.js forum",
+      "views": 24,
+      "likes": 0,
+      "posted_at": "2026-11-15",
+      "handle": "nightnabbers",
+      "made_with": "three.js"
+    }
   }
 ]

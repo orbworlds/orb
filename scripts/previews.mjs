@@ -860,6 +860,19 @@ const SHOTS = {
     wait: 20000, steps: [{ click: [1020, 712], wait: 4000 }], settle: 1, drag: swing(-70, 0, 760, 380),
     setup: () => { for (const el of document.querySelectorAll('.intro, .stage-tools')) el.style.visibility = 'hidden'; },
   },
+  // Nutmeg Street: past its tutorial (closed) and START, the ball on the crossing as the crowd's legs go by
+  'ext-nutmeg-street': { wait: 25000, steps: [{ click: [195, 345], wait: 1000 }, { click: [562, 50], wait: 1500 }, { click: [548, 362], wait: 6000 }], settle: 1 },
+  // Oil Paint: the wanderer walking the snow ridge under the aurora. Filmed in its own capture mode (`capture`: no loop of
+  // its own and no hints; `lab.step` draws the next frame), as left to run its paint crashes this machine (it paints at one
+  // pixel per CSS pixel there, and slowly: about 15 s a frame here)
+  'ext-oil-paint': {
+    query: 'capture', scale: 1, size: [1280, 800], sub: 1, ready: () => window.lab?.ready, wait: 3000,
+    hold: ['w'], settle: 0, crf: [55, 34],
+    setup: () => { if (!window.lab) return; window.lab.step(1 / 30, 15); window.__shot = () => window.lab.step(1 / 30); },
+  },
+  // Night Nabbers: past "click to play", its camera flying down the street at night, past the bins, the shop and the
+  // contracts board to the raccoons' den (run at half speed; the menus are the page's)
+  'ext-night-nabbers': { init: halved, wait: 35000, steps: [{ click: [320, 360], wait: 8000 }], settle: 1 },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

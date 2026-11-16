@@ -440,6 +440,40 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   room), Our Special World (a photo gift), Orbital Mechanics Sandbox (an N-body simulator) and an
   ink-wash wuxia inn (a studio's website), which aren't worlds. Tangle (Daniel Stephenson's game of
   strange loops) and Omnistew (a 3D multiplayer strategy game like Risk) refuse a frame.
+- **Scouted on 16 November 2026** (ten new topics in the three.js forum's Showcase, plus Show HN,
+  GitHub and Fable52.games): added **Nutmeg Street** (Vatsal Upadhyay's football game: curl the
+  ball through the legs of people crossing a street and into the target, thirty stages, on phones
+  too), **Oil Paint** (tianxiuyangyang's wanderer with a lantern on a snow ridge under the aurora,
+  or in an autumn wood, all painted stroke by stroke; left to run, its paint crashed the recorder,
+  so its clip is filmed in its own capture mode, `?capture`, a frame at a time through `lab.step`)
+  and **Night Nabbers** (a raccoon heist game for up to 16 players a street, with bots and phone
+  controls; its clip is its camera's flight down the street to the den, at half speed), all
+  embedded while the database is over its space. Held: **Beporowa** (Majortarif's Bangla-first
+  street racer through Borshabad, a megacity of rickshaw colours and monsoon floods: in both takes
+  its car ran into the signboards of its first street within two seconds, so it needs a steered
+  path). Held for a machine with a real GPU: **Petalwake** (jjcm's broom flight over an
+  island of flower meadows, sea cliffs and harbour towns, MIT, at petalwake.non.io/v2: beautiful,
+  but its 95 MB world takes minutes a frame here), **Vingt-Quatre Heures** (a 1970 Le Mans "film you
+  can drive", with a 34 km drive round San Francisco Bay: it never got past its opening clock here)
+  and **Long Drive** (shubham8111's calm drive along real roads from open map data: twenty minutes
+  for eight frames, which found only a distant car behind a pine). Also held: **Tailwind Voyage**
+  (Corne's cozy island game, a fox in a jeep: it stayed on its loading screen here) and **The Last
+  Complication** (Show HN's watchmaking puzzle game, for another look). Left out from the forum:
+  Gildrook (a RuneScape-like MMO whose public playtest ends on 17 November), Pixila's brick
+  breaker, a gym's trophy room and a shader showcase (websites); from Show HN: Neon Canal
+  (gamedevpl's anti-gravity racer in C++ and WebAssembly, simpler than the racers in Explore),
+  Doom2D Forever, Hello Triangle and PongArena (2D) and PokéBonk (someone else's characters); from
+  GitHub: about twenty near-identical tactical shooters made for a make.fun bounty, Castle Valley
+  (an oil-brush remake of another artist's pixel-art post, whose site never loaded here), a Chinese
+  translation of Petalwake, Last Harbor: Departure (survival horror in Chinese only), and for another
+  look Synthwave City, Spot-light HD (a black lab chasing a laser dot), Haeryeong (a Joseon village
+  life that never finished a screenshot), Lumpini Healing (a run round Bangkok's Lumpini Park), Red
+  Dust, Neon Apex, Nightpiece (chess in a candlelit chapel) and a WWII patrol boat that never loaded;
+  Curling Duel, a fantasy tower defence and a chameleon hide-and-seek are slight. Fable52.games' four
+  new entries: Arcfall Artillery has a site of its own (arcfall.ez8.tools, turn-based artillery that
+  opens on an online lobby); Black Tide, Undertow and Emberhold are only on aiarcade.games. AH NAH
+  TRAH (Marco Ludovico Perego's duck walking to the sea, WebGPU) and Clayground (clayvr.com: a clay
+  studio, the platform fighter Smoosh and the kart racer Kiln Cup) refuse a frame.
 
 ## Embeds we would add if their sites allowed it
 
@@ -450,7 +484,7 @@ Haggis Survivors, Field of Command, Astral War, Kart Royale, BuildYourTown, Litt
 Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Clash Karts, Kage no
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
 Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, Collection of Beauty, Tour du Pain, Mini Racing,
-Threshold, Hong Kong Birthday Patrol, Tangle, Omnistew, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Threshold, Hong Kong Birthday Patrol, Tangle, Omnistew, AH NAH TRAH, Clayground, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
