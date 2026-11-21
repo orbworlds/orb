@@ -4474,5 +4474,122 @@
       "handle": "nightnabbers",
       "made_with": "three.js"
     }
+  },
+  {
+    "id": "ext-papertrails",
+    "name": "Papertrails",
+    "description": "Wander an endless pop-up book where paper villages rise and fold away around you, collecting pressed leaves, shells and night stars.",
+    "kind": "external",
+    "external_url": "https://xikhar.github.io/papertrails/",
+    "source_url": "https://github.com/xikhar/papertrails",
+    "author_name": "Shikhar",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-papertrails.webp",
+    "origin": {
+      "post_url": "https://github.com/xikhar/papertrails",
+      "platform": "github",
+      "posted_at": "2026-11-17",
+      "handle": "xikhar",
+      "author_url": "https://github.com/xikhar",
+      "made_with": "Claude Fable 5.2 and Claude Opus 5.5, three.js",
+      "license": "MIT"
+    }
+  },
+  {
+    "id": "ext-squirrel",
+    "name": "Squirrel",
+    "description": "Be a squirrel in an autumn town: climb the trees, run the power lines to the rooftops and fill your nest with acorns before winter.",
+    "kind": "external",
+    "external_url": "https://swu-u.github.io/squirrel/",
+    "source_url": "https://github.com/swu-u/squirrel",
+    "author_name": "swu-u",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-squirrel.webp",
+    "origin": {
+      "post_url": "https://github.com/swu-u/squirrel",
+      "platform": "github",
+      "posted_at": "2026-11-19",
+      "handle": "swu-u",
+      "author_url": "https://github.com/swu-u",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "ext-blackburn-type-d",
+    "name": "Blackburn Type D",
+    "description": "Fly a 1912 Blackburn monoplane through four rings over a town, each one opening a chapter on the aeroplane that survives.",
+    "kind": "external",
+    "external_url": "https://blackburn-flight.pages.dev/",
+    "source_url": "https://github.com/Dun4ev/blackburn-flight",
+    "author_name": "Andrej Dunaev",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/ext-blackburn-type-d.webp",
+    "origin": {
+      "post_url": "https://github.com/Dun4ev/blackburn-flight",
+      "platform": "github",
+      "posted_at": "2026-11-17",
+      "handle": "Dun4ev",
+      "author_url": "https://dun4ev.com/",
+      "made_with": "GPT-6.2 Astra, Blender and three.js"
+    }
+  },
+  {
+    "id": "ext-santa-express",
+    "name": "Santa Express",
+    "description": "Fly Santa's sleigh over a snowy Nordic village for sixty seconds and drop presents down the glowing chimneys.",
+    "kind": "external",
+    "external_url": "https://thestringtheories.github.io/Santa-Game/",
+    "source_url": "https://github.com/thestringtheories/Santa-Game",
+    "author_name": "thestringtheories",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-santa-express.webp",
+    "origin": {
+      "post_url": "https://github.com/thestringtheories/Santa-Game",
+      "platform": "github",
+      "posted_at": "2026-11-17",
+      "handle": "thestringtheories",
+      "author_url": "https://github.com/thestringtheories",
+      "made_with": "GPT-6.2 Astra, three.js"
+    }
+  },
+  {
+    "id": "ext-cherwell-valley-motor-club",
+    "name": "Cherwell Valley Motor Club",
+    "description": "Drive classic cars, from a 1979 Triumph TR7 to an MG Metro rally car, through the stone villages of North Oxfordshire.",
+    "kind": "external",
+    "external_url": "https://cherwellvalleymotorclub.app/",
+    "source_url": null,
+    "author_name": "johnwards",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 57,
+    "thumb_url": "/seeds/ext-cherwell-valley-motor-club.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=50574412",
+      "platform": "Show HN",
+      "likes": 11,
+      "posted_at": "2026-11-20",
+      "handle": "johnwards",
+      "made_with": "Claude"
+    }
   }
 ]

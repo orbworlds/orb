@@ -474,6 +474,42 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   opens on an online lobby); Black Tide, Undertow and Emberhold are only on aiarcade.games. AH NAH
   TRAH (Marco Ludovico Perego's duck walking to the sea, WebGPU) and Clayground (clayvr.com: a clay
   studio, the platform fighter Smoosh and the kart racer Kiln Cup) refuse a frame.
+- **Scouted on 17–21 November 2026**, in one run: the session stopped part-way through 17 November
+  and the daily runs of 18–21 November waited for it, so this one covered all five days (Show HN,
+  the three.js forum's Showcase, which was quiet until a burst on the 21st, GitHub and about 45 new
+  Fable52.games entries). Added, all embedded while the database is over its space:
+  **Papertrails** (Shikhar's endless pop-up book, MIT: paper trees and houses fold up around the
+  traveller as they walk; 127 stars in four days), **Squirrel** (swu-u's squirrel in an autumn
+  town, climbing trees and power lines after acorns, phone first), **Blackburn Type D** (Andrej
+  Dunaev's 1912 monoplane flown through four rings that open chapters on the surviving aeroplane;
+  its clip starts in the air through its own `?fly=1`), **Santa Express** (thestringtheories'
+  sixty-second sleigh run over a snowy village, filmed during its opening fly-through) and
+  **Cherwell Valley Motor Club** (johnwards' classic cars in the stone villages of North
+  Oxfordshire, from Show HN; its clip gives the Triumph a second and a bit of throttle, as two
+  seconds take it across Deddington's market place into Otters Restaurant). Papertrails' and
+  Squirrel's clips are drawn at one device pixel per CSS pixel: at two, one took an hour and the
+  other crashed the recorder. Held:
+  **A Goose Tale** (Mike Fernandez's goose finding its goslings in a dark wood, three.js WebGPU:
+  still loading at 90% after half a minute inside Orb here), **Hidden Layers** (toby-bridges'
+  glasswing butterfly through six worlds, a scroll-driven piece that didn't move on with the wheel
+  here), **Portia** (Ville Mustonen's jumping spider hunting a jungle floor, MIT: its Begin threw an
+  error here), **Paper Boat** (a river to float down, behind a name to type) and, from 17
+  November, Luoyang City (a 1:1 open world of Luoyang), Escape the Fable (an MIT escape-room
+  generator), Octoventure, Apex Lap, Duel Knights and Guangzhou Drift, for another look. Left out:
+  **Rawza Ring** (a race on the real streets round Mazar-i-Sharif's Blue Mosque) for its
+  billboards advertising its maker's channels; Devayan (Indian mythology, MIT: its play is far
+  plainer than its title screen); The Wreck (a calm procedural dive, plain); Raptor Race (a
+  portrait runner for iPhones); Maple Run (needs WebGPU); Flower Box (sells extras); Aevum (Google
+  sign-in); Hold the Home (phones as its controllers); Interstellar (a film's ship and scene);
+  Fable52's fan games of other studios' characters (a QQ Speed kart racer, CrossFire's Transport
+  Ship, Black Myth's Tiger Vanguard, an ARAM arena); GTA-style cities (Delhi, Mumbai, Vice); more
+  make.fun bounty shooters; Graveyard Shift, Last Return and Shutterpine (horror); portfolios, a
+  VJ app (Lampjack) and Posy's flower cards; and for another look Toshkent 3D (Tashkent from
+  OpenStreetMap), DOVA, Boo-mas, Ripcore, Pelican on a Bike, two rooftop parkour runs, Dune Run,
+  Outpost Racer, Pocket Roads, Little Lifts, Hamster Colony and Free Kick Legends. Bellripple (a
+  Korean temple garden, framed only on itch.io), DailyPlay Rally, Posy, Chongqing, Kiakia Dash (a
+  bike delivery round Lagos), Wrongly Drawn, Compass Post (a geography game on a globe) and Rooftop
+  Rally refuse a frame.
 
 ## Embeds we would add if their sites allowed it
 
@@ -484,7 +520,8 @@ Haggis Survivors, Field of Command, Astral War, Kart Royale, BuildYourTown, Litt
 Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Clash Karts, Kage no
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
 Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, Collection of Beauty, Tour du Pain, Mini Racing,
-Threshold, Hong Kong Birthday Patrol, Tangle, Omnistew, AH NAH TRAH, Clayground, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Threshold, Hong Kong Birthday Patrol, Tangle, Omnistew, AH NAH TRAH, Clayground, Bellripple, DailyPlay Rally,
+Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
@@ -551,7 +588,9 @@ Counts are each source's own on that day. Ranked by how many good worlds each co
    makers host a copy that frames, and their licences vary), Arrival Space (walkable scans
    with visit counts; not checked in a browser yet), and lists of one model's best work
    (fengyiqicoder/awesome-fable-5.2: 57 live pieces with their posts' likes; Portals and Indiranagar came from it;
-   Fable52.games: about 35 Fable 5.2 games whose play pages frame their makers' own sites and link their code).
+   Fable52.games: about 110 games by 21 November, from Fable 5.2 and other models, whose play pages frame their
+   makers' own sites and link their code; vibegamer.io, from ummydev/awesome-ai-games: vibe-coded games with play
+   links, makers and models, not looked through yet).
 
 Not sources: itch.io (answers a frame with a "hotlinked" page), Polycam, Scaniverse, KIRI Engine
 and Google Arts & Culture (refuse frames), Luma (its gallery is gone), Spline (25,000 CC BY scenes,

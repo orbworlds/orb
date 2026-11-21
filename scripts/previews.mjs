@@ -873,6 +873,20 @@ const SHOTS = {
   // Night Nabbers: past "click to play", its camera flying down the street at night, past the bins, the shop and the
   // contracts board to the raccoons' den (run at half speed; the menus are the page's)
   'ext-night-nabbers': { init: halved, wait: 35000, steps: [{ click: [320, 360], wait: 8000 }], settle: 1 },
+  // Papertrails: the traveller setting off along the path as the pop-up book's paper trees and houses fold up around them
+  // (drawn at one device pixel per CSS pixel: at two it takes this machine an hour)
+  'ext-papertrails': { scale: 1, size: [1280, 800], sub: 1, wait: 20000, steps: [{ click: [320, 200], wait: 3000 }], hold: ['w'], settle: 1, crf: [50, 32] },
+  // Squirrel: past Play, the squirrel scampering off across the autumn park (drawn at one device pixel per CSS pixel: at two
+  // it crashes this machine)
+  'ext-squirrel': { scale: 1, size: [1280, 800], sub: 1, wait: 20000, steps: [{ click: [320, 356], wait: 8000 }], hold: ['w'], settle: 1, crf: [56, 37] },
+  // Blackburn Type D: started in the air (its own `fly=1`), the monoplane flying up the avenue between the towers to the
+  // first ring (its instruments are the page's)
+  'ext-blackburn-type-d': { query: 'fly=1', wait: 25000, settle: 1 },
+  // Santa Express: Start Flight, its opening fly-through over the snowy village under the northern lights
+  'ext-santa-express': { wait: 20000, steps: [{ click: [148, 290], wait: 1500 }], settle: 1, crf: [46, 30] },
+  // Cherwell Valley Motor Club: the Triumph pulling away from Deddington's market place (a second and a bit of throttle, then
+  // it rolls: two seconds take it across the junction into Otters Restaurant)
+  'ext-cherwell-valley-motor-club': { wait: 25000, steps: [{ click: [320, 200], wait: 2000 }], press: [['w', 0, 1.3]], settle: 1 },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */
