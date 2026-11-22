@@ -340,7 +340,14 @@ Browser (Next.js client)                              Vercel Functions (Node)   
   keep their own origin (`allow-same-origin`) and their own storage, partitioned by the browser
   under Orb's site; Orb can't see or move it.
 - World code is stored in Postgres (`orb_worlds.code`), versions in `orb_world_versions`,
-  thumbnails as `bytea` served through a CDN-cached route.
+  thumbnails as `bytea` served through a CDN-cached route. A multi-file world's files are stored
+  once by hash (`orb_trees`, `orb_blobs`, `src/server/files.ts`). The bytes of a game imported
+  from a public GitHub repository (the curated open-source games, and their remixes) stay on
+  GitHub: `orb_blobs.source` names the file at the commit it came from, it is read from GitHub
+  (then jsDelivr), checked against its hash, and the database keeps no copy
+  (`src/server/ghfiles.ts`, when a curated game is imported; pages and files under 64 KB stay).
+  Files and trees nothing points at (a build's steps, an upload that never went in a world) can be
+  forgotten from the lab two days after they were last stored.
 - AI: there is one kind of build. Every build is an agent job on the server (`/api/agent/jobs`,
   `src/server/agent/runner.ts`) that works on the world's files, saves versions as it goes and
   keeps going without the page, charged as it goes (§6). On Orb's AI it is Orb's own agent on
@@ -809,6 +816,8 @@ so a build and its repair round share a trace group. The lab's trace pages (key:
 | `GET /lab/<key>/traces/<id>` | | one trace: its facts, the other rounds of its chat turn, its whole timeline (HTML) |
 | `GET /lab/<key>/traces/blob/<sha>` | | a stored blob: images as themselves, anything else as sandboxed `text/plain`; `immutable` |
 | `GET /lab/<key>/traces/export` | `?id=` or the list's filters, `&since=<date>&limit=` (default 200, ≤ 2000), `&images=1` | `application/x-ndjson` download: one trace per line with all its events, payloads decoded and system prompts written out; screenshots as `orb-blob:<sha>` (data URLs with `images=1`), world files as `{ path: sha }` (each at the blob route). Newest `limit`, oldest first; with `since`, the first `limit` from then |
+| `GET /lab/<key>/space` | | where the database's space goes (JSON): world files still used and not, traces by age, and by world (`byWorld`: the worlds whose files take the most, by kind of file, the biggest files, current versions against older ones) |
+| `POST /lab/<key>/space` | `{ do: 'github', world? }`, `{ do: 'prune', days? }`, `{ do: 'vacuum', table }` | make room: the curated games whose files could come from GitHub (with `world`: move that one's); forget traces older than `days` (14) and files nothing uses; give a table's free space back (`VACUUM FULL`; the files table only once it holds under 400 MB) |
 | `GET /lab/<key>/backup` | `?since=<YYYY-MM-DD>` (default: the first day with events) | `application/x-ndjson`: `{ type: 'pulse', … }` (Pulse as of now), `{ type: 'problems', rows }` (every recorded problem), then one `{ type: 'events', day, rows }` per UTC day with analytics events. With the traces export and the blob route, what the nightly backup copies (`scripts/backup.mjs`, `.github/workflows/backup.yml`) |
 
 ### Analytics

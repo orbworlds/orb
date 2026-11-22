@@ -152,6 +152,9 @@ export async function convertSeeds(db: Db, limit = 1, again: string[] = []): Pro
         [r.id, imp.tree, seed.native!.license ?? null, `Imported from ${r.source_url}`],
       );
       converted.push(r.id);
+      // Its files are on GitHub too: read from there, the database keeps no copy (./ghfiles.ts).
+      const { moveToGitHub } = await import('./ghfiles');
+      await moveToGitHub(db, r.id).catch((e) => console.error('[orb] moving files to GitHub failed', r.id, e instanceof Error ? e.message : e));
     } catch (e) {
       failed[r.id] = e instanceof Error ? e.message : String(e);
     }

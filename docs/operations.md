@@ -109,6 +109,28 @@ caps above apply, with smaller defaults (25 builds a day per account; without on
 and 25 per IP). A key
 Cursor refuses shows up in Pulse → Problems as `Cursor builds refused`.
 
+## Database space
+
+Supabase's free plan counts 500 MB of database (the average over its billing period; over it, it
+can restrict the project and answer 402). Pulse's **Database** card shows the size and the biggest
+tables, and `/lab/<key>/space` where it goes: world files still used and not, traces by age, and
+which worlds' files take the most. Most of a world's room is its pictures, models and sounds.
+
+- **Games imported from GitHub keep their files on GitHub.** A curated open-source game's files
+  that GitHub serves exactly as Orb stores them are read from the repository at the commit Orb
+  imported (GitHub's file host, then jsDelivr; checked against their hash), and the database keeps
+  only pages, rewritten modules and small files ([`src/server/ghfiles.ts`](../src/server/ghfiles.ts)).
+  New curated games move when they're imported; `POST /lab/<key>/space {"do":"github"}` lists the
+  ones that could, and `{"do":"github","world":"<id>"}` moves one. If a repository disappears,
+  its game stops loading files: hide it, or switch it back to its own site.
+- **What nothing uses can go.** `{"do":"prune"}` forgets traces older than 14 days (`days`; the
+  nightly backup has them; `ORB_TRACE_DAYS` does it on its own) and files and trees no world, kept
+  version, build or GitHub sync points at, two days after they were last stored (`pruneFiles`).
+- **Giving space back.** Postgres reuses freed space but doesn't shrink by itself: `{"do":"vacuum",
+  "table":"orb_blobs"}` (or `orb_trace_blobs`, `orb_trace_events`, `orb_trees`, `orb_traces`) runs
+  `VACUUM FULL`, which locks the table for its seconds and copies what's left; the free plan's
+  disk is 2 GB, so the files table is refused while it holds more than 400 MB.
+
 ## Plans and credits
 
 Building with Orb's AI costs credits; a credit is a cent of what the AI costs Orb at the model's
@@ -225,7 +247,7 @@ agents, on Orb's AI or the person's own key (older traces also hold single-shot 
 builds and rounds browsers ran with their own key, from before every build was an agent job).
 Traces live in Postgres (`orb_traces`, `orb_trace_events`, `orb_trace_blobs`: payloads
 gzipped, prompts, files and screenshots stored once by hash) and are kept until `ORB_TRACE_DAYS`
-says otherwise.
+says otherwise (the nightly backup keeps them all).
 
 To look at them, open the lab's traces page, `/lab/<key>/traces` (the key is `ORB_LAB_KEY`, see
 [`src/server/lab.ts`](../src/server/lab.ts)). It lists traces newest first, with filters (status,

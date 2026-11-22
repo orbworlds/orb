@@ -238,6 +238,9 @@ create table if not exists orb_blobs (
   size integer not null,
   created_at timestamptz not null default now()
 );
+-- A file that a public GitHub repository has too (a game imported from it): "owner/repo@commit/path",
+-- read from there; data is then empty (src/server/files.ts, ghfiles.ts).
+alter table orb_blobs add column if not exists source text;
 create table if not exists orb_trees (
   sha text primary key,
   files jsonb not null,

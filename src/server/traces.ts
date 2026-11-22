@@ -125,6 +125,7 @@ async function putTreeBlobs(db: Db, tree: string): Promise<Record<string, string
       await db.query(
         `insert into orb_trace_blobs (sha, data, size, media_type)
          select b.sha, b.data, b.size, m.type from orb_blobs b join unnest($1::text[], $2::text[]) as m(sha, type) on m.sha = b.sha
+         where b.source is null
          on conflict (sha) do nothing`,
         [missing, missing.map((s) => types.get(s) ?? null)],
       );

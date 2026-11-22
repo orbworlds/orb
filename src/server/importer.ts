@@ -83,7 +83,7 @@ export async function* untar(stream: AsyncIterable<Buffer>): AsyncGenerator<{ pa
   }
 }
 
-async function download(url: string, headers: Record<string, string> = {}): Promise<AsyncIterable<Buffer>> {
+export async function download(url: string, headers: Record<string, string> = {}): Promise<AsyncIterable<Buffer>> {
   const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(180_000), headers: { 'user-agent': `OrbImport/1.0 (+${SITE})`, ...headers } });
   if (res.status === 404) throw new FileError("Couldn't find that repository — is it public?");
   if (!res.ok || !res.body) throw new FileError(`GitHub didn't send the files (HTTP ${res.status}). Try again in a moment.`);

@@ -13,15 +13,10 @@ export const KITS: Readonly<Record<string, string>> = kits;
 /** A kit's opening comment, in lines: its documentation, which the builder reads. */
 export const kitHeaderLines = (path: string): number => (KITS[path] ?? '').split('\n').findIndex((l) => !l.startsWith('//'));
 
-const stored = new Map<string, string>();
-
 /** The kits for a build of a world with these files: each kit's file, unless the world has one there already. */
 export async function kitFiles(db: Db, world: Tree): Promise<Tree> {
   const out: Tree = {};
-  for (const [path, source] of Object.entries(KITS)) {
-    if (world[path]) continue;
-    if (!stored.has(path)) stored.set(path, (await putBlob(db, source)).sha);
-    out[path] = stored.get(path)!;
-  }
+  // Stored for each build (putBlob writes a file again once an hour at most): one nothing used for days may be gone.
+  for (const [path, source] of Object.entries(KITS)) if (!world[path]) out[path] = (await putBlob(db, source)).sha;
   return out;
 }

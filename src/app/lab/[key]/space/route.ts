@@ -4,9 +4,21 @@
 // world), and traces by age. Then by world: the worlds whose files take the most (all their
 // versions; `now_bytes` their current one, `own_bytes` files no other world has), by kind of file,
 // and the biggest files. Sizes are the files' own bytes (Postgres may store them compressed).
+//
+// POST /lab/<key>/space {do}: make room.
+// - "github": the curated games whose files could come from GitHub, by bytes; with `world`, move
+//   that one's (src/server/ghfiles.ts).
+// - "prune": forget traces older than `days` (14; the nightly backup has them) and files nothing
+//   uses (src/server/files.ts pruneFiles), as many as fit in a few minutes.
+// - "vacuum": give a table's free space back (VACUUM FULL `table`): it copies what's left, so the
+//   files table only once most of it has moved.
 
+import { MOVE_MIN, moveToGitHub } from '@/server/ghfiles';
+import { pruneFiles } from '@/server/files';
 import { LAB_KEY } from '@/server/lab';
 import { ready } from '@/server/schema';
+import { SEEDS } from '@/server/seed';
+import { pruneTraces } from '@/server/traces';
 import { plain } from '../ndjson';
 
 export const maxDuration = 300;
@@ -80,4 +92,56 @@ export async function GET(_req: Request, ctx: { params: Promise<{ key: string }>
      from shared s join orb_blobs b on b.sha = s.sha order by b.size desc limit 20`,
   );
   return Response.json({ files, traces, jobs, byWorld: { ...split, worlds, types, biggest } }, { headers: { 'cache-control': 'no-store' } });
+}
+
+const VACUUM = ['orb_blobs', 'orb_trees', 'orb_traces', 'orb_trace_events', 'orb_trace_blobs'];
+
+export async function POST(req: Request, ctx: { params: Promise<{ key: string }> }): Promise<Response> {
+  const { key } = await ctx.params;
+  if (key !== LAB_KEY) return plain(404, 'Not found');
+  const body = (await req.json().catch(() => null)) as { do?: unknown; world?: unknown; days?: unknown; table?: unknown } | null;
+  const db = await ready();
+  const answer = (v: unknown) => Response.json(v, { headers: { 'cache-control': 'no-store' } });
+  if (body?.do === 'github') {
+    if (typeof body.world === 'string') return answer(await moveToGitHub(db, body.world));
+    const curated = SEEDS.filter((s) => s.source_url?.startsWith('https://github.com/')).map((s) => s.id);
+    const worlds = await db.query(
+      `select w.id, w.name, sum(b.size)::float8 as bytes from orb_worlds w join orb_trees t on t.sha = w.tree
+         cross join lateral (select distinct value from jsonb_each_text(t.files)) f join orb_blobs b on b.sha = f.value
+       where w.id = any($1::text[]) and b.source is null and b.size >= $2 group by w.id, w.name order by bytes desc`,
+      [curated, MOVE_MIN],
+    );
+    return answer({ worlds });
+  }
+  if (body?.do === 'prune') {
+    const days = typeof body.days === 'number' && body.days >= 7 ? body.days : 14;
+    const until = Date.now() + 240_000;
+    let traces = 0;
+    for (let n = 1; n && Date.now() < until; traces += n) n = await pruneTraces(db, days);
+    // Files traces copied that no trace has used since (pruneTraces takes a few per call).
+    let traceFiles = 0;
+    for (let n = 1; n && Date.now() < until; traceFiles += n) {
+      n = (await db.query(`delete from orb_trace_blobs where sha in (select sha from orb_trace_blobs where used_at < now() - ($1::float8 * interval '1 day') limit 5000) returning sha`, [days])).length;
+    }
+    const files = { trees: 0, blobs: 0, bytes: 0 };
+    for (let more = true; more && Date.now() < until; ) {
+      const r = await pruneFiles(db, 2000);
+      files.trees += r.trees;
+      files.blobs += r.blobs;
+      files.bytes += r.bytes;
+      more = r.trees + r.blobs > 0;
+    }
+    return answer({ traces, traceFiles, files, done: Date.now() < until });
+  }
+  if (body?.do === 'vacuum' && typeof body.table === 'string' && VACUUM.includes(body.table)) {
+    if (body.table === 'orb_blobs') {
+      const [kept] = await db.query<{ bytes: number }>(`select coalesce(sum(size), 0)::float8 as bytes from orb_blobs where source is null`);
+      if (kept.bytes > 400e6) return plain(409, `The files table still holds ${Math.round(kept.bytes / 1e6)} MB: a full vacuum copies that, more than the disk has free.`);
+    }
+    const size = async () => Number((await db.query<{ b: number }>(`select pg_total_relation_size($1::regclass)::float8 as b`, [body.table]))[0].b);
+    const before = await size();
+    await db.query(`vacuum full ${body.table}`);
+    return answer({ table: body.table, before, after: await size() });
+  }
+  return plain(400, 'Expected {do: "github" | "prune" | "vacuum", world?, days?, table?}.');
 }
