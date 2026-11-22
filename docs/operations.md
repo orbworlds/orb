@@ -121,8 +121,15 @@ which worlds' files take the most. Most of a world's room is its pictures, model
   imported (GitHub's file host, then jsDelivr; checked against their hash), and the database keeps
   only pages, rewritten modules and small files ([`src/server/ghfiles.ts`](../src/server/ghfiles.ts)).
   New curated games move when they're imported; `POST /lab/<key>/space {"do":"github"}` lists the
-  ones that could, and `{"do":"github","world":"<id>"}` moves one. If a repository disappears,
-  its game stops loading files: hide it, or switch it back to its own site.
+  ones that could, and `{"do":"github","world":"<id>"}` moves one, about 60 MB per call (`more`
+  says some are left). A file's old bytes pass through Postgres's write-ahead log first, and the
+  free plan's 2 GB disk turns the database read-only at 95% (it did once, moving 133 MB at a time):
+  so a call is refused while the database and its log hold over 1.6 GB, and calls should be a few
+  minutes apart (`{"do":"disk"}` shows both). If a repository disappears, its game stops loading
+  files: hide it, or switch it back to its own site.
+- **Traces are saved to GitHub before they go.** The nightly backup copies every trace with its
+  files to the private orbworlds/orb-backups; `{"do":"trace-index"}` lists what the database has,
+  to check the backup against, and `{"do":"clear-traces"}` empties the trace tables once it does.
 - **What nothing uses can go.** `{"do":"prune"}` forgets traces older than 14 days (`days`; the
   nightly backup has them; `ORB_TRACE_DAYS` does it on its own) and files and trees no world, kept
   version, build or GitHub sync points at, two days after they were last stored (`pruneFiles`).

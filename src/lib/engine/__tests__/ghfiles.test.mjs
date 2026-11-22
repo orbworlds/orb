@@ -93,7 +93,7 @@ describe('world files on GitHub', () => {
 
   test('moves what GitHub serves exactly as stored; pages, small files and the rest stay', async () => {
     const moved = await G.moveToGitHub(db, 'aw-game');
-    assert.deepEqual(moved, { world: 'aw-game', commit: COMMIT, files: 1, bytes: BIG.length, kept: 1 });
+    assert.deepEqual(moved, { world: 'aw-game', commit: COMMIT, files: 1, bytes: BIG.length, kept: 1, more: false });
     const rows = await db.query(`select sha, source, octet_length(data)::int as n from orb_blobs`);
     const row = (b) => rows.find((r) => r.sha === sha256(b));
     assert.deepEqual(row(BIG), { sha: sha256(BIG), source: `o/r@${COMMIT}/assets/big.bin`, n: 0 });
@@ -101,12 +101,27 @@ describe('world files on GitHub', () => {
     assert.equal(row(OTHER).n, OTHER.length);
     assert.equal(row(PAGE).source, null);
     assert.equal(row(SMALL).source, null);
-    assert.deepEqual(await G.moveToGitHub(db, 'aw-game'), { world: 'aw-game', commit: COMMIT, files: 0, bytes: 0, kept: 1 }, 'again: nothing more moves');
+    assert.deepEqual(await G.moveToGitHub(db, 'aw-game'), { world: 'aw-game', commit: COMMIT, files: 0, bytes: 0, kept: 1, more: false }, 'again: nothing more moves');
+  });
+
+  test('at most about the bytes a call may move, at least one file; the rest the next call', async () => {
+    const A = Buffer.alloc(70_000, 11);
+    const B = Buffer.alloc(70_000, 12);
+    site[`https://codeload.github.com/o/r2/tar.gz/${COMMIT}`] = tarGz(`r2-${COMMIT}`, [['a.bin', A], ['b.bin', B]]);
+    site['https://github.com/o/r2.git/info/refs?service=git-upload-pack'] = `0155${COMMIT} HEAD\0caps\n0000`;
+    site[`https://raw.githubusercontent.com/o/r2/${COMMIT}/a.bin`] = A;
+    site[`https://raw.githubusercontent.com/o/r2/${COMMIT}/b.bin`] = B;
+    const tree = { 'a.bin': (await F.putBlob(db, A)).sha, 'b.bin': (await F.putBlob(db, B)).sha };
+    await db.query(`insert into orb_worlds (id, name, source_url, tree) values ('aw-two', 'Two', 'https://github.com/o/r2', $1)`, [await F.putTree(db, tree)]);
+    const first = await G.moveToGitHub(db, 'aw-two', 100_000);
+    assert.deepEqual([first.files, first.more], [1, true]);
+    const second = await G.moveToGitHub(db, 'aw-two', 100_000);
+    assert.deepEqual([second.files, second.more], [1, false]);
   });
 
   test('a world from no GitHub repository moves nothing', async () => {
     await db.query(`insert into orb_worlds (id, name) values ('mine', 'Mine')`);
-    assert.deepEqual(await G.moveToGitHub(db, 'mine'), { world: 'mine', commit: null, files: 0, bytes: 0, kept: 0 });
+    assert.deepEqual(await G.moveToGitHub(db, 'mine'), { world: 'mine', commit: null, files: 0, bytes: 0, kept: 0, more: false });
   });
 
   test('a moved file is read from GitHub and checked: GitHub’s host, then jsDelivr; neither as stored → an error, not a wrong file', async () => {

@@ -99,13 +99,17 @@ const VACUUM = ['orb_blobs', 'orb_trees', 'orb_traces', 'orb_trace_events', 'orb
 export async function POST(req: Request, ctx: { params: Promise<{ key: string }> }): Promise<Response> {
   const { key } = await ctx.params;
   if (key !== LAB_KEY) return plain(404, 'Not found');
-  const body = (await req.json().catch(() => null)) as { do?: unknown; world?: unknown; days?: unknown; table?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { do?: unknown; world?: unknown; max?: unknown; days?: unknown; table?: unknown } | null;
   const db = await ready();
   const answer = (v: unknown) => Response.json(v, { headers: { 'cache-control': 'no-store' } });
   if (body?.do === 'github') {
     if (typeof body.world === 'string') {
+      // Room for the write-ahead log of what moves (see moveToGitHub): the free plan's disk is 2 GB,
+      // read-only from 95%; stop well before.
+      const [disk] = await db.query<{ bytes: number }>(`select (pg_database_size(current_database()) + (select coalesce(sum(size), 0) from pg_ls_waldir()))::float8 as bytes`);
+      if (disk.bytes > 1.6e9) return plain(409, `The disk holds ${Math.round(disk.bytes / 1e6)} MB with the write-ahead log: wait for Postgres to recycle it.`);
       try {
-        return answer(await moveToGitHub(db, body.world));
+        return answer(await moveToGitHub(db, body.world, typeof body.max === 'number' ? body.max : 60e6));
       } catch (e) {
         return plain(502, `Moving ${body.world}'s files failed: ${e instanceof Error ? e.message : String(e)}`);
       }

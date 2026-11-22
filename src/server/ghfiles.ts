@@ -40,11 +40,18 @@ export interface Moved {
   bytes: number;
   /** Files GitHub didn't serve as stored (they stay). */
   kept: number;
+  /** Files left to move (the call stopped at its bytes). */
+  more: boolean;
 }
 
-/** Move the files of a world imported from a public GitHub repository that GitHub serves exactly as Orb stores them. */
-export async function moveToGitHub(db: Db, worldId: string): Promise<Moved> {
-  const out: Moved = { world: worldId, commit: null, files: 0, bytes: 0, kept: 0 };
+/**
+ * Move the files of a world imported from a public GitHub repository that GitHub serves exactly as
+ * Orb stores them. At most about `maxBytes` per call (`more` says some are left): each moved file's
+ * old bytes go through Postgres's write-ahead log first, which needs room on the disk until Postgres
+ * recycles it (a few minutes), and a full disk turns the database read-only.
+ */
+export async function moveToGitHub(db: Db, worldId: string, maxBytes = Infinity): Promise<Moved> {
+  const out: Moved = { world: worldId, commit: null, files: 0, bytes: 0, kept: 0, more: false };
   const [w] = await db.query<{ source_url: string | null }>(`select source_url from orb_worlds where id = $1`, [worldId]);
   const ref = w?.source_url ? parseRepoUrl(w.source_url) : null;
   if (!ref) return out;
@@ -59,8 +66,12 @@ export async function moveToGitHub(db: Db, worldId: string): Promise<Moved> {
     if (path && !/\.html?$/i.test(path) && e.data.length >= MOVE_MIN && e.data.length <= FILE_LIMITS.file) paths.set(sha256(e.data), path);
   }
   if (!paths.size) return out;
-  const rows = await db.query<{ sha: string }>(`select sha from orb_blobs where sha = any($1::text[]) and source is null and size >= $2`, [[...paths.keys()], MOVE_MIN]);
-  const queue = rows.map((r) => r.sha);
+  const rows = await db.query<{ sha: string; size: number }>(`select sha, size from orb_blobs where sha = any($1::text[]) and source is null and size >= $2 order by sha`, [[...paths.keys()], MOVE_MIN]);
+  // As many as fit in the call's bytes (at least one).
+  let budget = 0;
+  const take = rows.filter((r, i) => (budget += Number(r.size)) <= maxBytes || i === 0);
+  out.more = take.length < rows.length;
+  const queue = take.map((r) => r.sha);
   const work = async () => {
     for (let sha = queue.shift(); sha; sha = queue.shift()) {
       const source = `${ref.owner}/${ref.repo}@${commit}/${paths.get(sha)}`;
