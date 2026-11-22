@@ -171,6 +171,38 @@ describe('world files on GitHub', () => {
     assert.deepEqual(await F.pruneFiles(db), { trees: 0, blobs: 0, bytes: 0 }, 'nothing more');
   });
 
+  test('what pruning would forget is listed, and only what’s listed (and still unused) goes', async () => {
+    const put = async (data, age) => {
+      const sha = sha256(data);
+      await db.query(`insert into orb_blobs (sha, data, size, created_at) values ($1, $2, $3, now() - $4::interval)`, [sha, data, data.length, age]);
+      return sha;
+    };
+    const tree = async (files, age) => {
+      const json = JSON.stringify(files);
+      const sha = sha256(json);
+      await db.query(`insert into orb_trees (sha, files, created_at) values ($1, $2::jsonb, now() - $3::interval)`, [sha, json, age]);
+      return sha;
+    };
+    const stepFile = await put(Buffer.from('listed: a step'), '3 days');
+    const step = await tree({ 'step.js': stepFile }, '3 days');
+    const liveFile = await put(Buffer.from('listed: in a world'), '3 days');
+    await db.query(`insert into orb_worlds (id, name, tree) values ('listed', 'Listed', $1)`, [await tree({ 'main.js': liveFile }, '3 days')]);
+    const orphan = await put(Buffer.from('listed: an orphan'), '3 days');
+    const fresh = await put(Buffer.from('listed: fresh'), '1 minute');
+
+    const unused = await F.unusedFiles(db);
+    const blobs = new Set(unused.blobs.map(([sha]) => sha));
+    assert.ok(unused.trees.includes(step));
+    assert.ok(blobs.has(stepFile) && blobs.has(orphan), 'a file only an unused tree has, and an orphan');
+    assert.ok(!blobs.has(liveFile) && !blobs.has(fresh), 'not what a world uses, nor a fresh one');
+    assert.equal(unused.blobs.find(([sha]) => sha === orphan)[1], Buffer.from('listed: an orphan').length);
+
+    const pruned = await F.pruneListed(db, [step], [stepFile, liveFile]);
+    assert.deepEqual([pruned.trees, pruned.blobs], [1, 1], 'the step and its file; a listed file a world uses stays');
+    const left = new Set((await db.query(`select sha from orb_blobs`)).map((r) => r.sha));
+    assert.ok(!left.has(stepFile) && left.has(liveFile) && left.has(orphan), 'the orphan stays: it wasn’t listed');
+  });
+
   test('a tree stored again counts as new again', async () => {
     const file = (await F.putBlob(db, Buffer.from('tree again'))).sha;
     const sha = await F.putTree(db, { 'a.js': file });

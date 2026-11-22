@@ -307,6 +307,38 @@ const LIVE_TREES = `select tree as sha from orb_worlds where tree is not null
   union select unnest(array[base_tree, tree, committed_tree, saved_tree]) from orb_agent_jobs
   union select synced_tree from orb_world_repos where synced_tree is not null`;
 
+/** What pruneFiles would forget now: trees nothing points at, and files only such trees have (both two days old). */
+export async function unusedFiles(db: Db): Promise<{ trees: string[]; blobs: Array<[string, number]> }> {
+  const trees = await db.query<{ sha: string }>(
+    `select t.sha from orb_trees t where t.created_at < now() - interval '2 days' and not exists (select 1 from (${LIVE_TREES}) l where l.sha = t.sha) order by t.sha`,
+  );
+  const blobs = await db.query<{ sha: string; size: number }>(
+    `with dead as (select unnest($1::text[]) as sha),
+       used as (select distinct f.value as sha from orb_trees t, jsonb_each_text(t.files) as f where not exists (select 1 from dead d where d.sha = t.sha))
+     select b.sha, b.size from orb_blobs b where b.created_at < now() - interval '2 days' and not exists (select 1 from used u where u.sha = b.sha) order by b.sha`,
+    [trees.map((t) => t.sha)],
+  );
+  return { trees: trees.map((t) => t.sha), blobs: blobs.map((b) => [b.sha, Number(b.size)]) };
+}
+
+/** Forget exactly these trees and files (a backup has them), those still unused (as pruneFiles judges). */
+export async function pruneListed(db: Db, trees: string[], blobs: string[]): Promise<{ trees: number; blobs: number; bytes: number }> {
+  const t = trees.length
+    ? await db.query(
+        `delete from orb_trees t where t.sha = any($1::text[]) and t.created_at < now() - interval '2 days' and not exists (select 1 from (${LIVE_TREES}) l where l.sha = t.sha) returning t.sha`,
+        [trees],
+      )
+    : [];
+  const b = blobs.length
+    ? await db.query<{ size: number }>(
+        `with used as (select distinct f.value as sha from orb_trees t, jsonb_each_text(t.files) as f)
+         delete from orb_blobs b where b.sha = any($1::text[]) and b.created_at < now() - interval '2 days' and not exists (select 1 from used u where u.sha = b.sha) returning b.size`,
+        [blobs],
+      )
+    : [];
+  return { trees: t.length, blobs: b.length, bytes: b.reduce((n, r) => n + Number(r.size), 0) };
+}
+
 /**
  * Forget trees nothing points at and files no tree has, two days after they were last stored (a
  * build in progress points at its own; an upload goes in a world within minutes). At most `limit`

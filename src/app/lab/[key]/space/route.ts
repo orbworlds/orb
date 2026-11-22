@@ -14,7 +14,7 @@
 //   files table only once most of it has moved.
 
 import { MOVE_MIN, moveToGitHub } from '@/server/ghfiles';
-import { pruneFiles } from '@/server/files';
+import { getBlob, getTree, isSha, pruneFiles, pruneListed, unusedFiles } from '@/server/files';
 import { LAB_KEY } from '@/server/lab';
 import { ready } from '@/server/schema';
 import { SEEDS } from '@/server/seed';
@@ -23,10 +23,22 @@ import { plain } from '../ndjson';
 
 export const maxDuration = 300;
 
-export async function GET(_req: Request, ctx: { params: Promise<{ key: string }> }): Promise<Response> {
+export async function GET(req: Request, ctx: { params: Promise<{ key: string }> }): Promise<Response> {
   const { key } = await ctx.params;
   if (key !== LAB_KEY) return plain(404, 'Not found');
   const db = await ready();
+  // One stored file's bytes (?blob=<sha>) or one tree (?tree=<sha>), to back them up before they go.
+  const q = new URL(req.url).searchParams;
+  const blob = q.get('blob');
+  if (blob !== null) {
+    const bytes = isSha(blob) ? await getBlob(db, blob) : null;
+    return bytes ? new Response(new Uint8Array(bytes), { headers: { 'content-type': 'application/octet-stream', 'cache-control': 'no-store' } }) : plain(404, 'No such file.');
+  }
+  const tree = q.get('tree');
+  if (tree !== null) {
+    const files = isSha(tree) ? await getTree(db, tree) : null;
+    return files ? Response.json(files, { headers: { 'cache-control': 'no-store' } }) : plain(404, 'No such tree.');
+  }
   const [files] = await db.query<Record<string, number>>(
     `with live_trees as (
        select tree as sha from orb_worlds where tree is not null
@@ -143,6 +155,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
     }
     return answer({ traces, traceFiles, files, done: Date.now() < until });
   }
+  if (body?.do === 'unused') return answer(await unusedFiles(db));
+  if (body?.do === 'prune-listed') {
+    // Exactly what a backup has (from "unused"), with the same room check as moving files.
+    const shas = (v: unknown) => (Array.isArray(v) ? v.filter(isSha).slice(0, 5000) : []);
+    const [disk] = await db.query<{ bytes: number }>(`select (pg_database_size(current_database()) + (select coalesce(sum(size), 0) from pg_ls_waldir()))::float8 as bytes`);
+    if (disk.bytes > 1.6e9) return plain(409, `The disk holds ${Math.round(disk.bytes / 1e6)} MB with the write-ahead log: wait for Postgres to recycle it.`);
+    const b = body as { trees?: unknown; blobs?: unknown };
+    return answer(await pruneListed(db, shas(b.trees), shas(b.blobs)));
+  }
   if (body?.do === 'vacuum' && typeof body.table === 'string' && VACUUM.includes(body.table)) {
     if (body.table === 'orb_blobs') {
       const [kept] = await db.query<{ bytes: number }>(`select coalesce(sum(size), 0)::float8 as bytes from orb_blobs where source is null`);
@@ -194,5 +215,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       return plain(502, `checkpoint failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint" | "trace-index" | "clear-traces", world?, days?, table?}.');
+  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint" | "trace-index" | "clear-traces" | "unused" | "prune-listed", world?, days?, table?}.');
 }

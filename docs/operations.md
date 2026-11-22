@@ -130,9 +130,12 @@ which worlds' files take the most. Most of a world's room is its pictures, model
 - **Traces are saved to GitHub before they go.** The nightly backup copies every trace with its
   files to the private orbworlds/orb-backups; `{"do":"trace-index"}` lists what the database has,
   to check the backup against, and `{"do":"clear-traces"}` empties the trace tables once it does.
-- **What nothing uses can go.** `{"do":"prune"}` forgets traces older than 14 days (`days`; the
-  nightly backup has them; `ORB_TRACE_DAYS` does it on its own) and files and trees no world, kept
-  version, build or GitHub sync points at, two days after they were last stored (`pruneFiles`).
+- **What nothing uses can go, once it's saved.** Files and trees no world, kept version, build or
+  GitHub sync points at (two days after they were last stored) are copied to the backup repository
+  first: `{"do":"unused"}` lists them, `GET /lab/<key>/space?blob=<sha>` and `?tree=<sha>` give
+  each, and `{"do":"prune-listed","trees":[…],"blobs":[…]}` forgets exactly those (with the same
+  disk check as moving). `{"do":"prune"}` forgets all of them, and traces older than `days`, without
+  asking whether a backup has them.
 - **Giving space back.** Postgres reuses freed space but doesn't shrink by itself: `{"do":"vacuum",
   "table":"orb_blobs"}` (or `orb_trace_blobs`, `orb_trace_events`, `orb_trees`, `orb_traces`) runs
   `VACUUM FULL`, which locks the table for its seconds and copies what's left; the free plan's
