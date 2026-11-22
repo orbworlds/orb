@@ -103,7 +103,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
   const db = await ready();
   const answer = (v: unknown) => Response.json(v, { headers: { 'cache-control': 'no-store' } });
   if (body?.do === 'github') {
-    if (typeof body.world === 'string') return answer(await moveToGitHub(db, body.world));
+    if (typeof body.world === 'string') {
+      try {
+        return answer(await moveToGitHub(db, body.world));
+      } catch (e) {
+        return plain(502, `Moving ${body.world}'s files failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
     const curated = SEEDS.filter((s) => s.source_url?.startsWith('https://github.com/')).map((s) => s.id);
     const worlds = await db.query(
       `select w.id, w.name, sum(b.size)::float8 as bytes from orb_worlds w join orb_trees t on t.sha = w.tree
