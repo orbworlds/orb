@@ -165,6 +165,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       ask('settings', `select name, setting, unit from pg_settings where name in ('max_wal_size', 'min_wal_size', 'wal_keep_size', 'checkpoint_timeout', 'max_slot_wal_keep_size')`),
     ])));
   }
+  if (body?.do === 'clear-traces') {
+    // Every build trace at once (the nightly backup has them): TRUNCATE gives their disk back
+    // straight away, which a DELETE can't, even with the database read-only (one transaction may write).
+    try {
+      await db.query(`begin read write; truncate orb_trace_events, orb_trace_blobs, orb_traces; commit;`);
+      return answer({ cleared: true });
+    } catch (e) {
+      return plain(502, `clearing traces failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   if (body?.do === 'checkpoint') {
     // Lets Postgres drop the write-ahead log it no longer needs (frees disk, changes no data).
     try {
@@ -174,5 +184,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       return plain(502, `checkpoint failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint", world?, days?, table?}.');
+  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint" | "clear-traces", world?, days?, table?}.');
 }
