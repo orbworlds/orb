@@ -165,6 +165,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       ask('settings', `select name, setting, unit from pg_settings where name in ('max_wal_size', 'min_wal_size', 'wal_keep_size', 'checkpoint_timeout', 'max_slot_wal_keep_size')`),
     ])));
   }
+  if (body?.do === 'trace-index') {
+    // Read-only: every trace's id and every file traces keep, to check a backup has them all.
+    const traces = await db.query<{ id: string }>(`select id from orb_traces order by id`);
+    const files = await db.query<{ sha: string; size: number }>(`select sha, size from orb_trace_blobs order by sha`);
+    return answer({ traces: traces.map((t) => t.id), files: files.map((f) => [f.sha, Number(f.size)]) });
+  }
   if (body?.do === 'clear-traces') {
     // Every build trace at once (the nightly backup has them): TRUNCATE gives their disk back
     // straight away, which a DELETE can't, even with the database read-only (one transaction may write).
@@ -184,5 +190,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       return plain(502, `checkpoint failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint" | "clear-traces", world?, days?, table?}.');
+  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint" | "trace-index" | "clear-traces", world?, days?, table?}.');
 }
