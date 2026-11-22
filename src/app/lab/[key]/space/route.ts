@@ -149,5 +149,30 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
     await db.query(`vacuum full ${body.table}`);
     return answer({ table: body.table, before, after: await size() });
   }
-  return plain(400, 'Expected {do: "github" | "prune" | "vacuum", world?, days?, table?}.');
+  if (body?.do === 'disk') {
+    // Read-only: why the database may be read-only (Supabase turns it so at 95% of the disk).
+    const ask = async (label: string, sql: string) => {
+      try {
+        return [label, await db.query(sql)] as const;
+      } catch (e) {
+        return [label, `failed: ${e instanceof Error ? e.message : String(e)}`] as const;
+      }
+    };
+    return answer(Object.fromEntries(await Promise.all([
+      ask('database', `select pg_database_size(current_database())::float8 as bytes, current_setting('default_transaction_read_only') as read_only`),
+      ask('wal', `select count(*)::int as files, coalesce(sum(size), 0)::float8 as bytes from pg_ls_waldir()`),
+      ask('slots', `select slot_name, slot_type, active, pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)::float8 as retained from pg_replication_slots`),
+      ask('settings', `select name, setting, unit from pg_settings where name in ('max_wal_size', 'min_wal_size', 'wal_keep_size', 'checkpoint_timeout', 'max_slot_wal_keep_size')`),
+    ])));
+  }
+  if (body?.do === 'checkpoint') {
+    // Lets Postgres drop the write-ahead log it no longer needs (frees disk, changes no data).
+    try {
+      await db.query(`checkpoint`);
+      return answer({ checkpoint: true });
+    } catch (e) {
+      return plain(502, `checkpoint failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint", world?, days?, table?}.');
 }
