@@ -3,7 +3,7 @@
 // src/server/agent/prompt.ts), and the default models for people's own keys. Pure module: only
 // type imports, no runtime dependencies.
 import type { ModelMessage, FilePart } from 'ai';
-import type { BuildRequest, BuildVideo, ModelMessage as ChatModelMessage } from '../types';
+import type { BuildModel, BuildRequest, BuildVideo, ModelMessage as ChatModelMessage } from '../types';
 
 // ---------------------------------------------------------------------------------------------
 // Request limits (validated by /api/agent/jobs; the client clamps to them before sending).
@@ -19,6 +19,8 @@ export const BUILD_LIMITS = {
   videos: 1,
   frames: 4,
   frame: 300_000,
+  /** 3D model files with the message (POST /api/uploads/model), for the world to use. */
+  models: 3,
   errors: 12,
   errorChars: 4_000,
   worldName: 120,
@@ -42,12 +44,23 @@ export const isBuildPhoto = (img: unknown): img is string => typeof img === 'str
 export const PHOTOS_ONLY = '(I sent photos without words.)';
 /** What a message of a video alone asks. */
 export const VIDEO_ONLY = '(I sent a video without words.)';
+/** What a message with only 3D models says. */
+export const MODELS_ONLY = '(I sent a 3D model without words.)';
+/** The 3D model files a message can bring into a world (one file each: a .gltf with its data inside). */
+export const MODEL_TYPES = ['glb', 'gltf', 'fbx', 'obj', 'stl'] as const;
+export type ModelType = (typeof MODEL_TYPES)[number];
 /** What the automatic repair round asks (src/lib/engine/useBuild.ts). */
 export const REPAIR_REQUEST = 'Automatic check: some of those changes did not work (see <errors>). Please fix just these problems with minimal edits — nothing new.';
 /** Video files a build may put in a world (POST /api/uploads takes these). */
 export const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'] as const;
 
 /** A video the person attached: its frames, its length, and its file on Orb if it has one. */
+function isBuildModel(m: unknown): m is BuildModel {
+  if (!m || typeof m !== 'object') return false;
+  const o = m as Record<string, unknown>;
+  return typeof o.sha === 'string' && /^[a-f0-9]{64}$/.test(o.sha) && typeof o.name === 'string' && o.name.length > 0 && o.name.length <= 100 && (MODEL_TYPES as readonly unknown[]).includes(o.type);
+}
+
 function isBuildVideo(v: unknown): v is BuildVideo {
   if (!v || typeof v !== 'object') return false;
   const o = v as Record<string, unknown>;
@@ -85,11 +98,17 @@ export function validateBuildRequest(body: unknown): { ok: true; req: BuildReque
       return { ok: false, message: `\`videos\` must be at most ${BUILD_LIMITS.videos}: up to ${BUILD_LIMITS.frames} jpeg frames under ${Math.round(BUILD_LIMITS.frame / 1000)} KB each, its seconds, and maybe its uploaded file.` };
     if (b.videos.length) videos = (b.videos as BuildVideo[]).map((v) => ({ frames: v.frames, seconds: v.seconds, ...(v.file ? { file: { sha: v.file.sha, type: v.file.type } } : {}) }));
   }
+  let models: BuildModel[] | undefined;
+  if (b.models != null) {
+    if (!Array.isArray(b.models) || b.models.length > BUILD_LIMITS.models || !b.models.every(isBuildModel))
+      return { ok: false, message: `\`models\` must be up to ${BUILD_LIMITS.models} uploaded 3D models (sha, name, type: ${MODEL_TYPES.join(', ')}).` };
+    if (b.models.length) models = (b.models as BuildModel[]).map((m) => ({ sha: m.sha, name: m.name, type: m.type }));
+  }
   const last = messages[messages.length - 1];
   if (last.role !== 'user') return { ok: false, message: 'The last message must be a non-empty user message.' };
   if (!last.content.trim()) {
-    if (!photos && !videos) return { ok: false, message: 'The last message must be a non-empty user message.' };
-    last.content = photos ? PHOTOS_ONLY : VIDEO_ONLY;
+    if (!photos && !videos && !models) return { ok: false, message: 'The last message must be a non-empty user message.' };
+    last.content = photos ? PHOTOS_ONLY : videos ? VIDEO_ONLY : MODELS_ONLY;
   }
   let image: string | null = null;
   if (b.image != null) {
@@ -113,6 +132,7 @@ export function validateBuildRequest(body: unknown): { ok: true; req: BuildReque
       image,
       ...(photos ? { photos } : {}),
       ...(videos ? { videos } : {}),
+      ...(models ? { models } : {}),
       errors,
       mode,
       worldName: typeof b.worldName === 'string' ? b.worldName.slice(0, BUILD_LIMITS.worldName) : undefined,

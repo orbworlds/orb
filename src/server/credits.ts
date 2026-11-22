@@ -161,7 +161,7 @@ function toWallet(r: WalletRow): Wallet {
     plan: r.plan === 'pro' ? 'pro' : r.payer.startsWith('d:') ? 'guest' : 'free',
     left: toCredits(Math.max(0, allowance - used) + bonus + topup),
     allowance: toCredits(allowance),
-    used: toCredits(Math.min(used, allowance)),
+    used: toCredits(Math.max(0, Math.min(used, allowance))),
     refreshAt: r.week_start ? new Date(new Date(r.week_start).getTime() + WEEK_MS).toISOString() : iso(r.period_end),
     topup: toCredits(topup),
     bonus: toCredits(bonus),
@@ -274,8 +274,8 @@ export async function refundCredits(db: Db, payer: string, micros: number, ref: 
        returning micros
      )
      update orb_wallets set
-       used_micros = used_micros - least((select micros from logged) - $4::bigint, used_micros),
-       bonus_micros = greatest(0, bonus_micros) + ((select micros from logged) - $4::bigint - least((select micros from logged) - $4::bigint, used_micros)),
+       used_micros = used_micros - least((select micros from logged) - $4::bigint, greatest(0, used_micros)),
+       bonus_micros = greatest(0, bonus_micros) + ((select micros from logged) - $4::bigint - least((select micros from logged) - $4::bigint, greatest(0, used_micros))),
        topup_micros = topup_micros + $4::bigint,
        updated_at = now()
      where payer = $1 and exists (select 1 from logged)

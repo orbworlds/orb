@@ -8,7 +8,7 @@ import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type Clip
 import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
 import { BUILD_LIMITS } from '@/lib/engine/prompt';
-import { addPhotos, isAttachable, type Photo } from '@/lib/photos';
+import { addPhotos, ATTACHABLE, isAttachable, type Photo } from '@/lib/photos';
 import { toast } from '@/state/toast';
 import { VideoMark } from './MessageView';
 import { useReducedMotion } from '@/state/ui';
@@ -180,8 +180,8 @@ export function Composer({ value, onChange, onSend, onStop, building = false, pl
             type="button"
             onClick={() => picker.current?.click()}
             disabled={photos.length + reading >= BUILD_LIMITS.photos}
-            aria-label="Add photos or a video"
-            title="Add photos or a video"
+            aria-label="Add photos, a video or a 3D model"
+            title="Add photos, a video or a 3D model"
             className={`flex shrink-0 items-center justify-center rounded-full text-ink-2 transition-colors hover:bg-[var(--hover)] hover:text-ink disabled:opacity-40 ${hero ? 'h-11 w-11' : 'h-[34px] w-[34px]'}`}
           >
             <Icon name="image" size={hero ? 21 : 18} />
@@ -189,7 +189,7 @@ export function Composer({ value, onChange, onSend, onStop, building = false, pl
           <input
             ref={picker}
             type="file"
-            accept="image/*,video/*"
+            accept={ATTACHABLE}
             multiple
             hidden
             onChange={(e) => {
@@ -205,12 +205,12 @@ export function Composer({ value, onChange, onSend, onStop, building = false, pl
             {photos.map((p, i) => (
               <li key={p.id} className={`animate-pop relative shrink-0 ${tile}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- a data URL made in this page */}
-                <img src={p.thumb} alt={p.video ? 'Video' : `Photo ${i + 1}`} className={`${tile} rounded-[12px] object-cover shadow-[inset_0_0_0_1px_var(--ink-5)]`} />
+                <img src={p.thumb} alt={p.model ? `3D model ${p.model.name}` : p.video ? 'Video' : `Photo ${i + 1}`} title={p.model?.name} className={`${tile} rounded-[12px] object-cover shadow-[inset_0_0_0_1px_var(--ink-5)]`} />
                 {p.video && <VideoMark seconds={p.video.seconds} />}
                 <button
                   type="button"
                   onClick={() => remove(p.id)}
-                  aria-label={p.video ? 'Remove video' : `Remove photo ${i + 1}`}
+                  aria-label={p.model ? `Remove 3D model ${p.model.name}` : p.video ? 'Remove video' : `Remove photo ${i + 1}`}
                   className="absolute -top-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-ink text-paper shadow-[0_0_0_2px_var(--paper)] transition-transform hover:scale-105"
                 >
                   <Icon name="x" size={12} strokeWidth={2.4} />

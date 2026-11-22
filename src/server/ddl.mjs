@@ -516,6 +516,9 @@ create index if not exists orb_events_user on orb_events(user_id) where user_id 
 alter table orb_wallets add column if not exists flagged_at timestamptz;
 alter table orb_wallets add column if not exists flag_reason text;
 alter table orb_purchases add column if not exists reversed boolean not null default false;
+-- What of a purchase paid with free or bonus credits went to the maker as extra credits for their week
+-- (src/server/shop.ts): free credits stay free there, they never become earnings.
+alter table orb_purchases add column if not exists free_micros bigint not null default 0;
 -- A world kept in sync with a GitHub repository's branch (src/server/reposync.ts): the commit and
 -- the world's tree both sides last agreed on, and where in the repository the world's files are.
 create table if not exists orb_world_repos (

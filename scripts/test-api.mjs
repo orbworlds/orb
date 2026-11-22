@@ -148,12 +148,12 @@ async function join(dev, username) {
   return { dev, cookie: cookieOf(r), id: r.json?.user?.id, handle: r.json?.user?.handle, name: r.json?.user?.name };
 }
 
-/** The whole trending feed, page by page (it can be longer than one page). */
-async function feed() {
+/** The whole trending feed (of `query`'s topic, say), page by page (it can be longer than one page). */
+async function feed(query = '') {
   const ids = [];
   let next;
   for (let i = 0; i < 20; i++) {
-    const r = await request('GET', `/api/worlds?sort=trending&limit=60${next ? `&cursor=${next}` : ''}`);
+    const r = await request('GET', `/api/worlds?sort=trending&limit=60${query}${next ? `&cursor=${next}` : ''}`);
     ids.push(...r.json.worlds.map((x) => x.id));
     next = r.json.nextCursor;
     if (!next) break;
@@ -999,6 +999,7 @@ async function run() {
     const buy = (who, item, price, id = world.id) => request('POST', `/api/worlds/${id}/shop`, { ...who, body: { item, price } });
     const sales = async () => (await request('GET', '/api/friends', asM)).json?.notes?.filter((n) => n.kind === 'sale') ?? [];
     check('a maker and a buyer with accounts, and a world with a shop', !!(maker.cookie && buyer.cookie && world?.id));
+    const makerBefore = (await request('GET', '/api/billing', asM)).json?.credits?.left;
 
     let v = (await shop(anon)).json;
     check('the shop lists what fits (ids, prices 1–1000, once each)', v?.items?.map((i) => `${i.id}:${i.price}`).join() === 'star-hat:40,moon-boots:25,comet:1000' && v.items[0].emoji === '⭐' && v.items[0].description === 'Twinkles' && v.items[1].emoji === null, v?.items);
@@ -1026,7 +1027,8 @@ async function run() {
 
     let notes = await sales();
     check('the maker hears about the sale, from “someone”', notes.length === 1 && notes[0].world?.id === world.id && notes[0].sale?.count === 1 && notes[0].sale.item === 'Star Hat' && notes[0].from.name === 'Someone' && notes[0].from.id === '' && notes[0].read === false, notes);
-    check('…free credits earn nobody anything', notes[0]?.sale?.credits === 0 && (await request('GET', '/api/billing', asM)).json?.earnings?.credits === 0);
+    const makerAfter = (await request('GET', '/api/billing', asM)).json;
+    check('…free credits go to the maker as credits for their week, never as earnings', notes[0]?.sale?.credits === 40 && makerAfter?.earnings?.credits === 0 && makerAfter?.credits?.left === makerBefore + 40, { note: notes[0]?.sale, makerBefore, makerAfter: makerAfter?.credits, earnings: makerAfter?.earnings });
     await buy(asB, 'moon-boots', 25);
     notes = await sales();
     check('another sale adds up in the same note', notes.length === 1 && notes[0].sale?.count === 2 && notes[0].sale.item === 'Moon Boots', notes);
@@ -1269,7 +1271,7 @@ async function run() {
     check('after Orb’s first picks, what people play moves a world up', was[1] < was[0] && now[0] >= 0 && now[0] < now[1] && now[0] < was[0], { was, now });
     await request('DELETE', `/api/worlds/${w2.id}`, { dev: OWNER });
     // Topics: several tags at once.
-    const multi = (await request('GET', '/api/worlds?sort=trending&tag=art,game&limit=100')).json.worlds.map((x) => x.id);
+    const multi = await feed('&tag=art,game');
     check('a topic can span several tags', multi.includes(w.id));
     check('a forged trending cursor → 400', (await request('GET', `/api/worlds?sort=trending&cursor=${Buffer.from(JSON.stringify({ s: 'trending', k: [1, 'x'] })).toString('base64url')}`)).status === 400);
     await request('DELETE', `/api/worlds/${w.id}`, { dev: OWNER });
@@ -1430,6 +1432,27 @@ async function run() {
     check('a video alone is a request too, and one shown only for reference isn’t saved', reference.status === 200 && /I can see one picture/.test(reference.text) && (await request('GET', `/api/tree/${vv2.tree}/videos/${createHash('sha256').update(MP4).digest('hex').slice(0, 10)}.mp4`)).status === 404, reference.text.slice(-200));
     check('two videos → 400', (await request('POST', '/api/agent/jobs', { dev: FILMMAKER, body: { worldId: fw.id, messages: [{ role: 'user', content: 'x' }], videos: [{ frames: [frame], seconds: 1 }, { frames: [frame], seconds: 1 }], mode: 'build', code: '' } })).status === 400);
     check('too many frames → 400', (await request('POST', '/api/agent/jobs', { dev: FILMMAKER, body: { worldId: fw.id, messages: [{ role: 'user', content: 'x' }], videos: [{ frames: Array(5).fill(frame), seconds: 1 }], mode: 'build', code: '' } })).status === 400);
+    // A 3D model: sent in parts first, then a build puts it in the world as models/<name>.
+    const GLB = Buffer.alloc(5000);
+    GLB.write('glTF', 0, 'latin1');
+    GLB.writeUInt32LE(2, 4);
+    GLB.writeUInt32LE(5000, 8);
+    GLB.write(`orb test model ${TOKEN}`, 20);
+    const glbSha = createHash('sha256').update(GLB).digest('hex');
+    const part = (bytes) => request('POST', '/api/uploads/model', { dev: FILMMAKER, raw: bytes, type: 'application/octet-stream' });
+    const p1 = await part(GLB.subarray(0, 3000));
+    const p2 = await part(GLB.subarray(3000));
+    const joined = await request('POST', '/api/uploads/model', { dev: FILMMAKER, body: { parts: [p1.json?.sha, p2.json?.sha], name: 'hero-knight.glb' } });
+    check('a 3D model uploads in parts → one file, with its name and kind', p1.status === 200 && p2.status === 200 && joined.status === 200 && joined.json?.sha === glbSha && joined.json?.name === 'hero-knight.glb' && joined.json?.type === 'glb' && joined.json?.size === 5000, joined.text.slice(0, 200));
+    const words = await part(Buffer.from(`just words ${TOKEN}`));
+    check('…what isn’t the model it says it is → 415', (await request('POST', '/api/uploads/model', { dev: FILMMAKER, body: { parts: [words.json?.sha], name: 'fake.glb' } })).status === 415);
+    check('…a part over 4 MB → 413', (await part(Buffer.alloc(4_000_001))).status === 413);
+    const mw = (await create(FILMMAKER, { name: `Models ${TOKEN}` })).json.world;
+    const withModel = await request('POST', '/api/agent/jobs', { dev: FILMMAKER, body: { worldId: mw.id, messages: [{ role: 'user', content: 'my knight in the castle mockphoto' }], models: [{ sha: glbSha, name: 'hero-knight.glb', type: 'glb' }], mode: 'build', code: '' } });
+    const mv = (await get(FILMMAKER, mw.id)).json.world;
+    const knight = await request('GET', `/api/tree/${mv.tree}/models/hero-knight.glb`);
+    check('a build with a 3D model: the world that uses it keeps it as models/<name>', withModel.status === 200 && knight.status === 200 && /gltf-binary/.test(knight.headers.get('content-type') || ''), { status: withModel.status, model: knight.status, type: knight.headers.get('content-type') });
+    await request('DELETE', `/api/worlds/${mw.id}`, { dev: FILMMAKER });
     await request('DELETE', `/api/worlds/${fw.id}`, { dev: FILMMAKER });
     await request('DELETE', `/api/worlds/${pw.id}`, { dev: PHOTOGRAPHER });
     // Orb's kits: every build has them at orb/<kit>.js; a world keeps each only when it uses it.

@@ -185,9 +185,11 @@ Credits also buy things inside worlds: a world lists what it sells in its page a
 page ([`src/server/shop.ts`](../src/server/shop.ts), SPEC §7). Credits people paid for go first in
 worlds (a Free account's packs before its week's free credits, which stay for building), and the
 world's maker earns all of that paid part (`ORB_SHOP_SHARE`, 1: Orb takes no fee for now; credit
-packs sell credits above a cent, which covers Stripe's fees); free credits buy things too but earn
-nothing, so making accounts for their free credits pays nobody. Makers see what they
-earned in *You → Plan* and can build with it (it becomes bonus credits, which earn nobody anything when spent in worlds, so earnings can't be passed to another account to be cashed out there) or **cash it out**
+packs sell credits above a cent, which covers Stripe's fees). Free (and bonus) credits buy things
+too, and go to the maker as free credits for their week: they build with them until Monday, but
+they never become earnings, so making accounts for their free credits pays nobody money (and the
+credits can't pile up: they go with the week, and builds with them stay in the free builder's budget). Makers see what they
+earned in *You → Plan* and can build with it (it becomes bonus credits, which spent in worlds are no one's earnings, only credits for the maker's week, so earnings can't be passed to another account to be cashed out there) or **cash it out**
 ([`src/server/payouts.ts`](../src/server/payouts.ts)), on the lines of Roblox's Developer Exchange.
 Only credits earned from **other players** count: what a maker's own accounts buy (sharing a device
 or a card with them) earns credits to build with but never cash, and so do purchases of a payer whose

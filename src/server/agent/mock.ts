@@ -99,8 +99,8 @@ function plan(prompt: PromptMessage[]): { text?: string; calls: Array<{ name: st
   const asked = lastUser >= 0 ? prompt[lastUser].content : '';
   const pictures = Array.isArray(asked) ? asked.filter((p) => p.type === 'file').length : 0;
   const sawPictures = pictures ? ` I can see ${pictures === 1 ? 'one picture' : `${pictures} pictures`}.` : '';
-  // "mockphoto": the world uses the person's first photo or video (by its path, as the request names it).
-  const photo = request.includes('mockphoto') ? /(?:photos|videos)\/[\w-]+\.(?:jpg|png|webp|gif|mp4|webm|mov)/.exec(request)?.[0] : undefined;
+  // "mockphoto": the world uses the person's first photo, video or 3D model (by its path, as the request names it).
+  const photo = request.includes('mockphoto') ? /(?:photos|videos|models)\/[\w-]+\.(?:jpg|png|webp|gif|mp4|webm|mov|glb|gltf|fbx|obj|stl)/.exec(request)?.[0] : undefined;
   const step = prompt.slice(lastUser + 1).filter((m) => m.role === 'assistant').length;
   const results = prompt.slice(lastUser + 1).filter((m) => m.role === 'tool').map(textOf).join('\n');
   if (request.includes('mockerror')) return { calls: [], fail: true };

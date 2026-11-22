@@ -437,6 +437,8 @@ export interface BuildRequest {
   photos?: string[];
   /** A video the person attached to the last message (at most one). */
   videos?: BuildVideo[];
+  /** 3D models the person attached to the last message (uploaded first, ≤ BUILD_LIMITS.models). */
+  models?: BuildModel[];
   /** Runtime errors to repair (the automatic repair round). */
   errors?: string[];
   /** 'build' edits the world; 'ask' only answers questions (e.g. visiting someone else's world without remixing). */
@@ -455,6 +457,14 @@ export interface BuildVideo {
   frames: string[];
   seconds: number;
   file?: { sha: string; type: string };
+}
+
+/** A 3D model file sent with a message (POST /api/uploads/model): a build puts it in the world as models/<name>. */
+export interface BuildModel {
+  sha: string;
+  /** Its file name (letters, digits, - _ . and spaces), with its extension. */
+  name: string;
+  type: 'glb' | 'gltf' | 'fbx' | 'obj' | 'stl';
 }
 
 export type StepStatus = 'pending' | 'done' | 'failed';
@@ -516,6 +526,8 @@ export interface ChatMessage {
   photos?: string[];
   /** Videos the person sent with it: a small JPEG of each, and how long it is. */
   videos?: Array<{ thumb: string; seconds: number }>;
+  /** 3D models the person sent with it: their file names. */
+  models?: string[];
   build?: BuildInfo;
 }
 

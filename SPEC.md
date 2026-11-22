@@ -76,8 +76,13 @@ If you change a contract, update this file in the same change.
   most 1600 px and under 700 KB (`src/lib/photos.ts`). The AI can't watch a video, so the browser
   sends 4 frames spread over it (JPEGs of at most 1024 px, under 300 KB each) and how long it is;
   a video of at most 4 MB (MP4, WebM or QuickTime) also goes on Orb first (`POST /api/uploads`).
-  They show above the words, each with an × (a video with ▶ and its length), and a message may be
-  photos or a video alone. The chat keeps small copies with the message (a tap shows a photo up
+  **3D models** come the same way (up to 3 of the 4: a `.glb`, a `.gltf` with its data inside it,
+  `.fbx`, `.obj` or `.stl`, up to 10 MB), sent to Orb at once in parts (`POST /api/uploads/model`),
+  for a world to use a real model rather than one made of simple shapes; the AI is told of them (it
+  can't see one) and a build puts each among the world's files as `models/<name>`, to load with
+  three.js's loader for its kind. They show above the words, each with an × (a video with ▶ and its
+  length, a model as a cube with its kind and its name), and a message may be photos, a video or
+  models alone. The chat keeps small copies with the message (a tap shows a photo up
   close). The AI sees them; in a build they are also among the world's files (`photos/<id>.<ext>`,
   `videos/<id>.<ext>` for an uploaded video), for when the person wants one in the world (a
   picture on a wall, a poster, a texture, a video on a screen), and one the world doesn't use is
@@ -255,9 +260,11 @@ If you change a contract, update this file in the same change.
   through Orb's own sheet, at the price in Orb's saved copy of the page, and what's bought belongs
   to the account (one of each per world, on every device). Paid credits go first in worlds (Pro's:
   the week's, then packs; Free: packs, then the week's free credits, which stay for building),
-  and the world's maker earns `ORB_SHOP_SHARE` (100%: Orb takes no fee for now) of the part that was paid for: free credits
-  buy things too but earn nobody anything, so accounts made for their free credits pay nothing
-  out. Orb's sheet says how much goes to the maker. Makers try their own things for free and hear when something sells. Earnings show
+  and the world's maker earns `ORB_SHOP_SHARE` (100%: Orb takes no fee for now) of the part that was paid for. Of the
+  rest (free and bonus credits) the maker gets the same share as free credits for their week (on
+  top of their plan's, gone on Monday like any week's, `orb_purchases.free_micros`): they build and
+  buy, but never become earnings, so accounts made for their free credits pay nothing out. Orb's
+  sheet says it goes to the maker. Makers try their own things for free and hear when something sells. Earnings show
   on the plan card (in credits and ≈ US$, a credit being a cent) and can go into their own building
   (they become bonus credits: they pay for builds, and buy things in worlds without earning anyone anything, so earnings can't be passed on to be cashed out by someone else) or be cashed out to their bank (below). Orb's own worlds (VampireZ's 19 looks,
   100–500 credits, and Blood Pass+, 750, the plus track of every monthly Blood Pass; Bed Wars' 29
@@ -272,7 +279,7 @@ If you change a contract, update this file in the same change.
   theirs is on screen), the plans sheet says it too, and after a build the builders' three next
   ideas can include a shop for a game, or a world people come back to, that sells nothing yet.
 - **Cash payouts** (`src/server/payouts.ts`), on the lines of Roblox's Developer Exchange: only
-  credits **earned from other players** can be cashed out. Free credits never earn anything, a
+  credits **earned from other players** can be cashed out. Free credits never become earnings, a
   maker's own purchases are free and earn nothing, and what a maker's **own accounts** buy (a buyer
   who shares a device with them, from analytics' device keys of 180 days and the devices table, or a
   card, by Stripe's card fingerprints of their payments) earns credits to build with but never cash.
@@ -647,7 +654,7 @@ whose plan credits count (`week_start`, Monday 00:00 UTC: every plan's refresh w
 build's last step), `bonus_micros` (credits given, not bought: earnings put into building, and plan
 credits a refund gives back after their week; builds take plan credits, then bonus, then top-ups,
 and a build's refund gives top-ups back only what it took from them, `orb_agent_jobs.charged_topup_micros`;
-in worlds' shops bonus credits, like free ones, earn nobody anything), `earned_micros` (what the account's worlds' shops earned it, not yet used) and
+in worlds' shops bonus credits, like free ones, are no one's earnings: the maker gets them as credits for their week), `earned_micros` (what the account's worlds' shops earned it, not yet used) and
 `earned_total_micros` (all it ever earned), and for Pro `stripe_customer`, `stripe_subscription`,
 `sub_status`, `cancel_at`, `synced_at`. `orb_credit_log` notes what moved credits (`kind`: 'build' |
 'refund' | 'topup' | 'earnings' (earnings put into building), `micros`, `ref`: the job or the
@@ -718,6 +725,7 @@ session cookie (same-origin). Errors: `{ error: string, message?: string, retryA
 | `POST /api/kit/push?world=&name=&message=` | `Authorization: Bearer <kit token>`, body: the files as a .tar.gz with `index.html` at the top | `{ world: WorldFull, outcome: 'created' \| 'remixed' \| 'updated' \| 'unchanged', skipped, url }` (§2 "The Orb kit"). 400 `push_failed`, 401 `kit_login`, 404 not theirs and not remixable; 120 an hour |
 | `POST /api/worlds/import` | `{ url }` (a GitHub repository, optionally `/tree/<ref>/<dir>`; private ones with the importer's token kept on Orb) | `{ world: WorldFull, files, warning? }`: its files become a new world of the importer's (no `orb-kit/`, `node_modules`, `.git`…), linked to the repository (and, imported from a branch, kept in sync with it: `world.repo`), with its license (remixable only with one). Import maps that load three.js from `node_modules` are rewritten to jsdelivr, code that imports packages by name with no import map gets one (three, `three/webgpu` and `three/tsl` from jsdelivr, the rest from esm.sh at the version range package.json asks for, sharing that three), stylesheets a module imports become links, JSON it imports is imported as JSON, `import.meta.glob` lists the matching files (or, `eager`, imports them), `import W from './w.js?worker'` makes workers of that module and `import.meta.env` reads as a production build's, TypeScript (`.ts`) has its types stripped and is served as `.js`, imports without a file extension get it, modules that run in workers import packages by their address (workers have no import map), a Vite project's `public/` (a `vite.config`, or Vite in package.json) is also served at the top, and root-absolute `src`/`href` (in import maps, in stylesheets' `url()`, and in code, `'/path'` strings of a file or a top folder of the tree) become relative so they follow the tree `<base>`. An `orb.json` naming a public, remixable world (`world`) makes it a remix of that world (see §2 "Open-source games"). 400 `bad_request` / `import_failed`; 12 an hour |
 | `PUT /api/worlds/:id/thumb` | raw `image/webp\|jpeg\|png` body ≤ 500 KB | `{ thumbVersion: number }` |
+| `POST /api/uploads/model` | a 3D model for a chat message, in parts: each part's raw bytes (`application/octet-stream`, ≤ 4 MB) → `{ sha, size }`; then `{ parts: [sha…], name }` as JSON → `{ sha, name, type, size }` (`type` glb\|gltf\|fbx\|obj\|stl, by the name and how the file starts; ≤ 10 MB in all), which a build request names (`models`) | 400 `missing_part`, 413 `too_big`, 415 `unsupported_type` or `gltf_files` (a .gltf that needs other files); 90 an hour, 180 from one address |
 | `POST /api/uploads` | a video for a chat message: raw `video/mp4\|webm\|quicktime` body ≤ 4 MB | `{ sha, type }`, which a build request names to put it in the world (§8). 413 `too_big`, 415 `unsupported_type` (or bytes that aren't that video); 30 an hour, 60 from one address. A world's files answer `Range` requests (206), so its videos play in Safari too |
 | `GET /api/worlds/:id/thumb?v=` | | image bytes, `Cache-Control: public, max-age=31536000, immutable` |
 | `POST /api/worlds/:id/play` | | `{ plays }` (deduped per device/day; shown as "plays") |
@@ -1024,11 +1032,12 @@ world as it goes; a Cursor agent does the same through the job's files link (§3
 ticks of a few minutes that hand over to each other, so a build goes on for as long as it needs,
 without the page.
 
-`BuildRequest` = `{ worldId, messages, image?, photos?, videos?, errors?, mode, worldName? }`: the chat
+`BuildRequest` = `{ worldId, messages, image?, photos?, videos?, models?, errors?, mode, worldName? }`: the chat
 (earlier turns summarized, a turn's photos as a note), a screenshot of the world, the person's
 photos for the last message (≤ 4 data URLs, each ≤ 700 KB; the last message may then be empty)
 and a video (`videos`: at most one `{ frames, seconds, file? }`, ≤ 4 frames of ≤ 300 KB, `file`
-the `{ sha, type }` of `POST /api/uploads`),
+the `{ sha, type }` of `POST /api/uploads`), 3D models (`models`: up to 3 `{ sha, name, type }` of
+`POST /api/uploads/model`, put in a build's world as `models/<name>`, the AI told how to load them),
 runtime errors to repair, and `mode` build or ask
 (a guide in someone else's world: it answers, can offer a copy, and changes nothing). The agent
 reads the world's files itself; its system prompts are in `src/server/agent/prompt.ts`.

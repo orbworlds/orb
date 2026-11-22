@@ -180,7 +180,7 @@ export async function charge(db: Db, sale: Sale, cfg: PlansConfig = plansConfig(
 
   // Take the credits (the wallet row locked, so two purchases at once can't both spend the same
   // credits), complete the purchase and pay the maker their share of the paid part — at once.
-  const paid = await db.query<{ paid: string | null; earned: string | null }>(
+  const paid = await db.query<{ paid: string | null; earned: string | null; free: string | null }>(
     `with w as (
        select payer, plan, greatest(0, allowance_micros - used_micros) as m, topup_micros as t, greatest(0, bonus_micros) as b from orb_wallets where payer = $1 for update
      ), first as (
@@ -203,17 +203,21 @@ export async function charge(db: Db, sale: Sale, cfg: PlansConfig = plansConfig(
      ), amt as (
        select case when d.plan = 'pro' then d.from_plan + d.from_topup else d.from_topup end as paid from d
      ), p as (
+       -- The maker's share of what was paid for is earnings; of the rest (free and bonus credits), extra
+       -- credits for their week: free credits stay free (they refresh away on Monday, never cash out).
        update orb_purchases set status = 'done', paid_micros = amt.paid,
-         earned_micros = case when seller_user is null then 0 else floor(amt.paid * $4::numeric)::bigint end
+         earned_micros = case when seller_user is null then 0 else floor(amt.paid * $4::numeric)::bigint end,
+         free_micros = case when seller_user is null then 0 else floor(($2::bigint - amt.paid) * $4::numeric)::bigint end
        from amt where id = $3 and status = 'pending'
-       returning seller_user, paid_micros, earned_micros
+       returning seller_user, paid_micros, earned_micros, free_micros
      ), s as (
        update orb_wallets set earned_micros = orb_wallets.earned_micros + p.earned_micros,
-         earned_total_micros = orb_wallets.earned_total_micros + p.earned_micros, updated_at = now()
-       from p where orb_wallets.payer = 'u:' || p.seller_user and p.earned_micros > 0
+         earned_total_micros = orb_wallets.earned_total_micros + p.earned_micros,
+         used_micros = orb_wallets.used_micros - p.free_micros, updated_at = now()
+       from p where orb_wallets.payer = 'u:' || p.seller_user and (p.earned_micros > 0 or p.free_micros > 0)
        returning 1
      )
-     select (select paid_micros from p) as paid, (select earned_micros from p) as earned`,
+     select (select paid_micros from p) as paid, (select earned_micros from p) as earned, (select free_micros from p) as free`,
     [payer, cost, id, shopShare(env)],
   );
   if (paid[0]?.paid == null) {
@@ -221,7 +225,7 @@ export async function charge(db: Db, sale: Sale, cfg: PlansConfig = plansConfig(
     const now = await ensureWallet(db, payer, cfg);
     short(item.price, now.left);
   }
-  if (seller) await noteSale(db, seller, shop, item.name, toCredits(Number(paid[0].earned ?? 0)));
+  if (seller) await noteSale(db, seller, shop, item.name, toCredits(Number(paid[0].earned ?? 0) + Number(paid[0].free ?? 0)));
   return { charged: item.price, already: false };
 }
 

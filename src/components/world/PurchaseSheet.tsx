@@ -101,8 +101,7 @@ function PurchaseBody({ ask }: { ask: PurchaseAsk }) {
     );
 
   const byOrb = ask.maker === 'orbworlds' || ask.maker === 'Orb';
-  const paid = Math.min(item.price, view.paid ?? 0);
-  const toMaker = paid >= item.price ? `It goes to ${ask.maker}, who made this world.` : paid > 0 ? `Part of it goes to ${ask.maker}, who made this world.` : `${ask.maker}, who made this world, earns when people pay with credits they bought.`;
+  const toMaker = `It goes to ${ask.maker}, who made this world.`;
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start gap-4">

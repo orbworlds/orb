@@ -4,6 +4,7 @@
 import { getDeviceKey } from './local';
 import type {
   ApiConfig,
+  BuildModel,
   BillingInfo,
   CreateWorldInput,
   LooksView,
@@ -114,6 +115,17 @@ export const api = {
     const res = await fetch('/api/uploads', { method: 'POST', body: file, headers: deviceHeaders({ 'content-type': type }) });
     if (!res.ok) throw new ApiError(res.status, 'upload_failed', 'Couldn’t upload the video.');
     return (await res.json()) as { sha: string; type: string };
+  },
+  /** A 3D model for a chat message (POST /api/uploads/model), in parts small enough for one request each → what the build request names. */
+  uploadModel: async (file: File) => {
+    const PART = 3_500_000;
+    const parts: string[] = [];
+    for (let at = 0; at < file.size; at += PART) {
+      const res = await fetch('/api/uploads/model', { method: 'POST', body: file.slice(at, at + PART), headers: deviceHeaders({ 'content-type': 'application/octet-stream' }) });
+      if (!res.ok) throw new ApiError(res.status, 'upload_failed', ((await res.json().catch(() => null)) as { message?: string } | null)?.message ?? 'Couldn’t upload the 3D model.');
+      parts.push(((await res.json()) as { sha: string }).sha);
+    }
+    return call<BuildModel & { size: number }>('/api/uploads/model', { method: 'POST', body: JSON.stringify({ parts, name: file.name }) });
   },
   uploadThumb: async (id: string, blob: Blob) => {
     const res = await fetch(`/api/worlds/${enc(id)}/thumb`, { method: 'PUT', body: blob, headers: deviceHeaders({ 'content-type': blob.type || 'image/webp' }) });

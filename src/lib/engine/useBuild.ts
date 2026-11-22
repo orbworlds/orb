@@ -27,7 +27,7 @@ import { getModelSettings, listChats, loadChatMessages, saveChatMessages, saveCh
 import { BuildError, DETACH, loadTreeEntry, resumeBuild as defaultResumeBuild, runBuild as defaultRunBuild, sendLookAnswer, type AgentLook, type AgentVersion, type BuildHooks } from './client';
 import { treePath, withTree } from '../tree';
 import { ProtocolParser, type ProtocolEvent } from './protocol';
-import { BUILD_LIMITS, isBuildImage, PHOTOS_ONLY, REPAIR_REQUEST, VIDEO_ONLY } from './prompt';
+import { BUILD_LIMITS, isBuildImage, MODELS_ONLY, PHOTOS_ONLY, REPAIR_REQUEST, VIDEO_ONLY } from './prompt';
 import { keepSent, sentPhotos, type Photo } from '../photos';
 
 export interface BuildHost {
@@ -674,9 +674,11 @@ export class BuildEngine {
     if ((!t && !photos.length) || !host || this.job || this.sending || !this.chatKey) return;
     this.cancelWatch();
 
-    const stills = photos.filter((p) => !p.video);
+    const stills = photos.filter((p) => !p.video && !p.model);
     const clips = photos.filter((p) => p.video).slice(0, BUILD_LIMITS.videos);
-    const threadId = this.ensureThreadPersisted(t || (stills.length ? 'Photos' : 'A video'));
+    const models = photos.filter((p) => p.model).slice(0, BUILD_LIMITS.models);
+    const wordless = stills.length ? PHOTOS_ONLY : clips.length ? VIDEO_ONLY : MODELS_ONLY;
+    const threadId = this.ensureThreadPersisted(t || (stills.length ? 'Photos' : clips.length ? 'A video' : 'A 3D model'));
     const prior = this.getMessages(threadId);
     const now = Date.now();
     const user: ChatMessage = {
@@ -686,6 +688,7 @@ export class BuildEngine {
       createdAt: now,
       ...(stills.length ? { photos: stills.map((p) => p.thumb) } : {}),
       ...(clips.length ? { videos: clips.map((p) => ({ thumb: p.thumb, seconds: p.video!.seconds })) } : {}),
+      ...(models.length ? { models: models.map((p) => p.model!.name) } : {}),
     };
     keepSent(user.id, photos);
     if (this.jobs.size >= MAX_PARALLEL_BUILDS) {
@@ -712,7 +715,7 @@ export class BuildEngine {
     // Persist the user's words before anything can fail.
     this.setMessages(threadId, [...prior, user, assistant], 'now');
 
-    const job = newJob(host, { threadId, assistantId: assistant.id, userText: t || (stills.length ? PHOTOS_ONLY : VIDEO_ONLY), history: summarizeHistory(prior), base: '' });
+    const job = newJob(host, { threadId, assistantId: assistant.id, userText: t || wordless, history: summarizeHistory(prior), base: '' });
     this.jobs.add(job);
     this.lastPreviewCode = null;
     this.emit();
@@ -742,10 +745,11 @@ export class BuildEngine {
     const shot = host.getImage ? await Promise.race([host.getImage().catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), this.opts.imageTimeoutMs))]) : null;
     const req: BuildRequest = {
       worldId: job.worldId,
-      messages: [...job.history, { role: 'user', content: clip(t || (stills.length ? PHOTOS_ONLY : VIDEO_ONLY), BUILD_LIMITS.messageChars) }],
+      messages: [...job.history, { role: 'user', content: clip(t || wordless, BUILD_LIMITS.messageChars) }],
       image: isBuildImage(shot) ? shot : null,
       ...(stills.length ? { photos: stills.slice(0, BUILD_LIMITS.photos).map((p) => p.full) } : {}),
       ...(clips.length ? { videos: clips.map((p) => p.video!) } : {}),
+      ...(models.length ? { models: models.map((p) => p.model!) } : {}),
       mode: job.mode,
       worldName: host.worldName,
     };

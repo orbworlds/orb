@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
-import { sentPhotos } from '@/lib/photos';
+import { modelThumb, sentPhotos } from '@/lib/photos';
 import type { BuildInfo, BuildStep, ChatMessage } from '@/lib/types';
 import { useBilling } from '@/state/billing';
 import { useUi } from '@/state/ui';
@@ -51,6 +51,17 @@ export function MessageView(props: MessageViewProps) {
     return (
       <div className="animate-fade-up flex flex-col items-end gap-1.5 pl-10">
         {!!(message.photos?.length || message.videos?.length) && <SentPhotos id={message.id} photos={message.photos ?? []} videos={message.videos ?? []} />}
+        {!!message.models?.length && (
+          <ul className="flex flex-wrap justify-end gap-1.5" aria-label={message.models.length === 1 ? '3D model' : `${message.models.length} 3D models`}>
+            {message.models.map((name, i) => (
+              <li key={i} className="flex max-w-[240px] items-center gap-1.5 rounded-full bg-[var(--field-bg)] py-1 pr-3 pl-1.5 text-[12.5px] text-ink-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- a small drawing made in this page */}
+                <img src={modelThumb(name.split('.').pop() ?? '')} alt="" className="h-6 w-6 rounded-[7px]" />
+                <span className="truncate">{name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         {message.text && (
           <div className="max-w-full rounded-[18px] rounded-br-[6px] bg-[var(--bubble)] px-3.5 py-2 text-[14.5px] leading-[1.45] break-words whitespace-pre-wrap text-ink">
             {message.text}
@@ -97,7 +108,7 @@ function SentPhotos({ id, photos, videos }: { id: string; photos: string[]; vide
           </li>
         ))}
       </ul>
-      {open !== null && <PhotoViewer src={sentPhotos(id)?.filter((p) => !p.video)[open]?.full ?? photos[open]} onClose={() => setOpen(null)} />}
+      {open !== null && <PhotoViewer src={sentPhotos(id)?.filter((p) => !p.video && !p.model)[open]?.full ?? photos[open]} onClose={() => setOpen(null)} />}
     </>
   );
 }

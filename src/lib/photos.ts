@@ -4,11 +4,12 @@
 // PNG when it has see-through parts, at most 1600 px on its long side and under BUILD_LIMITS.photo;
 // a video: BUILD_LIMITS.frames frames spread over it, as the AI can't watch one) and a small copy
 // the chat shows and keeps. A video small enough (VIDEO_FILE_MAX) also goes on Orb now, so a build
-// can put it in the world. The full copies of what this page view sent stay here, for a closer look
-// and for asking again.
+// can put it in the world. A 3D model (.glb, .gltf, .fbx, .obj or .stl, up to MODEL_FILE_MAX) goes
+// on Orb at once too, in parts, for a build to put in the world; the AI is told of it (it can't see
+// one). The full copies of what this page view sent stay here, for a closer look and for asking again.
 import { api } from '@/lib/api';
-import { BUILD_LIMITS } from '@/lib/engine/prompt';
-import type { BuildVideo } from '@/lib/types';
+import { BUILD_LIMITS, MODEL_TYPES } from '@/lib/engine/prompt';
+import type { BuildModel, BuildVideo } from '@/lib/types';
 
 export interface Photo {
   id: string;
@@ -18,6 +19,8 @@ export interface Photo {
   thumb: string;
   /** A video: its frames, its length, and its file on Orb (when it was small enough). */
   video?: BuildVideo;
+  /** A 3D model on Orb (its `full` is empty and its `thumb` a drawing of a cube). */
+  model?: BuildModel;
 }
 
 const FULL_SIDE = 1600;
@@ -25,6 +28,8 @@ const THUMB_SIDE = 320;
 const FRAME_SIDE = 1024;
 /** The biggest video that also goes on Orb, for a world to use (src/server/uploads.ts). */
 const VIDEO_FILE_MAX = 4_000_000;
+/** The biggest 3D model a message brings into a world: a world's file (src/server/uploads.ts). */
+export const MODEL_FILE_MAX = 10_000_000;
 
 let seq = 0;
 
@@ -32,8 +37,24 @@ let seq = 0;
 export const isPhotoFile = (f: File): boolean => /^image\//.test(f.type) || /\.(jpe?g|png|gif|webp|avif|heic|heif|bmp)$/i.test(f.name);
 /** A video. */
 export const isVideoFile = (f: File): boolean => /^video\//.test(f.type) || /\.(mp4|m4v|mov|webm)$/i.test(f.name);
-/** What a message can take: photos and videos. */
-export const isAttachable = (f: File): boolean => isPhotoFile(f) || isVideoFile(f);
+/** A 3D model file. */
+export const isModelFile = (f: File): boolean => new RegExp(`\\.(${MODEL_TYPES.join('|')})$`, 'i').test(f.name);
+/** What a message can take: photos, videos and 3D models. */
+export const isAttachable = (f: File): boolean => isPhotoFile(f) || isVideoFile(f) || isModelFile(f);
+/** What the file picker offers. */
+export const ATTACHABLE = `image/*,video/*,${MODEL_TYPES.map((t) => `.${t}`).join(',')}`;
+
+/** A small drawing of a cube with the model's kind on it, as the chat shows a 3D model. */
+export function modelThumb(type: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="18" fill="#efeaf8"/><path d="M48 18 74 32v30L48 76 22 62V32z" fill="#cfc4ee" stroke="#6b5fb5" stroke-width="3" stroke-linejoin="round"/><path d="M22 32 48 46l26-14M48 46v30" fill="none" stroke="#6b5fb5" stroke-width="3" stroke-linejoin="round"/><text x="48" y="91" font-family="system-ui,sans-serif" font-size="13" font-weight="700" text-anchor="middle" fill="#4b4185">${type.toUpperCase()}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+/** A 3D model, sent to Orb now (it takes a moment for a big one) → ready to go with the message. */
+export async function readModel(file: File): Promise<Photo> {
+  const m = await api.uploadModel(file);
+  return { id: `m${Date.now().toString(36)}${seq++}`, full: '', thumb: modelThumb(m.type), model: { sha: m.sha, name: m.name, type: m.type } };
+}
 
 /** `src` (`w` × `h`) drawn at most `side` px on its long side (on white, when `opaque`). */
 function draw(src: CanvasImageSource, w: number, h: number, side: number, opaque: boolean): HTMLCanvasElement {
@@ -142,20 +163,26 @@ export async function readVideo(file: File): Promise<Photo> {
   }
 }
 
-/** `current` with what `files` add (up to BUILD_LIMITS.photos, one of them a video), and what to tell the person if not all could be. */
+/** `current` with what `files` add (up to BUILD_LIMITS.photos, one of them a video, up to BUILD_LIMITS.models 3D models), and what to tell the person if not all could be. */
 export async function addPhotos(current: Photo[], files: File[]): Promise<{ photos: Photo[]; problem?: string }> {
   const usable = files.filter(isAttachable);
-  let problem = usable.length < files.length ? 'Only photos and videos can be added to a message.' : undefined;
+  let problem = usable.length < files.length ? 'Only photos, videos and 3D models can be added to a message.' : undefined;
   const room = BUILD_LIMITS.photos - current.length;
-  if (usable.length > room) problem = `Up to ${BUILD_LIMITS.photos} photos or videos at a time.`;
+  if (usable.length > room) problem = `Up to ${BUILD_LIMITS.photos} photos, videos or 3D models at a time.`;
   const next = [...current];
   for (const f of usable.slice(0, Math.max(0, room))) {
     try {
-      if (!isVideoFile(f)) next.push(await readPhoto(f));
+      if (isModelFile(f)) {
+        if (next.filter((p) => p.model).length >= BUILD_LIMITS.models) problem = `Up to ${BUILD_LIMITS.models} 3D models at a time.`;
+        else if (f.size > MODEL_FILE_MAX) problem = `A 3D model can go in a world up to ${MODEL_FILE_MAX / 1e6} MB.`;
+        else next.push(await readModel(f));
+      } else if (!isVideoFile(f)) next.push(await readPhoto(f));
       else if (next.some((p) => p.video)) problem = 'One video at a time.';
       else next.push(await readVideo(f));
-    } catch {
-      problem = isVideoFile(f)
+    } catch (e) {
+      problem = isModelFile(f)
+        ? (e instanceof Error && e.message) || 'Couldn’t upload that 3D model. Try again.'
+        : isVideoFile(f)
         ? 'Couldn’t play that video here. Try an MP4.'
         : /heic|heif/i.test(f.type || f.name)
           ? 'This browser can’t open HEIC photos. Try a JPEG or PNG.'

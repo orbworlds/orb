@@ -29,7 +29,7 @@ import { traceGroup } from '@/server/traces';
 import { worldTree } from '@/server/worlds';
 import { followJob } from '@/server/agent/follow';
 import { kitFiles } from '@/server/agent/kit';
-import { buildPhotos, buildVideo, photoNote, videoNote } from '@/server/agent/photos';
+import { buildModels, buildPhotos, buildVideo, modelNote, photoNote, videoNote } from '@/server/agent/photos';
 import { cursorOrbPrompt } from '@/server/agent/prompt';
 import { AGENT_EFFORTS, AGENT_PROVIDERS, type AgentEffort, type AgentProvider } from '@/server/agent/models';
 import { createAgentJob, MAX_RUNNING, runningJobs, runTick, kick, WORLD_BUILDS_MAX, worldBuilds } from '@/server/agent/runner';
@@ -176,9 +176,13 @@ export const POST = handle(async (req: Request): Promise<Response> => {
   const asked = last.content;
   const stills = build.photos?.length ? await buildPhotos(db, build.photos, mode === 'build') : null;
   const video = build.videos?.length ? await buildVideo(db, build.videos[0], mode === 'build') : null;
-  const notes = [stills?.parts.length ? photoNote(stills) : '', video?.parts.length ? videoNote(video) : ''].filter(Boolean);
+  const models = build.models?.length ? await buildModels(db, build.models, mode === 'build', world.files) : null;
+  const notes = [stills?.parts.length ? photoNote(stills) : '', video?.parts.length ? videoNote(video) : '', build.models?.length && models ? modelNote(build.models, models) : ''].filter(Boolean);
   if (notes.length) last.content = `${asked.trim()}\n\n${notes.join(' ')}`;
-  const photos = stills || video ? { parts: [...(stills?.parts ?? []), ...(video?.parts ?? [])], paths: [...(stills?.paths ?? []), ...(video?.paths ?? [])], files: { ...stills?.files, ...video?.files } } : null;
+  const photos =
+    stills || video || models?.paths.length
+      ? { parts: [...(stills?.parts ?? []), ...(video?.parts ?? [])], paths: [...(stills?.paths ?? []), ...(video?.paths ?? []), ...(models?.paths ?? [])], files: { ...stills?.files, ...video?.files, ...models?.files } }
+      : null;
   const messages: ModelMessage[] =
     provider === 'cursor' || viaCursor
       ? [cursorMessage(build, world.name, mode, photos?.parts ?? [])]

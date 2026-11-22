@@ -1,5 +1,5 @@
-// Photos and a video a person attaches to a message (src/lib/photos.ts). The AI sees them (a video
-// as a few of its frames: it can't watch one). In a build they are also among the world's files
+// Photos, a video and 3D models a person attaches to a message (src/lib/photos.ts). The AI sees the
+// photos and the video (as a few of its frames: it can't watch one), and is told of the models. In a build they are also among the world's files
 // (photos/<id>.<ext>, videos/<id>.<ext> when the video was small enough to send, ../uploads.ts), for
 // when the person wants one in the world — a picture on a wall, a poster, a texture, a video on a
 // screen — and one the world doesn't use is left out whenever the build saves (./runner.ts), so
@@ -7,7 +7,7 @@
 
 import type { FilePart } from 'ai';
 import { imagePart } from '@/lib/engine/prompt';
-import type { BuildVideo } from '@/lib/types';
+import type { BuildModel, BuildVideo } from '@/lib/types';
 import type { Db } from '../db';
 import { blobSizes, getBlob, getTree, isText, putBlob, putTree, type Tree } from '../files';
 
@@ -72,6 +72,33 @@ export function videoNote(v: BuildPhotos & { seconds: number }): string {
   const seen = `(I attached a video, ${long} long: you can see ${v.parts.length} frames from it here, from its start to its end, as I can't send the video itself.`;
   if (!v.paths.length) return `${seen})`;
   return `${seen} The video is also in the world's files: ${v.paths[0]}. Use it in the world, by that path, only when I ask for it (e.g. on a screen or as a background); a video the world doesn't use is left out when it's saved.)`;
+}
+
+const LOADERS: Record<BuildModel['type'], string> = { glb: 'GLTFLoader', gltf: 'GLTFLoader', fbx: 'FBXLoader', obj: 'OBJLoader', stl: 'STLLoader' };
+
+/** 3D models for a build: among the world's files as models/<name> (a different file of that name already there: its sha in the name). */
+export async function buildModels(db: Db, models: BuildModel[], intoWorld: boolean, world: Tree): Promise<{ paths: string[]; files: Tree; sizes: number[] }> {
+  const out = { paths: [] as string[], files: {} as Tree, sizes: [] as number[] };
+  if (!intoWorld) return out;
+  const sizes = await blobSizes(db, models.map((m) => m.sha));
+  for (const m of models) {
+    if (!sizes.has(m.sha)) continue;
+    let path = `models/${m.name}`;
+    if ((world[path] && world[path] !== m.sha) || (out.files[path] && out.files[path] !== m.sha)) path = path.replace(/(\.[a-z]+)$/, `-${m.sha.slice(0, 6)}$1`);
+    out.files[path] = m.sha;
+    out.paths.push(path);
+    out.sizes.push(sizes.get(m.sha)!);
+  }
+  return out;
+}
+
+/** What the request says about its 3D models, for the AI (it can't see them). */
+export function modelNote(models: BuildModel[], built: { paths: string[]; sizes: number[] }): string {
+  const one = models.length === 1;
+  if (!built.paths.length) return `(I attached ${one ? 'a 3D model' : `${models.length} 3D models`}, ${models.map((m) => m.name).join(', ')}, which you can't see.)`;
+  const list = built.paths.map((p, i) => `${p} (${p.split('.').pop()!.toUpperCase()}, ${(built.sizes[i] / 1e6).toFixed(1)} MB)`).join(', ');
+  const loaders = [...new Set(models.map((m) => LOADERS[m.type]))].join(' or ');
+  return `(I attached ${one ? 'a 3D model' : 'these 3D models'}: ${list}. ${one ? 'It is' : 'They are'} in the world's files: use ${one ? 'it' : 'them'} in the world for what I ask, rather than shaping that thing from simple shapes — loaded by that path with three.js's ${loaders} (from three/addons), scaled and placed to fit the scene, ${one ? 'its' : 'their'} materials and animations kept. A model the world doesn't use is left out when it's saved.)`;
 }
 
 /** The tree `sha` without those of `paths` that no text file in it names (by file name). */

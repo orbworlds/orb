@@ -1,6 +1,6 @@
 // Shops in worlds (src/server/shop.ts): what a page's orb-shop list sells, and buying with credits —
 // against an in-memory PGlite with the app's own schema: the listed price, once per account, paid
-// credits before free ones, makers paid their share of the paid part only, Orb's own worlds keeping
+// credits before free ones, makers paid their share of the paid part (and of free credits, credits for their week), Orb's own worlds keeping
 // their sales, the daily cap, two purchases at once, and earnings put into building.
 import { register } from 'node:module';
 import { test, describe, before, after } from 'node:test';
@@ -87,11 +87,16 @@ describe('buying', () => {
     assert.deepEqual((await S.shopView(db, as('fan'), 'ext', cfg)).items, []);
   });
 
-  test('free credits buy things too, but earn the maker nothing', async () => {
+  test('free credits buy things too: the maker gets them as credits for their week, never as earnings', async () => {
+    const before = await wallet('maker');
     const r = await buy('kid', 'shopw', 'boots', 10);
     assert.deepEqual({ charged: r.charged, owned: r.owned, already: r.already }, { charged: 10, owned: ['boots'], already: false });
     close(r.credits, 10);
-    close((await wallet('maker')).earned, 0);
+    const maker = await wallet('maker');
+    close(maker.earned, 0);
+    close(maker.left, before.left + 7, '70% of the 10, for this week');
+    const [p] = await db.query(`select paid_micros, earned_micros, free_micros from orb_purchases where buyer_user = 'kid' and item_id = 'boots'`);
+    assert.deepEqual({ paid: Number(p.paid_micros), earned: Number(p.earned_micros), free: Number(p.free_micros) }, { paid: 0, earned: 0, free: 70_000 });
   });
 
   test('bought credits go first in worlds, and the maker earns 70% of them', async () => {
@@ -110,12 +115,15 @@ describe('buying', () => {
     assert.deepEqual({ credits: v.credits, paid: v.paid }, { credits: 90, paid: 70 });
   });
 
-  test('a top-up smaller than the price: the rest from the week’s, which earns nothing', async () => {
+  test('a top-up smaller than the price: the rest from the week’s, which goes to the maker’s week', async () => {
     await C.grantTopup(db, 'u:mixed', 10, 'cs_mixed', cfg);
+    const before = await wallet('maker');
     const r = await buy('mixed', 'shopw', 'hat', 30);
     close(r.credits, 0);
     close((await wallet('mixed')).used, 20);
-    close((await wallet('maker')).earned, 28, '70% of the 10 bought ones');
+    const maker = await wallet('maker');
+    close(maker.earned, 28, '70% of the 10 bought ones');
+    close(maker.left, before.left + 14, '70% of the 20 free ones, for this week');
   });
 
   test('Pro’s credits are all paid for', async () => {
@@ -207,7 +215,7 @@ describe('buying', () => {
     const d = typeof notes[0].detail === 'string' ? JSON.parse(notes[0].detail) : notes[0].detail;
     assert.equal(notes[0].actor_id, null);
     assert.equal(d.count, 5, 'the kid’s boots, two hats, the Pro boots and the fan’s boots (not the maker’s own crown)');
-    close(Number(d.credits), 0 + 21 + 7 + 7 + 7);
+    close(Number(d.credits), 7 + 21 + (7 + 14) + 7 + 7, 'what went to the maker: earnings, and credits for the week from free ones');
     assert.equal(d.item, 'Boots');
   });
 
