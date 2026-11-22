@@ -165,10 +165,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
     return answer(await pruneListed(db, shas(b.trees), shas(b.blobs)));
   }
   if (body?.do === 'vacuum' && typeof body.table === 'string' && VACUUM.includes(body.table)) {
-    if (body.table === 'orb_blobs') {
-      const [kept] = await db.query<{ bytes: number }>(`select coalesce(sum(size), 0)::float8 as bytes from orb_blobs where source is null`);
-      if (kept.bytes > 400e6) return plain(409, `The files table still holds ${Math.round(kept.bytes / 1e6)} MB: a full vacuum copies that, more than the disk has free.`);
-    }
+    // A full vacuum writes a copy of what the table keeps, and that copy through the write-ahead log,
+    // before it lets the old one go: all of it must fit well under the 95% of the free plan's 2 GB
+    // disk at which Supabase turns the database read-only (it did at about 1.86 GB with the log).
+    const [room] = await db.query<{ db: number; wal: number; kept: number }>(
+      `select pg_database_size(current_database())::float8 as db, (select coalesce(sum(size), 0) from pg_ls_waldir())::float8 as wal,
+         (select coalesce(sum(pg_column_size(t.*)), 0) from ${body.table} t)::float8 as kept`,
+    );
+    const peak = room.db + room.wal + 2 * room.kept;
+    if (peak > 1.7e9) return plain(409, `A full vacuum of ${body.table} would need about ${Math.round(peak / 1e6)} MB with the write-ahead log (database ${Math.round(room.db / 1e6)}, log ${Math.round(room.wal / 1e6)}, kept ${Math.round(room.kept / 1e6)}): too close to the disk's limit.`);
     const size = async () => Number((await db.query<{ b: number }>(`select pg_total_relation_size($1::regclass)::float8 as b`, [body.table]))[0].b);
     const before = await size();
     await db.query(`vacuum full ${body.table}`);

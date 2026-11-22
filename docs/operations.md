@@ -138,8 +138,10 @@ which worlds' files take the most. Most of a world's room is its pictures, model
   asking whether a backup has them.
 - **Giving space back.** Postgres reuses freed space but doesn't shrink by itself: `{"do":"vacuum",
   "table":"orb_blobs"}` (or `orb_trace_blobs`, `orb_trace_events`, `orb_trees`, `orb_traces`) runs
-  `VACUUM FULL`, which locks the table for its seconds and copies what's left; the free plan's
-  disk is 2 GB, so the files table is refused while it holds more than 400 MB.
+  `VACUUM FULL`, which locks the table for its seconds and copies what's left, through the
+  write-ahead log too, before the old copy goes: it is refused unless the database, the log and
+  twice what the table keeps stay under 1.7 GB (the free plan's disk turned read-only at about
+  1.86 GB). Run it once moving and pruning are done and the log has shrunk back (`{"do":"disk"}`).
 
 ## Plans and credits
 
