@@ -144,3 +144,13 @@ test('a Vite project serves public/ at the top, with or without a vite.config', 
   servePublicAtTop(notVite);
   assert.equal(notVite.has('models/a.glb'), false);
 });
+
+test('a game of several pages: a folder’s address opens its index.html, where its relative links resolve', async () => {
+  const { folderPage } = await import('../../../server/files.ts');
+  const tree = { 'index.html': 'a', 'examples/walk-village/index.html': 'b', 'examples/walk-village/village.js': 'c', 'lib/core.js': 'd' };
+  assert.equal(folderPage(tree, 'examples/walk-village'), 'examples/walk-village/index.html');
+  assert.equal(folderPage(tree, 'examples/walk-village/'), 'examples/walk-village/index.html');
+  assert.equal(folderPage(tree, 'examples/walk-village/village.js'), null, 'a file is served as itself');
+  assert.equal(folderPage(tree, 'lib'), null, 'a folder with no page');
+  assert.equal(folderPage(tree, ''), null, 'the top is the world’s own page');
+});

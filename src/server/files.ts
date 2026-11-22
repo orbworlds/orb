@@ -32,6 +32,18 @@ export const FILE_LIMITS = {
 
 export type Tree = Record<string, string>;
 
+/**
+ * The page a folder's address opens (a game of several pages linking `../level-two/`):
+ * `<folder>/index.html`, or null when `path` is a file or no such folder. Next.js drops the slash
+ * at the end of every address, so the file route sends the browser on to that page: served at
+ * `level-two`, its relative links (`./main.js`) would resolve a folder up.
+ */
+export function folderPage(tree: Tree, path: string): string | null {
+  if (!path || tree[path]) return null;
+  const page = `${path.replace(/\/+$/, '')}/${ENTRY}`;
+  return tree[page] ? page : null;
+}
+
 const SHA_RE = /^[a-f0-9]{64}$/;
 export const isSha = (s: unknown): s is string => typeof s === 'string' && SHA_RE.test(s);
 

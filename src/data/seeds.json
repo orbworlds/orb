@@ -4591,5 +4591,128 @@
       "handle": "johnwards",
       "made_with": "Claude"
     }
+  },
+  {
+    "id": "aw-wool-island-park",
+    "name": "Woolly Island Park",
+    "description": "Wander a little island fairground made of felt, from the carousel and the roller coaster to the mushroom houses.",
+    "kind": "external",
+    "external_url": "https://romy-826.github.io/wool-island-park/",
+    "source_url": "https://github.com/romy-826/wool-island-park",
+    "author_name": "romy-826",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/aw-wool-island-park.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://github.com/romy-826/wool-island-park",
+      "platform": "github",
+      "posted_at": "2026-11-21",
+      "handle": "romy-826",
+      "author_url": "https://github.com/romy-826",
+      "made_with": "three.js r170, no build step"
+    }
+  },
+  {
+    "id": "aw-whisker-meadow",
+    "name": "Whisker Meadow",
+    "description": "Win the trust of shy rescue cats with slow, gentle strokes, keep them happy and help them find homes.",
+    "kind": "external",
+    "external_url": "https://lk1248.github.io/whisker-meadow/",
+    "source_url": "https://github.com/LK1248/whisker-meadow",
+    "author_name": "LK1248",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/aw-whisker-meadow.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://github.com/LK1248/whisker-meadow",
+      "platform": "github",
+      "posted_at": "2026-11-21",
+      "handle": "LK1248",
+      "author_url": "https://github.com/LK1248",
+      "made_with": "three.js, one HTML file"
+    }
+  },
+  {
+    "id": "aw-kradas",
+    "name": "Kradas",
+    "description": "Walk a Thai canal village made of cut paper, where stilt houses, temples and villagers fold up around you, and step through its gates into two other realms.",
+    "kind": "external",
+    "external_url": "https://cdn.jsdelivr.net/gh/keaykub/kradas@main/examples/walk-village/index.html",
+    "source_url": "https://github.com/keaykub/kradas",
+    "author_name": "keaykub",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/aw-kradas.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://github.com/keaykub/kradas",
+      "platform": "github",
+      "posted_at": "2026-11-21",
+      "handle": "keaykub",
+      "author_url": "https://github.com/keaykub",
+      "made_with": "three.js, cut paper painted in code, no build step"
+    }
+  },
+  {
+    "id": "aw-touchline-vale",
+    "name": "Touchline Vale",
+    "description": "Play eleven-a-side football against the computer, picking a formation and a difficulty, on a keyboard, a gamepad or a phone.",
+    "kind": "external",
+    "external_url": "https://cdn.jsdelivr.net/gh/tzshanta-maker/touchline-vale@main/index.html",
+    "source_url": "https://github.com/tzshanta-maker/touchline-vale",
+    "author_name": "tzshanta-maker",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/aw-touchline-vale.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://github.com/tzshanta-maker/touchline-vale",
+      "platform": "github",
+      "posted_at": "2026-11-21",
+      "handle": "tzshanta-maker",
+      "author_url": "https://github.com/tzshanta-maker",
+      "made_with": "three.js and Vite, every model, texture and sound made in code"
+    }
+  },
+  {
+    "id": "ext-khuntau",
+    "name": "Khuntau",
+    "description": "Dodge a bull tied to its post to snatch pitha cakes in the ring of a Santal village's Sohrai festival, or live the festival day in its story.",
+    "kind": "external",
+    "external_url": "https://khuntau.dulalkisku0.workers.dev/",
+    "source_url": "https://github.com/Kh3rwa1/khuntau",
+    "author_name": "Dulor",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-khuntau.webp",
+    "origin": {
+      "post_url": "https://github.com/Kh3rwa1/khuntau",
+      "platform": "github",
+      "posted_at": "2026-11-21",
+      "handle": "Kh3rwa1",
+      "author_url": "https://github.com/Kh3rwa1",
+      "made_with": "three.js, Quaternius models, a Cloudflare Worker for its rooms"
+    }
   }
 ]

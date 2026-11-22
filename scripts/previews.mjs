@@ -887,6 +887,18 @@ const SHOTS = {
   // Cherwell Valley Motor Club: the Triumph pulling away from Deddington's market place (a second and a bit of throttle, then
   // it rolls: two seconds take it across the junction into Otters Restaurant)
   'ext-cherwell-valley-motor-club': { wait: 25000, steps: [{ click: [320, 200], wait: 2000 }], press: [['w', 0, 1.3]], settle: 1 },
+  // Woolly Island Park: looking round from the felt mushroom houses, the carousel and roller coaster behind, out to the
+  // shore and back (its title and buttons are the page's)
+  'aw-wool-island-park': { wait: 15000, drag: swing(160, 0), settle: 1 },
+  // Whisker Meadow: past Play, the rescue cats pottering about their pen (its buttons are the page's)
+  'aw-whisker-meadow': { wait: 15000, steps: [{ click: [320, 279], wait: 5000 }], settle: 1 },
+  // Kradas: walking up the path of the cut-paper canal village, past its signposts and villagers (its title and sound
+  // button are the page's)
+  'aw-kradas': { wait: 20000, steps: [{ click: [320, 200], wait: 1000 }], hold: ['w'], settle: 1 },
+  // Touchline Vale: a quick match from kick-off, the two teams moving up the pitch (its scoreboard is the page's)
+  'aw-touchline-vale': { wait: 20000, steps: [{ click: [320, 207], wait: 2500 }, { click: [478, 257], wait: 10000 }], settle: 1 },
+  // Khuntau: a quick round in the Sohrai ring, running in at the bull tied to its post among the village's houses
+  'ext-khuntau': { wait: 20000, steps: [{ click: [356, 304], wait: 10000 }], hold: ['w'], settle: 1, crf: [44, 30] },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

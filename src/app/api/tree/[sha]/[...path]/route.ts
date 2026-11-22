@@ -4,9 +4,10 @@
 // so their relative modules, styles and assets load from here: CORS is open, and responses are
 // immutable (a tree never changes). A file opened directly (not inside the world frame) is still
 // sandboxed by its CSP, so it can never act as Orb's own origin. A Range request gets just those
-// bytes (206): Safari plays a video only so.
+// bytes (206): Safari plays a video only so. A folder's address goes on to its index.html (308),
+// where the page's relative links resolve inside the folder (see folderPage).
 
-import { contentType, ENTRY, getBlob, getTree, isSha } from '@/server/files';
+import { contentType, ENTRY, folderPage, getBlob, getTree, isSha } from '@/server/files';
 import { ready } from '@/server/schema';
 
 const SANDBOX_CSP = 'sandbox allow-scripts allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals allow-downloads';
@@ -54,6 +55,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ sha: string; pa
       const tree = await getTree(db, sha);
       if (!tree) return notFound();
       let p = (path ?? []).map((s) => decodeURIComponent(s)).join('/');
+      const page = folderPage(tree, p);
+      if (page) {
+        const to = `/api/tree/${sha}/${page.split('/').map(encodeURIComponent).join('/')}${new URL(req.url).search}`;
+        return new Response(null, { status: 308, headers: { ...BASE_HEADERS, location: to, 'cache-control': 'public, max-age=31536000, immutable' } });
+      }
       if (!tree[p]) p = p ? `${p.replace(/\/$/, '')}/${ENTRY}` : ENTRY;
       const blobSha = tree[p];
       if (!blobSha) return notFound();

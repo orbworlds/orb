@@ -510,6 +510,37 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   Korean temple garden, framed only on itch.io), DailyPlay Rally, Posy, Chongqing, Kiakia Dash (a
   bike delivery round Lagos), Wrongly Drawn, Compass Post (a geography game on a globe) and Rooftop
   Rally refuse a frame.
+- **Scouted on 22 November 2026**, a quiet day for posts (nothing new in the three.js forum's
+  Showcase or on Fable52.games since the day before, nothing frameable on Show HN), so mostly
+  GitHub. With games' files kept on GitHub now, hosting is back. Added, hosted: **Woolly Island
+  Park** (romy-826's island fairground made of felt, a carousel, a roller coaster and mushroom
+  houses to walk among; its clip looks round from the mushroom houses, as the recorder's mouse wheel
+  never reached its whole-island view to bring it closer), **Whisker Meadow** (LK1248's cozy cat
+  sanctuary: win shy rescue cats' trust with slow strokes, phone first), **Kradas** (keaykub's Thai
+  canal village of cut paper, MIT, whose gates lead to a realm of jade islands and a demon realm
+  under a blood moon) and **Touchline Vale** (tzshanta-maker's eleven-a-side football against the
+  computer, MIT, every model and sound made in code); embedded: **Khuntau** (Dulor's game of the
+  Santal Sohrai festival: snatch pitha cakes round a bull tied to its post, or live the festival day
+  in its story; its music isn't free to reuse, so it isn't hosted). Kradas has no page at its top
+  and its gates link between folders: its start page (`src/data/seed-pages.ts`) runs the village
+  with its `<base>` in the village's folder, and a folder's address in a world's files now goes on
+  to its `index.html` (Next.js drops the slash at the end of an address, so `../realm-immortal/`
+  loaded its page a folder up). Held: **Cheung Chau Flight Squad** (hkrgb's drone over Hong Kong's
+  real terrain and aerial photographs, from Cheung Chau's harbour: a playtest build that changed
+  version three times on the 22nd; for another look when it settles) and **Super Toy Plane Combat**
+  (billysaas's dogfights through a giant toy house, MIT: hosted, it stops on its loading bar, as its
+  online client is made from the page's own address, which a hosted copy doesn't have, and it has no
+  site to embed). For another look: Garuda Control (Garuda's flight, with an optional ESP32 tilt
+  controller), A-mazing Run (a medieval maze) and Comfy Golf (Ian Trimble's golf, in development
+  behind a landing page). Left out: Little Swans Worldline (porcelain swans dancing on a moonlit
+  lake, to music taken from someone's video), Majo no Tabitabi (a Wandering Witch fan game), Two
+  Rivers (an India × Germany river world, mostly open water between small monuments), Apex Overland
+  (an off-road racer plainer than the racers in Explore), Chaoluo Village (a student piece on the
+  Hainan villages an earthquake sank in 1605, which opens as a website), Elsewhere (asks for a name
+  and, peer to peer, shows other players your IP address), Latte Lattice (a café diorama toy),
+  Burger Chick (shooting chickens for burgers), a shop's particle Christmas tree, AIsland (a test
+  bench for AI models), Seoul City Walk (a React build), dozens of make.fun bounty entries
+  (GTA-style crime cities, stealth games, spot-the-difference rooms), playable ads and tech demos.
 
 ## Embeds we would add if their sites allowed it
 

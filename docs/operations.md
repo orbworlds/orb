@@ -408,7 +408,9 @@ words written, checked inside Orb, and live on orbworlds.com the same day.
    - **If it doesn't run, find out why** (missing files, root-absolute paths, a bundler feature):
      most hosting fixes so far were small, general changes in `src/server/importer.ts`, each with a
      test in `src/lib/engine/__tests__/importer.test.mjs` and SPEC.md updated. Make the fix when it
-     is small and general; otherwise say in the wishlist what would unlock it.
+     is small and general; otherwise say in the wishlist what would unlock it. A repository with
+     no page at its top (a Next.js app, or pages in folders) gets a start page in
+     `src/data/seed-pages.ts` that boots its own code.
    - Only a world that truly can't be hosted (needs a build server or React/webpack build, over
      200 MB, private code) is embedded by its address, after `node scripts/check-embeds.mjs`
      shows that its site lets Orb frame it. Use the address it ends up at: Orb's frame grants

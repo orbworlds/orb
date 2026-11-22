@@ -341,7 +341,10 @@ Browser (Next.js client)                              Vercel Functions (Node)   
   under Orb's site; Orb can't see or move it.
 - World code is stored in Postgres (`orb_worlds.code`), versions in `orb_world_versions`,
   thumbnails as `bytea` served through a CDN-cached route. A multi-file world's files are stored
-  once by hash (`orb_trees`, `orb_blobs`, `src/server/files.ts`). The bytes of a game imported
+  once by hash (`orb_trees`, `orb_blobs`, `src/server/files.ts`) and served at
+  `/api/tree/<sha>/<path>`; a folder's address (a page of a game of several pages, linked as
+  `../level-two/`) goes on to its `index.html`, since Next.js drops the slash at the end of an
+  address and the page's relative links would resolve a folder up. The bytes of a game imported
   from a public GitHub repository (the curated open-source games, and their remixes) stay on
   GitHub: `orb_blobs.source` names the file at the commit it came from, it is read from GitHub
   (then jsDelivr), checked against its hash, and the database keeps no copy

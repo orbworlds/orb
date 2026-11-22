@@ -35,4 +35,25 @@ createForest(document.querySelector('.forest-canvas'), () => {
 </body>
 </html>
 `,
+  // Kradas starts in examples/walk-village/, whose gates lead to the other realms by links relative
+  // to that folder (../realm-immortal/): so the page puts its <base> there and runs the village.
+  'aw-kradas': `<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kradas</title>
+</head>
+<body>
+<script>
+const folder = new URL('examples/walk-village/', document.baseURI).href;
+(document.querySelector('base') || document.head.appendChild(document.createElement('base'))).href = folder;
+const village = document.createElement('script');
+village.type = 'module';
+village.src = 'village.js';
+document.body.append(village);
+</script>
+</body>
+</html>
+`,
 };
