@@ -147,12 +147,26 @@ for (const w of catalog.worlds) {
   const { git, clone, commit } = gitAs(app);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'orb-org-'));
   try {
-    // Pull requests Orb takes, merged by the app (the profile as Orb has it then goes over them).
+    // Pull requests Orb takes, merged by the app the way the repository allows (the profile as Orb has
+    // it then goes over them); one that can't be merged doesn't stop the profile.
     for (const n of catalog.profile.pulls ?? []) {
       const { data: pr } = await gh('GET', `/repos/${full}/pulls/${n}`);
       if (pr?.state !== 'open') continue;
-      const { status, data } = await gh('PUT', `/repos/${full}/pulls/${n}/merge`, { merge_method: 'merge' });
-      console.log(`${full}#${n}: ${status === 200 ? 'merged' : `not merged (${status} ${data?.message ?? ''})`}`);
+      let merged = false;
+      for (const method of ['squash', 'rebase', 'merge']) {
+        try {
+          await gh('PUT', `/repos/${full}/pulls/${n}/merge`, { merge_method: method });
+          merged = true;
+          break;
+        } catch (e) {
+          if (!/ 405 /.test(e instanceof Error ? e.message : '')) {
+            console.error(`${full}#${n}: ${e instanceof Error ? e.message : e}`);
+            break;
+          }
+        }
+      }
+      console.log(`${full}#${n}: ${merged ? 'merged' : 'not merged'}`);
+      if (!merged) failed++;
     }
     clone(full, tmp);
     const files = { 'profile/README.md': profile(), '.github/workflows/world.yml': WORLD_WORKFLOW };
