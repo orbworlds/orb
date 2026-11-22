@@ -230,6 +230,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       return answer({ swapped: true });
     }
     if (b.step === 'drop') {
+      // Only empty space and copies go: every row of the old table must be in the new one, with its bytes.
+      if (state.old) {
+        const [v] = await db.query<{ missing: number; differ: number }>(
+          `select (select count(*) from orb_blobs_old o where not exists (select 1 from orb_blobs n where n.sha = o.sha))::int as missing,
+             (select count(*) from orb_blobs_old o join orb_blobs n on n.sha = o.sha where n.source is null and octet_length(n.data) <> octet_length(o.data))::int as differ`,
+        );
+        if (v.missing || v.differ) return plain(409, `Not dropping the old files table: ${v.missing} of its rows aren't in the new one, ${v.differ} differ.`);
+      }
       await rebuildDrop(db);
       return answer({ dropped: true });
     }
