@@ -9,7 +9,10 @@
 //     `main` protected (a reviewed pull request whose test passed; the app goes around it);
 //   - orbworlds/.github, the only copy of what the worlds share: the org's profile, and the test
 //     every world's repository runs (.github/workflows/world.yml, called from each one's
-//     .github/workflows/test.yml), which other repositories in the org may use.
+//     .github/workflows/test.yml), which other repositories in the org may use. The profile lists
+//     the Originals, then worlds people made on Orb that it features (`profile.community`: Orb's
+//     picture of the world and its address). Pull requests to it that Orb takes (`profile.pulls`)
+//     are merged by the app first; the profile as Orb has it is written over them.
 //
 //   ORB_APP_ID=… ORB_APP_KEY=… node scripts/sync-org.mjs
 //
@@ -70,13 +73,18 @@ function profile() {
     const play = `${urlOf(w)}?${utm(w.repo)}`;
     return `| <a href="${play}"><img src="https://raw.githubusercontent.com/${ORG}/${w.repo}/HEAD/docs/screenshots/1.webp" width="260" alt="${w.name}"></a> | **[${w.name}](${play})**<br>${w.about}<br><br>[Play](${play}) · [Code](https://github.com/${ORG}/${w.repo}) |`;
   };
+  // A world someone made on Orb: Orb's own picture of it, and where to play it (it has no repository here).
+  const community = (w) => {
+    const play = `${SITE}/${w.path}?${utm(slugify(w.name))}`;
+    return `| <a href="${play}"><img src="${SITE}/api/worlds/${w.id}/thumb" width="260" alt="${w.name}"></a> | **[${w.name}](${play})**<br>${w.about}<br><br>[Play](${play}) · made on Orb by ${w.by} |`;
+  };
   return `# Orb
 
 Make worlds by describing them, play them together, remix anything: **[${new URL(SITE).host}](${SITE}/?utm_source=github&utm_medium=profile)**
 
 | | |
 |---|---|
-${catalog.worlds.map(row).join('\n')}
+${[...catalog.worlds.map(row), ...(catalog.profile.community ?? []).map(community)].join('\n')}
 `;
 }
 
@@ -139,6 +147,13 @@ for (const w of catalog.worlds) {
   const { git, clone, commit } = gitAs(app);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'orb-org-'));
   try {
+    // Pull requests Orb takes, merged by the app (the profile as Orb has it then goes over them).
+    for (const n of catalog.profile.pulls ?? []) {
+      const { data: pr } = await gh('GET', `/repos/${full}/pulls/${n}`);
+      if (pr?.state !== 'open') continue;
+      const { status, data } = await gh('PUT', `/repos/${full}/pulls/${n}/merge`, { merge_method: 'merge' });
+      console.log(`${full}#${n}: ${status === 200 ? 'merged' : `not merged (${status} ${data?.message ?? ''})`}`);
+    }
     clone(full, tmp);
     const files = { 'profile/README.md': profile(), '.github/workflows/world.yml': WORLD_WORKFLOW };
     for (const [p, data] of Object.entries(files)) {

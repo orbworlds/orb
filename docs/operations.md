@@ -358,6 +358,11 @@ repositories do appear: use an account for that which is Orb's (say *orb-team*),
 - **Reviewing pull requests:** once a repository is public, `sync-org` makes its `main` need a reviewed
   pull request whose test passed (GitHub's free plan protects public repositories only); the app goes
   around it.
+- **The org's profile** (orbworlds/.github) is written by `sync-org`: the Originals, then worlds people
+  made on Orb that it features (`profile.community` in `originals.json`: the world's id, address,
+  name, line and maker; its picture is Orb's). A pull request to the profile that Orb takes goes in
+  `profile.pulls`: the app merges it (so no person's account shows), then writes the profile as Orb
+  has it over it, so add what it proposed to the catalog too.
 - **At launch:** set `"public": true` for each world and the profile in `originals.json`, then ship.
   The org workflow makes the repositories public (never the other way: that would lose their stars),
   and Orb's Originals link to them ("Source code · MIT" in the world's menu). In each repository's

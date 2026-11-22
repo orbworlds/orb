@@ -3,7 +3,17 @@
   "site": "https://orbworlds.com",
   "license": "MIT",
   "profile": {
-    "public": true
+    "public": true,
+    "community": [
+      {
+        "id": "TClcEYxMA6",
+        "path": "realcarrot/battle-command",
+        "name": "Battle Command",
+        "about": "Battle your way.",
+        "by": "RealCarrot"
+      }
+    ],
+    "pulls": [2]
   },
   "worlds": [
     {
