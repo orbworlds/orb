@@ -198,6 +198,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
         to_regclass('orb_blobs_old') is not null as old_table from orb_blobs`),
     ])));
   }
+  if (body?.do === 'purchases') {
+    // Read-only: the latest purchases in worlds, and what their makers earned (no one's id).
+    const rows = await db.query(
+      `select to_char(p.created_at, 'YYYY-MM-DD HH24:MI') as at, p.world_id as world, w.name as world_name, p.item_name as item,
+         p.price_micros / 10000.0 as price, p.paid_micros / 10000.0 as paid, p.earned_micros / 10000.0 as earned, p.seller_user is not null as seller,
+         w.owner_user is not null as world_has_account, p.status, p.test, p.reversed,
+         (select plan from orb_wallets where payer = 'u:' || p.buyer_user) as buyer_plan_now
+       from orb_purchases p left join orb_worlds w on w.id = p.world_id order by p.created_at desc limit 60`,
+    );
+    return answer({ purchases: rows });
+  }
   if (body?.do === 'trace-index') {
     // Read-only: every trace's id and every file traces keep, to check a backup has them all.
     const traces = await db.query<{ id: string }>(`select id from orb_traces order by id`);
@@ -262,5 +273,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       return plain(502, `checkpoint failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint" | "trace-index" | "clear-traces" | "unused" | "prune-listed" | "rebuild", world?, days?, table?}.');
+  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint" | "trace-index" | "clear-traces" | "unused" | "prune-listed" | "rebuild" | "purchases", world?, days?, table?}.');
 }
