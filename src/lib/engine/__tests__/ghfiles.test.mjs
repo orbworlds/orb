@@ -203,6 +203,43 @@ describe('world files on GitHub', () => {
     assert.ok(!left.has(stepFile) && left.has(liveFile) && left.has(orphan), 'the orphan stays: it wasn’t listed');
   });
 
+  test('the files table is copied in pieces and put in its place with what changed meanwhile', async () => {
+    const put = async (data, source = null) => {
+      const sha = sha256(data);
+      await db.query(`insert into orb_blobs (sha, data, size, source) values ($1, $2, $3, $4)`, [sha, source ? Buffer.alloc(0) : data, data.length, source]);
+      return sha;
+    };
+    const kept = await put(Buffer.alloc(3000, 21));
+    const onGitHub = await put(Buffer.alloc(3000, 22), `o/r@${COMMIT}/x.bin`);
+    const movesLater = await put(Buffer.alloc(3000, 23));
+    const before = (await db.query(`select count(*)::int as n from orb_blobs`))[0].n;
+
+    await F.rebuildStart(db);
+    const first = await F.rebuildCopy(db, 1);
+    assert.equal(first.rows, 1, 'at least one row a piece');
+    // Meanwhile: a new file, one moved to GitHub, one stored again.
+    const added = await put(Buffer.alloc(3000, 24));
+    await db.query(`update orb_blobs set source = $2, data = ''::bytea where sha = $1`, [movesLater, `o/r@${COMMIT}/y.bin`]);
+    await db.query(`update orb_blobs set created_at = now() + interval '1 hour' where sha = $1`, [kept]);
+    for (let r = first; r.left > 1; ) r = await F.rebuildCopy(db, 1e9);
+    await F.rebuildSwap(db);
+    await F.rebuildDrop(db);
+
+    const rows = await db.query(`select sha, source, octet_length(data)::int as n, created_at > now() as later from orb_blobs`);
+    const row = (sha) => rows.find((r) => r.sha === sha);
+    assert.equal(rows.length, before + 1, 'every row, and the one added meanwhile');
+    assert.equal(row(kept).n, 3000);
+    assert.equal(row(kept).later, true, 'its newer time came along');
+    assert.deepEqual([row(onGitHub).source, row(onGitHub).n], [`o/r@${COMMIT}/x.bin`, 0]);
+    assert.deepEqual([row(movesLater).source, row(movesLater).n], [`o/r@${COMMIT}/y.bin`, 0], 'moved meanwhile: no bytes kept');
+    assert.ok(row(added));
+    assert.equal((await db.query(`select relrowsecurity from pg_class where relname = 'orb_blobs'`))[0].relrowsecurity, true);
+    assert.equal((await db.query(`select count(*)::int as n from pg_class where relname in ('orb_blobs_old', 'orb_blobs_next')`))[0].n, 0);
+    await assert.rejects(() => db.query(`insert into orb_blobs (sha, data, size) values ($1, ''::bytea, 0)`, [kept]), 'the key came along');
+    const again = await F.putBlob(db, Buffer.from('stored after the swap'));
+    assert.equal(new TextDecoder().decode(await F.getBlob(db, again.sha)), 'stored after the swap');
+  });
+
   test('a tree stored again counts as new again', async () => {
     const file = (await F.putBlob(db, Buffer.from('tree again'))).sha;
     const sha = await F.putTree(db, { 'a.js': file });

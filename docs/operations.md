@@ -142,6 +142,11 @@ which worlds' files take the most. Most of a world's room is its pictures, model
   write-ahead log too, before the old copy goes: it is refused unless the database, the log and
   twice what the table keeps stay under 1.7 GB (the free plan's disk turned read-only at about
   1.86 GB). Run it once moving and pruning are done and the log has shrunk back (`{"do":"disk"}`).
+  When that's still too much, the files table can be copied in pieces instead:
+  `{"do":"rebuild","step":"start"}`, then `"copy"` (about 30 MB of kept bytes a call, refused while
+  the database and its log hold over 1.7 GB) until nothing is left, `"swap"` (the copy takes the
+  table's place, with what changed meanwhile, under a short lock) and `"drop"` (the old one goes,
+  and its space with it).
 
 ## Plans and credits
 

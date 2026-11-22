@@ -14,7 +14,7 @@
 //   files table only once most of it has moved.
 
 import { MOVE_MIN, moveToGitHub } from '@/server/ghfiles';
-import { getBlob, getTree, isSha, pruneFiles, pruneListed, unusedFiles } from '@/server/files';
+import { getBlob, getTree, isSha, pruneFiles, pruneListed, rebuildCopy, rebuildDrop, rebuildStart, rebuildSwap, unusedFiles } from '@/server/files';
 import { LAB_KEY } from '@/server/lab';
 import { ready } from '@/server/schema';
 import { SEEDS } from '@/server/seed';
@@ -193,6 +193,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       ask('wal', `select count(*)::int as files, coalesce(sum(size), 0)::float8 as bytes from pg_ls_waldir()`),
       ask('slots', `select slot_name, slot_type, active, pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)::float8 as retained from pg_replication_slots`),
       ask('settings', `select name, setting, unit from pg_settings where name in ('max_wal_size', 'min_wal_size', 'wal_keep_size', 'checkpoint_timeout', 'max_slot_wal_keep_size')`),
+      ask('files', `select coalesce(sum(size) filter (where source is null), 0)::float8 as kept, coalesce(sum(size) filter (where source is not null), 0)::float8 as on_github,
+        pg_total_relation_size('orb_blobs')::float8 as table_bytes, coalesce(pg_total_relation_size(to_regclass('orb_blobs_next')), 0)::float8 as copy_bytes,
+        to_regclass('orb_blobs_old') is not null as old_table from orb_blobs`),
     ])));
   }
   if (body?.do === 'trace-index') {
@@ -200,6 +203,37 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
     const traces = await db.query<{ id: string }>(`select id from orb_traces order by id`);
     const files = await db.query<{ sha: string; size: number }>(`select sha, size from orb_trace_blobs order by sha`);
     return answer({ traces: traces.map((t) => t.id), files: files.map((f) => [f.sha, Number(f.size)]) });
+  }
+  if (body?.do === 'rebuild') {
+    // The files table copied in pieces and put in its place (src/server/files.ts rebuildStart…).
+    const b = body as { step?: unknown; max?: unknown };
+    const [state] = await db.query<{ next: boolean; old: boolean; db: number; wal: number }>(
+      `select to_regclass('orb_blobs_next') is not null as next, to_regclass('orb_blobs_old') is not null as old,
+         pg_database_size(current_database())::float8 as db, (select coalesce(sum(size), 0) from pg_ls_waldir())::float8 as wal`,
+    );
+    if (b.step === 'start') {
+      if (state.old) return plain(409, 'The old files table is still there: drop it first.');
+      await rebuildStart(db);
+      return answer({ started: true });
+    }
+    if (b.step === 'copy') {
+      if (!state.next) return plain(409, 'Start first.');
+      // The copy grows the database: stop well before the disk's limit (read-only at about 1.86 GB with the log).
+      if (state.db + state.wal > 1.7e9) return plain(409, `The disk holds ${Math.round((state.db + state.wal) / 1e6)} MB with the write-ahead log: wait for Postgres to recycle it.`);
+      return answer(await rebuildCopy(db, typeof b.max === 'number' ? b.max : 30e6));
+    }
+    if (b.step === 'swap') {
+      if (!state.next) return plain(409, 'Start first.');
+      const [left] = await db.query<{ n: number }>(`select count(*)::int as n from orb_blobs b where not exists (select 1 from orb_blobs_next x where x.sha = b.sha)`);
+      if (Number(left.n) > 200) return plain(409, `${left.n} rows aren't copied yet.`);
+      await rebuildSwap(db);
+      return answer({ swapped: true });
+    }
+    if (b.step === 'drop') {
+      await rebuildDrop(db);
+      return answer({ dropped: true });
+    }
+    return plain(400, 'Expected step: start | copy | swap | drop.');
   }
   if (body?.do === 'clear-traces') {
     // Every build trace at once (the nightly backup has them): TRUNCATE gives their disk back
@@ -220,5 +254,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ key: string }>
       return plain(502, `checkpoint failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint" | "trace-index" | "clear-traces" | "unused" | "prune-listed", world?, days?, table?}.');
+  return plain(400, 'Expected {do: "github" | "prune" | "vacuum" | "disk" | "checkpoint" | "trace-index" | "clear-traces" | "unused" | "prune-listed" | "rebuild", world?, days?, table?}.');
 }

@@ -339,6 +339,54 @@ export async function pruneListed(db: Db, trees: string[], blobs: string[]): Pro
   return { trees: t.length, blobs: b.length, bytes: b.reduce((n, r) => n + Number(r.size), 0) };
 }
 
+// -- giving the files table's free space back on a small disk ----------------------------------------
+// VACUUM FULL copies a table in one go and writes the copy through the write-ahead log, which on the
+// free plan's 2 GB disk can't fit next to the old copy. The same in pieces: copy what the table keeps
+// a few MB at a time (the log is recycled between pieces), put the copy in its place under a short
+// lock with whatever changed meanwhile, then drop the old one (src/app/lab/[key]/space).
+
+/** Start the copy (same columns, keys and defaults; row-level security on, as for every table). */
+export async function rebuildStart(db: Db): Promise<void> {
+  await db.query(`create table if not exists orb_blobs_next (like orb_blobs including all)`);
+  await db.query(`alter table orb_blobs_next enable row level security`);
+}
+
+/** Copy the next rows, about `maxBytes` of bytes kept here (a file on GitHub counts for none). */
+export async function rebuildCopy(db: Db, maxBytes: number): Promise<{ rows: number; bytes: number; left: number }> {
+  const rows = await db.query<{ sha: string; n: number }>(
+    `select b.sha, (case when b.source is null then b.size else 0 end)::float8 as n from orb_blobs b
+     where not exists (select 1 from orb_blobs_next x where x.sha = b.sha) order by b.sha limit 5000`,
+  );
+  let bytes = 0;
+  const take: string[] = [];
+  for (const r of rows) {
+    if (take.length && bytes + Number(r.n) > maxBytes) break;
+    take.push(r.sha);
+    bytes += Number(r.n);
+  }
+  if (take.length) await db.query(`insert into orb_blobs_next select * from orb_blobs where sha = any($1::text[]) on conflict (sha) do nothing`, [take]);
+  const [left] = await db.query<{ n: number }>(`select count(*)::int as n from orb_blobs b where not exists (select 1 from orb_blobs_next x where x.sha = b.sha)`);
+  return { rows: take.length, bytes, left: Number(left.n) };
+}
+
+/** Put the copy in the table's place, with what changed meanwhile, in one statement under a lock. */
+export async function rebuildSwap(db: Db): Promise<void> {
+  await db.query(`do $$ begin
+    lock table orb_blobs in access exclusive mode;
+    insert into orb_blobs_next select * from orb_blobs b where not exists (select 1 from orb_blobs_next n where n.sha = b.sha);
+    update orb_blobs_next n set created_at = b.created_at, source = b.source, data = case when b.source is null then n.data else ''::bytea end
+      from orb_blobs b where b.sha = n.sha and (n.created_at is distinct from b.created_at or n.source is distinct from b.source);
+    delete from orb_blobs_next n where not exists (select 1 from orb_blobs b where b.sha = n.sha);
+    alter table orb_blobs rename to orb_blobs_old;
+    alter table orb_blobs_next rename to orb_blobs;
+  end $$`);
+}
+
+/** Drop the old table once the copy is in its place (that gives its space back). */
+export async function rebuildDrop(db: Db): Promise<void> {
+  await db.query(`drop table if exists orb_blobs_old`);
+}
+
 /**
  * Forget trees nothing points at and files no tree has, two days after they were last stored (a
  * build in progress points at its own; an upload goes in a world within minutes). At most `limit`
