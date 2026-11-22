@@ -166,8 +166,9 @@ for (const w of catalog.worlds) {
       git(tmp, 'push', '--quiet', 'origin', 'HEAD:main');
       console.log(`${full}: profile and the worlds' test updated`);
     } else console.log(full);
-    await gh('PUT', `/repos/${full}/actions/permissions/access`, { access_level: 'organization' });
+    // Other repositories of the org may call its workflow: GitHub asks for that only of a private one.
     const { data } = await gh('GET', `/repos/${full}`);
+    if (data.private) await gh('PUT', `/repos/${full}/actions/permissions/access`, { access_level: 'organization' });
     if (catalog.profile.public && data.private) await gh('PATCH', `/repos/${full}`, { private: false });
   } catch (e) {
     console.error(`${full}: ${e instanceof Error ? e.message : e}`);
