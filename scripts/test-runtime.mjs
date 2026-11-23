@@ -523,6 +523,13 @@ w2.onmessage = (e) => got.push(e.data);
     try { history.replaceState({ a: 1 }, '', '?level=2'); history.pushState({ b: 2 }, '', '#x'); return JSON.stringify(history.state); } catch (e) { return 'threw ' + e.name; }
   });
   check('history.replaceState / pushState with an address keep their state instead of throwing', hist === '{"b":2}', hist);
+  const sw = await frame.evaluate(async () => {
+    try {
+      if (!('serviceWorker' in navigator)) return 'missing';
+      return await navigator.serviceWorker.register('sw.js').then(() => 'registered', (e) => 'refused ' + e.name);
+    } catch (e) { return 'threw ' + e.name; }
+  });
+  check('navigator.serviceWorker can be read, and registering one is refused instead of throwing', sw === 'refused SecurityError', sw);
   await page.close();
 }
 

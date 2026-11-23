@@ -899,6 +899,25 @@ const SHOTS = {
   'aw-touchline-vale': { wait: 20000, steps: [{ click: [320, 207], wait: 2500 }, { click: [478, 257], wait: 10000 }], settle: 1 },
   // Khuntau: a quick round in the Sohrai ring, running in at the bull tied to its post among the village's houses
   'ext-khuntau': { wait: 20000, steps: [{ click: [356, 304], wait: 10000 }], hold: ['w'], settle: 1, crf: [44, 30] },
+  // Ondeung: walking the Namgang riverbank at night towards the pier, the river full of floating lanterns and Jinju's
+  // pavilion beyond (its buttons and the lantern of the day are the page's)
+  'ext-ondeung': { wait: 20000, hold: ['ArrowUp'], settle: 1 },
+  // Spillway: riding the front door down the flooded street at its gentler speed, Slack Water (its score is the page's)
+  'aw-spillway': { wait: 15000, steps: [{ click: [299, 218], wait: 1000 }, { click: [189, 290], wait: 6000 }], settle: 1, crf: [45, 31] },
+  // Paperfold: on the tower's roof with a plane, turning to aim it across the toy-coloured city and back (a thrown plane
+  // flies differently each time, and the recorder's ones met a wall; its panels are the page's)
+  'ext-paperfold': {
+    viewport: [1280, 800], scale: 1, size: [1280, 800], wait: 15000,
+    steps: [{ click: [640, 472], wait: 5000 }, { click: [1101, 632], wait: 5000 }],
+    press: [['d', 0, 2], ['a', 2, 4]], settle: 0.5, crf: [47, 32],
+  },
+  // Tidewake: past the captain and the first story card, full sail out of Port Haven's harbour, the camera turning round
+  // the boat (its compass and chart are the page's)
+  'aw-tidewake': {
+    viewport: [1280, 800], scale: 1, size: [1280, 800], wait: 15000,
+    steps: [{ click: [640, 708], wait: 5000 }, { click: [1185, 745], wait: 6000 }, { click: [410, 599], wait: 6000 }, { key: 'w', wait: 400 }, { key: 'w', wait: 8000 }],
+    drag: swing(160, 0, 640, 400), settle: 1,
+  },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

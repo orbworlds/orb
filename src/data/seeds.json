@@ -4714,5 +4714,103 @@
       "author_url": "https://github.com/Kh3rwa1",
       "made_with": "three.js, Quaternius models, a Cloudflare Worker for its rooms"
     }
+  },
+  {
+    "id": "ext-ondeung",
+    "name": "Ondeung",
+    "description": "Design a lantern and float it down the Namgang river at Jinju's lantern festival in South Korea, among other people's lanterns and their wishes.",
+    "kind": "external",
+    "external_url": "https://ondeung.zn7013.workers.dev/",
+    "source_url": null,
+    "author_name": "dori",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/ext-ondeung.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/i-rebuilt-my-citys-river-lantern-festival-in-three-js-from-real-terrain-data-no-login-runs-in-the-browser/97576",
+      "platform": "three.js forum",
+      "views": 19,
+      "likes": 0,
+      "posted_at": "2026-11-22",
+      "handle": "gyugyutae",
+      "made_with": "three.js, the Namgang river from real terrain data"
+    }
+  },
+  {
+    "id": "aw-spillway",
+    "name": "Spillway",
+    "description": "Ride a front door on a hydrofoil through a flooded monsoon town and keep the post moving.",
+    "kind": "external",
+    "external_url": "https://spillway.ashwinsathian.com/",
+    "source_url": "https://github.com/AshwinSathian/spillway",
+    "author_name": "Ashwin Sathian",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/aw-spillway.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://github.com/AshwinSathian/spillway",
+      "platform": "github",
+      "posted_at": "2026-11-22",
+      "handle": "AshwinSathian",
+      "author_url": "https://github.com/AshwinSathian",
+      "made_with": "WebGL and TypeScript, no engine"
+    }
+  },
+  {
+    "id": "ext-paperfold",
+    "name": "Paperfold",
+    "description": "Fold a paper plane, paint it, throw it off a tower over a toy-coloured city and leave it there for everyone to find.",
+    "kind": "external",
+    "external_url": "https://michidk.github.io/paperfold/",
+    "source_url": "https://github.com/michidk/paperfold",
+    "author_name": "michidk",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/ext-paperfold.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=50598833",
+      "platform": "hn",
+      "likes": 2,
+      "posted_at": "2026-11-22",
+      "handle": "michidk",
+      "author_url": "https://github.com/michidk",
+      "made_with": "three.js and Vite, a Bun server keeps the planes"
+    }
+  },
+  {
+    "id": "aw-tidewake",
+    "name": "Tidewake",
+    "description": "Sail a cel-shaded archipelago of over a hundred islands as a young captain, charting the seas and hauling up sunken treasure.",
+    "kind": "external",
+    "external_url": "https://www.hugshelp.ca/tidewake/",
+    "source_url": "https://github.com/James-Thibaudeau/tidewake",
+    "author_name": "James Thibaudeau",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/aw-tidewake.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://github.com/James-Thibaudeau/tidewake",
+      "platform": "github",
+      "posted_at": "2026-11-22",
+      "handle": "James-Thibaudeau",
+      "author_url": "https://github.com/James-Thibaudeau",
+      "made_with": "three.js, plain ES modules, no build step"
+    }
   }
 ]

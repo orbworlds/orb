@@ -343,7 +343,9 @@ Browser (Next.js client)                              Vercel Functions (Node)   
   shims `localStorage`/`sessionStorage` (persisted per world per device by the parent, and for
   signed-in people in their account, `orb_saves`), and starts a world's workers from a data:
   script that loads their file (the file's origin isn't the frame's); `history.replaceState`/
-  `pushState` keep their state but not a new address (a srcdoc frame's can't change). Websites shown as worlds (`kind: 'external'`)
+  `pushState` keep their state but not a new address (a srcdoc frame's can't change), and
+  `navigator.serviceWorker`, which throws there even to read, is a stand-in that registers
+  nothing (`register()` rejects), so a world that sets one up for offline play carries on. Websites shown as worlds (`kind: 'external'`)
   keep their own origin (`allow-same-origin`) and their own storage, partitioned by the browser
   under Orb's site; Orb can't see or move it.
 - World code is stored in Postgres (`orb_worlds.code`), versions in `orb_world_versions`,

@@ -541,6 +541,36 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   Burger Chick (shooting chickens for burgers), a shop's particle Christmas tree, AIsland (a test
   bench for AI models), Seoul City Walk (a React build), dozens of make.fun bounty entries
   (GTA-style crime cities, stealth games, spot-the-difference rooms), playable ads and tech demos.
+- **Scouted on 23 November 2026** (24 new topics in the three.js forum's Showcase, posted on the
+  22nd after that day's run, plus Show HN and GitHub). Added: **Ondeung** (dori's lantern festival
+  of Jinju, South Korea: design a lantern and float it down the Namgang river among other people's,
+  embedded, no code to host), **Spillway** (Ashwin Sathian's endless runner on a front door riding a
+  hydrofoil through a flooded monsoon town, MIT, hosted), **Paperfold** (michidk's paper planes,
+  folded, painted and thrown off a tower over a toy-coloured city, MIT, but embedded: its planes and
+  their landings live on its own server; its clip turns to aim across the city, as a thrown plane
+  flies differently each time and the recorder's met a wall) and **Tidewake** (James Thibaudeau's
+  cel-shaded sailing between a hundred islands, no build step, hosted). Hosted, Spillway stopped at
+  its first frame: it registers a service worker, and in Orb's sandboxed frame merely reading
+  `navigator.serviceWorker` throws, so Orb's runtime now stands in for it with one that registers
+  nothing (SPEC §7, checked in `scripts/test-runtime.mjs`). Held: **Glohop** (Vrat Bartonicek's any
+  address on Earth built from OpenStreetMap as you arrive: Prague's Charles Bridge drew well, but
+  its walker didn't move to the keys here and a drag of the mouse crashed the page, so no clip yet),
+  **People of Bengaluru** (a lovely Koramangala to walk, but it is a city for Bengaluru's designers
+  to meet: its walkers carry real people's names and employers; early access, Next.js),
+  **Yunjianshan** (云间山, a calm walk up a mountain above the clouds: its site doesn't answer from
+  here and its repository holds only its README and pictures), **Dive the SS United States** (Jon
+  Michael Edwards's reconstruction of the liner's wreck: it stayed on its dive boat here) and, for
+  another look, Outpost Racer, Starward (a space sandbox behind a species picker), Koi Pond
+  (younis's garden diorama; Explore has Koi Canal and Kōyō-en), Open Learning Games (seven 3D Grade
+  1 maths and English games, MIT) and JETSUN (Ant Games' 3D shoot-'em-up, which plays inside its
+  site's own page). Left out: Yerevan Unlimited (a full-scale Yerevan to drive, but it sells its own
+  currency), Bozkurt Online (an MMORPG whose site turns away automated visits), Belle Oaks (a
+  leasing site's map) and Nepal's treks (a trekking company's site), Little Letters (scroll-driven,
+  it didn't move with the wheel here), Gunport (another franchise's fighters), Thane's Quest and
+  Mantar (2D), Worker 755 (needs an AI provider's key), VibeCity Kolkata (GTA-style, with guns),
+  Coral Cruise and a Rahim Yar Khan bike tour (plain), Evergrow (a to-do list), Yelamu (a map of San
+  Francisco in 1769), Rooftop Nights (its page was gone), and more make.fun bounty games,
+  configurators and portfolios. The Romanian Museum of Inventors and TEB RUN refuse a frame.
 
 ## Embeds we would add if their sites allowed it
 
@@ -552,7 +582,7 @@ Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Cl
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
 Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, Collection of Beauty, Tour du Pain, Mini Racing,
 Threshold, Hong Kong Birthday Patrol, Tangle, Omnistew, AH NAH TRAH, Clayground, Bellripple, DailyPlay Rally,
-Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, the Romanian Museum of Inventors (wolfitway.com), TEB RUN, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut

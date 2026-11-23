@@ -2,6 +2,7 @@
 // world (SPEC §7). It runs inside the sandboxed, opaque-origin iframe before any world code and
 //   - shims localStorage / sessionStorage / document.cookie (the real ones throw there), lets
 //     workers start from the world's own files and history keep its state without an address,
+//     and stands in for navigator.serviceWorker (registering one is refused rather than thrown),
 //   - asks for the world's own images and media with CORS (so they don't taint its canvases),
 //   - forces preserveDrawingBuffer on WebGL contexts (so thumbnails can be captured),
 //   - reports runtime errors, failed resource loads and the first console.error calls,
@@ -252,6 +253,27 @@ const RUNTIME_SOURCE = String.raw`
       }
     };
   });
+
+  /* navigator.serviceWorker throws in an opaque origin even to read it, so a world that registers
+     one for offline play stopped there: stand in with a container that registers nothing (its
+     register() rejects, like a refused registration). */
+  (function () {
+    var proto = W.Navigator && W.Navigator.prototype;
+    if (!proto || !('serviceWorker' in proto)) { return; }
+    try { void W.navigator.serviceWorker; return; } catch (e) { if (!e || e.name !== 'SecurityError') { return; } }
+    var none = {
+      controller: null, oncontrollerchange: null, onmessage: null, onmessageerror: null,
+      ready: new Promise(function () { /* never: nothing registers */ }),
+      register: function () { return Promise.reject(new DOMException('Service workers are off in a world', 'SecurityError')); },
+      getRegistration: function () { return Promise.resolve(undefined); },
+      getRegistrations: function () { return Promise.resolve([]); },
+      startMessages: function () { /* nothing to deliver */ },
+      addEventListener: function () { /* no events ever come */ },
+      removeEventListener: function () { /* ditto */ },
+      dispatchEvent: function () { return true; }
+    };
+    try { Object.defineProperty(proto, 'serviceWorker', { configurable: true, enumerable: true, get: function () { return none; } }); } catch (e) { /* ignore */ }
+  })();
 
   /* document.cookie throws in an opaque origin; keep a harmless in-memory jar instead. */
   (function () {
