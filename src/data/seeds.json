@@ -4812,5 +4812,81 @@
       "author_url": "https://github.com/James-Thibaudeau",
       "made_with": "three.js, plain ES modules, no build step"
     }
+  },
+  {
+    "id": "aw-saltgate",
+    "name": "Saltgate",
+    "description": "Keep a salt marsh with the tides, rising and falling on a lunar clock: dig channels, work the sluices, fill the pans and trade the salt.",
+    "kind": "external",
+    "external_url": "https://ardholt.github.io/saltgate/",
+    "source_url": "https://github.com/Ardholt/saltgate",
+    "author_name": "Ardholt",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/aw-saltgate.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://github.com/Ardholt/saltgate",
+      "platform": "github",
+      "posted_at": "2026-11-23",
+      "handle": "Ardholt",
+      "author_url": "https://github.com/Ardholt",
+      "made_with": "three.js and Vite, water that really flows"
+    }
+  },
+  {
+    "id": "aw-kumo-no-niwa",
+    "name": "Kumo no Niwa",
+    "description": "Guide Hana and her calico cat across seven floating gardens above the clouds, waking the seals that ring the temple bells again.",
+    "kind": "external",
+    "external_url": "https://kumo-no-niwa.vercel.app/",
+    "source_url": "https://github.com/NachoEstevo/Kumo-no-Niwa",
+    "author_name": "NachoEstevo",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/aw-kumo-no-niwa.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://github.com/NachoEstevo/Kumo-no-Niwa",
+      "platform": "github",
+      "posted_at": "2026-11-23",
+      "handle": "NachoEstevo",
+      "author_url": "https://github.com/NachoEstevo",
+      "made_with": "three.js and the Web Audio API"
+    }
+  },
+  {
+    "id": "aw-storm-hunters",
+    "name": "Storm Hunters",
+    "description": "Chase supercells across the United States: read the radar, photograph tornadoes, drop probes in their path and get out before the wind takes you.",
+    "kind": "external",
+    "external_url": "https://therealufobird.github.io/storm-hunters/",
+    "source_url": "https://github.com/TheRealUFOBIRD/storm-hunters",
+    "author_name": "TheRealUFOBIRD",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/aw-storm-hunters.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://github.com/TheRealUFOBIRD/storm-hunters",
+      "platform": "github",
+      "posted_at": "2026-11-23",
+      "handle": "TheRealUFOBIRD",
+      "author_url": "https://github.com/TheRealUFOBIRD",
+      "made_with": "three.js, raymarched storms, PeerJS for co-op"
+    }
   }
 ]

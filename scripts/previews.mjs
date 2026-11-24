@@ -918,6 +918,17 @@ const SHOTS = {
     steps: [{ click: [640, 708], wait: 5000 }, { click: [1185, 745], wait: 6000 }, { click: [410, 599], wait: 6000 }, { key: 'w', wait: 400 }, { key: 'w', wait: 8000 }],
     drag: swing(160, 0, 640, 400), settle: 1,
   },
+  // Saltgate: a new season's marsh, the camera turning round the river, the sluice and its pan and the village (its
+  // tutorial and tide chart are the page's)
+  'aw-saltgate': {
+    viewport: [1280, 800], scale: 1, size: [1280, 800], wait: 30000, steps: [{ click: [220, 442], wait: 8000 }],
+    drag: swing(220, 0, 760, 420), button: 'right', settle: 1,
+  },
+  // Kumo no Niwa: its opening flight over the floating garden at night, a meteor overhead (its title is the page's)
+  'aw-kumo-no-niwa': { viewport: [1280, 800], scale: 1, size: [1280, 800], wait: 25000, steps: [{ click: [130, 198], wait: 2000 }], settle: 0.5, crf: [46, 29] },
+  // Storm Hunters: its title's supercell dropping a tornado on the plains behind a fence line, at one device pixel per CSS
+  // pixel (at two its raymarched storm took a minute a frame; its menu is the page's)
+  'aw-storm-hunters': { wait: 25000, settle: 1, scale: 1, size: [1280, 800], sub: 1 },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

@@ -571,6 +571,30 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   Coral Cruise and a Rahim Yar Khan bike tour (plain), Evergrow (a to-do list), Yelamu (a map of San
   Francisco in 1769), Rooftop Nights (its page was gone), and more make.fun bounty games,
   configurators and portfolios. The Romanian Museum of Inventors and TEB RUN refuse a frame.
+- **Scouted on 24 November 2026**, quieter (six new topics in the three.js forum's Showcase, Show
+  HN, two new Fable52.games entries and GitHub). Added, all hosted: **Saltgate** (Ardholt's salt
+  marsh kept with the tides on a lunar clock: dig channels, work the sluices, fill the pans and
+  trade the salt, MIT), **Kumo no Niwa** (NachoEstevo's girl and calico cat across seven floating
+  gardens above the clouds, built from scratch with three.js and Web Audio, no license; its clip is
+  its opening flight over the garden at night), and **Storm Hunters** (TheRealUFOBIRD's tornado
+  chasing across a compressed United States, raymarched supercells, MIT; its clip is its title's
+  tornado on the plains, drawn at one device pixel per CSS pixel as at two it took a minute a
+  frame). Saltgate imports @opengamehq/sdk from esm.sh, whose first build of it took over half a
+  minute here (it drew once it came). Held: **Yomatsuri Pinball** (たぬ's pinball on a summer festival
+  table at night, everything made in code, MIT: it hosts and draws, once a start page sets
+  `__BUILD__`, the version its Vite build writes in, but its table is tall and narrow, and the
+  recorder's ball left the upper half within a second, so no clip yet), **Swish** (Ashwin Sathian's
+  free throws on a rooftop court, MIT: its ball didn't take the recorder's drag here, for another
+  look), **Nekomachi** (a rooftop cat in a pastel Japanese city: what it asks of you didn't show
+  here), **Karipap Kitchen** (gabrielmlow21's curry puffs from scratch: charming, but slight),
+  **Maido** (eleven towns at dusk to practise nine languages, with live voice and open chat among
+  strangers) and **laisaochodung** (mitiapps's driving by Vietnam's traffic law, Apache-2.0: it
+  refuses a frame but could be hosted; for another look). Left out: Online LP Café (a walkable copy
+  of a real record shop in Suwon, but its storefront has a cart), SHAKY (a portal of mostly 2D
+  mini-games), Ravenhush (horror), Dreamfield (a world builder), Learn Arduino and Open Flight
+  (course sites), Chrometide (a picture tool), Fly Ball (steered with the head), Saltline Brawl (2D)
+  and 天师摇人 (a slot machine) from Fable52.games, Photo Museum, Jensen Return and Kaukana, which
+  refuse a frame, and more GTA-style cities, zombie shooters and make.fun bounty games.
 
 ## Embeds we would add if their sites allowed it
 
@@ -582,7 +606,7 @@ Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Cl
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
 Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, Collection of Beauty, Tour du Pain, Mini Racing,
 Threshold, Hong Kong Birthday Patrol, Tangle, Omnistew, AH NAH TRAH, Clayground, Bellripple, DailyPlay Rally,
-Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, the Romanian Museum of Inventors (wolfitway.com), TEB RUN, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, the Romanian Museum of Inventors (wolfitway.com), TEB RUN, Photo Museum, Jensen Return, Kaukana, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
