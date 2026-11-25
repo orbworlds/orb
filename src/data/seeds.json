@@ -4888,5 +4888,79 @@
       "author_url": "https://github.com/TheRealUFOBIRD",
       "made_with": "three.js, raymarched storms, PeerJS for co-op"
     }
+  },
+  {
+    "id": "aw-lincoln-drive",
+    "name": "Lincoln Drive",
+    "description": "Drive, walk, cycle or fly a helicopter around Lincoln, Nebraska, from the State Capitol to Memorial Stadium, and find the five stops of its tour.",
+    "kind": "external",
+    "external_url": "https://kalebbennaveed.github.io/go-to-lincoln/",
+    "source_url": "https://github.com/kalebbennaveed/go-to-lincoln",
+    "author_name": "kalebbennaveed",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/aw-lincoln-drive.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://github.com/kalebbennaveed/go-to-lincoln",
+      "platform": "github",
+      "posted_at": "2026-11-24",
+      "handle": "kalebbennaveed",
+      "author_url": "https://github.com/kalebbennaveed",
+      "made_with": "three.js and the City of Lincoln's open GIS data"
+    }
+  },
+  {
+    "id": "aw-feeling-free",
+    "name": "Feeling Free",
+    "description": "Pedal across a windy meadow of long grass to a huge white city, catching air off the crests and finding twelve paper lanterns on the way.",
+    "kind": "external",
+    "external_url": "https://arjunkshah12345-hash.github.io/feeling-free/",
+    "source_url": "https://github.com/arjunkshah12345-hash/feeling-free",
+    "author_name": "arjunkshah12345-hash",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/aw-feeling-free.webp",
+    "native": {
+      "license": "MIT"
+    },
+    "origin": {
+      "post_url": "https://github.com/arjunkshah12345-hash/feeling-free",
+      "platform": "github",
+      "posted_at": "2026-11-24",
+      "handle": "arjunkshah12345-hash",
+      "author_url": "https://github.com/arjunkshah12345-hash",
+      "made_with": "three.js, with procedural music"
+    }
+  },
+  {
+    "id": "aw-final-seven",
+    "name": "Final Seven",
+    "description": "Play handball's 2016 men's final, Denmark against France, seven a side: pass, dribble, shoot and block to change the 28–26 result.",
+    "kind": "external",
+    "external_url": "https://holokcheung.com/final-seven/",
+    "source_url": "https://github.com/holokcheung/final-seven",
+    "author_name": "Ho Lok Cheung",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/aw-final-seven.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://github.com/holokcheung/final-seven",
+      "platform": "github",
+      "posted_at": "2026-11-24",
+      "handle": "holokcheung",
+      "author_url": "https://holokcheung.com/",
+      "made_with": "three.js and Vite, with a public-domain player model"
+    }
   }
 ]

@@ -929,6 +929,20 @@ const SHOTS = {
   // Storm Hunters: its title's supercell dropping a tornado on the plains behind a fence line, at one device pixel per CSS
   // pixel (at two its raymarched storm took a minute a frame; its menu is the page's)
   'aw-storm-hunters': { wait: 25000, settle: 1, scale: 1, size: [1280, 800], sub: 1 },
+  // Lincoln Drive: the striped coupe driving down tree-lined Lincoln Mall towards the Nebraska State Capitol at golden hour
+  'aw-lincoln-drive': { wait: 30000, steps: [{ click: [320, 150], wait: 2000 }], lead: { seconds: 2, hold: ['w'] }, hold: ['w'] },
+  // Feeling Free: pedalling through the windy meadow's long grass towards the huge white city under the indigo cliff
+  'aw-feeling-free': { wait: 30000, steps: [{ click: [97, 328], wait: 3000 }], lead: { seconds: 3, hold: ['w'] }, hold: ['w'], crf: [44, 30] },
+  // Final Seven: its computer-v-computer demo, Denmark and France passing round the D on the blue court (its page
+  // starts the demo when its address has `?demo`, which a world's srcdoc frame can't have: so `init` hands it one)
+  'aw-final-seven': {
+    wait: 30000, settle: 3,
+    init: () => {
+      if (location.href !== 'about:srcdoc') return;
+      const Params = URLSearchParams;
+      window.URLSearchParams = class extends Params { constructor(q) { super(q === '' ? 'demo' : q); } };
+    },
+  },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

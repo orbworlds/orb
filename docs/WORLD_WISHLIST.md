@@ -596,6 +596,46 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   and 天师摇人 (a slot machine) from Fable52.games, Photo Museum, Jensen Return and Kaukana, which
   refuse a frame, and more GTA-style cities, zombie shooters and make.fun bounty games.
 
+- **Scouted on 25 November 2026** (four new topics in the three.js forum's Showcase, Show HN and
+  GitHub; nothing new on Fable52.games or in games.omgithub.com's catalogue). Added, all hosted:
+  **Feeling Free** (arjunkshah12345-hash's bike ride across a windy meadow of about 118,000 grass
+  blades to a huge white city under an indigo cliff, with twelve paper lanterns to find and
+  procedural music, no build step, MIT), **Lincoln Drive** (kalebbennaveed's Lincoln, Nebraska from
+  the city's open GIS data, driven, walked, cycled or flown by helicopter from the State Capitol,
+  with five stops to find; inspired by Matt Rubens's Go To Ann Arbor, no license) and **Final
+  Seven** (Ho Lok Cheung's Denmark v France, the 2016 men's handball final, seven a side with real
+  carrying rules: Explore's first handball; a Vite project Orb runs from its source, no license; its
+  clip is the game's own computer-v-computer demo, which its page starts when its address has
+  `?demo`, so the recorder's `init` hands it one, a world's srcdoc frame having no address). Held:
+  **Tokyo Walker** (sonek-wq's PS1-style Tokyo, from Takeshiba Pier to Ginza and Tokyo Tower,
+  retaking a grandfather's eight old photographs, with 101 achievements and 29 cats to find: it
+  hosts and plays, but runs at a few frames a second on the test machine's software GPU and its
+  opening is mostly pier and water, so it waits for a clip from one of its sights), **Microduck
+  Lab** (R1chi33333's flock of 25 cm robot ducks loose in a comic-book house: its duck didn't step
+  off its charging pad here, and its robot model is CC BY-NC-SA, so it would go in as an embed),
+  **Melaka 1511** (louisenda86's alternate-history night in the Melaka sultanate's harbour: it
+  stayed on its loading screen for over a minute here, for a check on a real GPU; one 15 MB model is
+  over the 10 MB a file a world takes, so it would be an embed) and the **Veliko Tarnovo splat
+  walk** (rosenk/tarnovo-splat-walk: Gaussian-splat streets of old Tarnovo made with World Labs'
+  Atlas, with no page anywhere, and its finest scene is a 32 MB file). Left out: **Potala Palace**
+  (kanshao2077's procedural palace at dusk, beautiful, but a model to turn rather than a place to
+  walk), **Schloss Karlsberg Tour** (a lovely autumn walk on real LiDAR terrain, but an action RPG
+  its makers rate 16+, with scares, ghost fights and a burning building), **EasyGreek Palace**
+  (Greek words in plain rooms, taught in Russian), Gitaway (a work timer that grows a farm), Little
+  Railway World (a flat map of Europe's railways here), Wish Courtyard (a React build whose walker
+  didn't move here), Campus Chaos 3D (a blocky East Delhi campus), Bolones Autodrive (a synthwave
+  crash toy behind a settings panel), BongBong (a tank shooter), Magic Carpet City (its site
+  answered the checker with a 403), End User (2D), Zpup (an article's demo), Pet Everything (a 2D
+  petting toy), Palabrones (a Spanish grammar game for a class of ten-year-olds), Patrician Hanse (a
+  2D trading map after the Patrician games), Siv (a Civilization VI clone), Command 2120 (an online
+  RTS modelled on Red Alert 2), the GPU demo gallery (Nvidia's and ATI's old demos), Go To Ann Arbor
+  (Slop New York's engine in Ann Arbor, 334 MB; Explore has Slop New York), Taj Mahal 3D (an
+  Electron app with a React build and no page), Solstice Manor (a LAN escape room for two), Starpuff
+  Isle (gacha), a solar-system simulation and a PC screensaver from the forum, and more make.fun
+  bounty games. **Fly** (mteinum/fly: an A320 over real Norwegian terrain, MIT, but it needs its own
+  server for weather and ships), **Earth Marquee**, **Holmstead** and **Pool Club Live** refuse a
+  frame.
+
 ## Embeds we would add if their sites allowed it
 
 These refuse to load in a frame (`X-Frame-Options` or `frame-ancestors`). Asking their authors to
@@ -606,7 +646,7 @@ Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Cl
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
 Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, Collection of Beauty, Tour du Pain, Mini Racing,
 Threshold, Hong Kong Birthday Patrol, Tangle, Omnistew, AH NAH TRAH, Clayground, Bellripple, DailyPlay Rally,
-Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, the Romanian Museum of Inventors (wolfitway.com), TEB RUN, Photo Museum, Jensen Return, Kaukana, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, the Romanian Museum of Inventors (wolfitway.com), TEB RUN, Photo Museum, Jensen Return, Kaukana, Earth Marquee, Holmstead, Pool Club Live (on wavedash.com), Fly (fly.teinum.no), and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
