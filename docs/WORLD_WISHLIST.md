@@ -645,9 +645,11 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   drawn in pen and pencil, an action RPG of towns, crypts and dungeons; MIT, but its TypeScript, TSX
   and a GLSL Vite plugin need a build, so it is embedded; its hero picker's Begin sits below a wide
   window's fold, so the recorder presses it by script), **Sky Islands** (StarKnightt's flight
-  between floating islands and their waterfalls above the clouds at sunset, one HTML file, hosted;
-  its 82 MB screen recording, which the page doesn't use, is left out as over the 10 MB a file a
-  world takes), **Pramageddon** (DeveloperTheExplorer's nap shift outside a snowy Norwegian
+  between floating islands and their waterfalls above the clouds at sunset, one HTML file, no
+  license; embedded for now: it hosted locally, but its repository also carries an 82 MB screen
+  recording the page doesn't use, and production's hosting job timed out downloading it, so it goes
+  in hosted once that recording leaves the repository or the importer can pass a big file by without
+  downloading it), **Pramageddon** (DeveloperTheExplorer's nap shift outside a snowy Norwegian
   kindergarten, three prams to keep asleep; a Vite project, hosted, no license) and **Little Rally**
   (riyading's gravel stages through autumn woods with a co-driver reading the pace notes; its code
   isn't public, so it is embedded). Held: **Machine Wilds** (jungrok5: colossal walking machines in
