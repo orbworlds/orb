@@ -943,6 +943,33 @@ const SHOTS = {
       window.URLSearchParams = class extends Params { constructor(q) { super(q === '' ? 'demo' : q); } };
     },
   },
+  // Sky Islands: flying in over the sea of clouds between the floating islands and their waterfalls at sunset, at one
+  // device pixel per CSS pixel (at two its clouds took minutes a frame here)
+  'aw-sky-islands': { wait: 25000, steps: [{ click: [320, 200], wait: 2000 }], lead: { seconds: 2, hold: ['w'] }, hold: ['w'], scale: 1, size: [1280, 800], sub: 1 },
+  // Pramageddon: a nap shift beginning in the snowy yard of the kindergarten, the prams parked under the Norwegian flag
+  // (its menus are laid out for a wide window: drawn at one device pixel per CSS pixel)
+  'aw-pramageddon': {
+    viewport: [1280, 800], scale: 1, size: [1280, 800], wait: 30000,
+    steps: [{ click: [998, 504], wait: 4000 }, { click: [640, 568], wait: 3000 }], settle: 12, press: [['s', 0.2, 1.4], ['a', 1.6, 2.6], ['w', 2.8, 3.8]],
+  },
+  // Cold Smoke: carving down its endless mountain in the morning, the sea of clouds and the far towers ahead (it takes
+  // over a minute to start here; Enter is its Free ski)
+  'ext-cold-smoke': {
+    wait: 90000, steps: [{ key: 'Enter', wait: 4000 }], settle: 2, scale: 1, size: [1280, 800], sub: 1,
+    press: [['ArrowLeft', 0.3, 1.3], ['ArrowRight', 2, 3]],
+  },
+  // Brushwild: walking out across the pencil-drawn square of Hearthmere (its hero picker's Begin is below a wide
+  // window's fold, so `setup` presses it; the crop leaves out its minimap, and its pencil grain needs a high crf)
+  'ext-brushwild': {
+    viewport: [1280, 800], scale: 1, size: [1280, 800], crop: [0, 40, 576, 360], crf: [52, 34], wait: 20000, steps: [{ click: [564, 456], wait: 3000 }],
+    setup: () => { [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Begin')?.click(); },
+    settle: 6, press: [['w', 0.2, 3.8]],
+  },
+  // Little Rally: its first gravel stage, a few seconds past the start, through the autumn woods at golden hour
+  'ext-little-rally': {
+    wait: 15000, steps: [{ key: 'Enter', wait: 1500 }, { key: 'Enter', wait: 1500 }, { key: 'Enter', wait: 6000 }],
+    lead: { seconds: 5, hold: ['w'] }, hold: ['w'],
+  },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

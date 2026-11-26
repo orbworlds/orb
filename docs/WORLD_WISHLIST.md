@@ -636,6 +636,38 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   server for weather and ships), **Earth Marquee**, **Holmstead** and **Pool Club Live** refuse a
   frame.
 
+- **Scouted on 26 November 2026**, quiet on the three.js forum (no new topics in its Showcase) but
+  busy on Show HN, GitHub and Fable52.games, which is now aiarcade.games. Added: **Cold Smoke** (雪迹,
+  huiskylabs's endless ski mountain that builds itself as you carve, above a sea of clouds from
+  morning light to aurora, every picture and sound made in code; MIT, but its page is built by
+  joining 56 source files, so it is embedded: a start page doing that join in the browser could host
+  it; it takes over a minute to start on the test machine), **Brushwild** (Kevin Ngo's open world
+  drawn in pen and pencil, an action RPG of towns, crypts and dungeons; MIT, but its TypeScript, TSX
+  and a GLSL Vite plugin need a build, so it is embedded; its hero picker's Begin sits below a wide
+  window's fold, so the recorder presses it by script), **Sky Islands** (StarKnightt's flight
+  between floating islands and their waterfalls above the clouds at sunset, one HTML file, hosted;
+  its 82 MB screen recording, which the page doesn't use, is left out as over the 10 MB a file a
+  world takes), **Pramageddon** (DeveloperTheExplorer's nap shift outside a snowy Norwegian
+  kindergarten, three prams to keep asleep; a Vite project, hosted, no license) and **Little Rally**
+  (riyading's gravel stages through autumn woods with a co-driver reading the pace notes; its code
+  isn't public, so it is embedded). Held: **Machine Wilds** (jungrok5: colossal walking machines in
+  overgrown ruins, with times of day and weather; it crashed the test browser twice, for a check on
+  a real GPU), **SOS Copter** (In Hoc Signo Ludimus's 90s-style helicopter rescue over a voxel
+  Miami: its helicopter stayed on the pad here), **Free Flow** (glyphh-ai/free-flow, a downhill
+  longboard race, Apache-2.0: it refuses a frame, so it could only go in hosted; not tried yet),
+  **Eastfar** (a moody first-person fantasy walk made today) and **Lighthouse Cup** (a pixel-art
+  volleyball match centre, MIT, which refuses a frame: more a management sim than a world). Left
+  out: Ashen Hold (a vale on a world-moon, rough and heavily pixelated here), Cinderwatch (Kevin
+  Ngo's tower defence), Roamwright (a worldbuilding engine's alpine viaduct to orbit), Endless
+  Blocks (an autopilot flight over a blocky world), Tropical Speedboat (set in GTA VI's Leonida
+  Keys), Steal from Granny (a sneak game behind menus and a shop), Ladro di cavalli 1038 (2D), Mud
+  Pig Wash and Eggsimulator (toys), Slope Spy (a ski-resort comparison tool), Belt and Box (a
+  conveyor-belt puzzle behind a consent prompt), cundi (a portfolio of small experiments), the DIT
+  University campus map, Asterwood Academy (an AI tutor), Skyline Swing (it stayed black here), What
+  the Dust Keeps (survival in a ruined Gaza Strip), Syndicate and qake (fights between players),
+  Clashroids, Zork (text), a playable CD player and more make.fun bounty games. **One Fairway**
+  (golf) and **Disc Unleashed** (ultimate frisbee) refuse a frame.
+
 ## Embeds we would add if their sites allowed it
 
 These refuse to load in a frame (`X-Frame-Options` or `frame-ancestors`). Asking their authors to
@@ -646,7 +678,7 @@ Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Cl
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
 Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, Collection of Beauty, Tour du Pain, Mini Racing,
 Threshold, Hong Kong Birthday Patrol, Tangle, Omnistew, AH NAH TRAH, Clayground, Bellripple, DailyPlay Rally,
-Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, the Romanian Museum of Inventors (wolfitway.com), TEB RUN, Photo Museum, Jensen Return, Kaukana, Earth Marquee, Holmstead, Pool Club Live (on wavedash.com), Fly (fly.teinum.no), and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, the Romanian Museum of Inventors (wolfitway.com), TEB RUN, Photo Museum, Jensen Return, Kaukana, Earth Marquee, Holmstead, Pool Club Live (on wavedash.com), Fly (fly.teinum.no), One Fairway, Disc Unleashed, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut

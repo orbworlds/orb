@@ -4962,5 +4962,122 @@
       "author_url": "https://holokcheung.com/",
       "made_with": "three.js and Vite, with a public-domain player model"
     }
+  },
+  {
+    "id": "ext-cold-smoke",
+    "name": "Cold Smoke",
+    "description": "Ski an endless mountain that builds itself as you go, carving through powder above a sea of clouds from morning light to aurora.",
+    "kind": "external",
+    "external_url": "https://huisky.xyz/cold-smoke/play",
+    "source_url": "https://github.com/huiskylabs/cold-smoke",
+    "author_name": "huiskylabs",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 62,
+    "thumb_url": "/seeds/ext-cold-smoke.webp",
+    "origin": {
+      "post_url": "https://aiarcade.games/play/cold-smoke",
+      "platform": "AI Arcade",
+      "posted_at": "2026-11-25",
+      "handle": "huiskylabs",
+      "author_url": "https://github.com/huiskylabs",
+      "made_with": "WebGL, every picture and sound made in code"
+    }
+  },
+  {
+    "id": "ext-brushwild",
+    "name": "Brushwild",
+    "description": "Pick a class and roam a pencil-drawn world of towns, crypts and dungeons, growing a skill tree and chasing loot.",
+    "kind": "external",
+    "external_url": "https://kevintngo.github.io/procedural-rpg/",
+    "source_url": "https://github.com/kevintngo/procedural-rpg",
+    "author_name": "Kevin Ngo",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-brushwild.webp",
+    "origin": {
+      "post_url": "https://aiarcade.games/play/brushwild",
+      "platform": "AI Arcade",
+      "posted_at": "2026-11-25",
+      "handle": "kevintngo",
+      "author_url": "https://github.com/kevintngo",
+      "made_with": "three.js, TypeScript and Vite"
+    }
+  },
+  {
+    "id": "aw-sky-islands",
+    "name": "Sky Islands",
+    "description": "Fly freely between floating islands and their waterfalls, high above a sea of clouds at sunset.",
+    "kind": "external",
+    "external_url": "https://starknightt.github.io/sky-islands/",
+    "source_url": "https://github.com/StarKnightt/sky-islands",
+    "author_name": "StarKnightt",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/aw-sky-islands.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://github.com/StarKnightt/sky-islands",
+      "platform": "github",
+      "posted_at": "2026-11-25",
+      "handle": "StarKnightt",
+      "author_url": "https://github.com/StarKnightt",
+      "made_with": "three.js in one HTML file, everything generated in code"
+    }
+  },
+  {
+    "id": "aw-pramageddon",
+    "name": "Pramageddon",
+    "description": "Keep three babies napping in their prams outside a snowy Norwegian kindergarten: fetch what they need, soothe the criers and see off the local wildlife.",
+    "kind": "external",
+    "external_url": "https://developertheexplorer.github.io/pramageddon/",
+    "source_url": "https://github.com/DeveloperTheExplorer/pramageddon",
+    "author_name": "DeveloperTheExplorer",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/aw-pramageddon.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://github.com/DeveloperTheExplorer/pramageddon",
+      "platform": "github",
+      "posted_at": "2026-11-25",
+      "handle": "DeveloperTheExplorer",
+      "author_url": "https://github.com/DeveloperTheExplorer",
+      "made_with": "three.js and Vite"
+    }
+  },
+  {
+    "id": "ext-little-rally",
+    "name": "Little Rally",
+    "description": "Drive gravel rally stages through autumn woods against the clock while your co-driver reads out the pace notes.",
+    "kind": "external",
+    "external_url": "https://riyad.ing/little-rally/",
+    "author_name": "riyading",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 58,
+    "thumb_url": "/seeds/ext-little-rally.webp",
+    "origin": {
+      "post_url": "https://news.ycombinator.com/item?id=50644233",
+      "platform": "hn",
+      "likes": 1,
+      "posted_at": "2026-11-25",
+      "handle": "riyading",
+      "author_url": "https://riyad.ing/",
+      "made_with": "WebGL"
+    }
   }
 ]
