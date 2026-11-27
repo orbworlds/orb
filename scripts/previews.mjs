@@ -970,6 +970,18 @@ const SHOTS = {
     wait: 15000, steps: [{ key: 'Enter', wait: 1500 }, { key: 'Enter', wait: 1500 }, { key: 'Enter', wait: 6000 }],
     lead: { seconds: 5, hold: ['w'] }, hold: ['w'],
   },
+  // Unwritten: the Scribe walking past the Old Reader and the horse in its world drawn in letters (its title's BEGIN
+  // is laid out for a wide window; its letters need a high crf)
+  'aw-unwritten': { viewport: [1280, 800], scale: 1, size: [1280, 800], crf: [61, 36], wait: 25000, steps: [{ click: [640, 496], wait: 6000 }], settle: 1, hold: ['w'] },
+  // The Hush: its opening, the girl riding the train to visit her friend, the egg in a basket beside her and the
+  // countryside going by (New game, then Spanish, each with Enter)
+  'aw-the-hush': {
+    viewport: [1280, 800], scale: 1, size: [1280, 800], wait: 30000,
+    steps: [{ click: [150, 396], wait: 2000 }, { key: 'Enter', wait: 6000 }, { click: [274, 300], wait: 3000 }, { key: 'Enter', wait: 15000 }], settle: 2,
+  },
+  // AURELIA: looking slowly across the misty valley at sunrise, its lake and the stone viaduct on the hill ("Take
+  // control" ends its tour; a drag turns the camera, as flying forward hardly moves it in four seconds)
+  'ext-aurelia': { viewport: [1280, 800], scale: 1, size: [1280, 800], sub: 1, wait: 50000, steps: [{ click: [1204, 774], wait: 4000 }], settle: 1, drag: swing(220, 0, 640, 400) },
 };
 
 /** Runs in every frame before its scripts: a clock that only moves when the recorder says so. */

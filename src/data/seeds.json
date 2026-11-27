@@ -5078,5 +5078,76 @@
       "author_url": "https://riyad.ing/",
       "made_with": "WebGL"
     }
+  },
+  {
+    "id": "ext-aurelia",
+    "name": "AURELIA",
+    "description": "Fly freely over 32 by 32 kilometres of coastline, meadows, snow peaks and ruins, through volumetric clouds you can enter, or let its tour show you around.",
+    "kind": "external",
+    "external_url": "https://bunnychen.top/demos/aurelia/",
+    "author_name": "Bunny Chen",
+    "tags": [
+      "world"
+    ],
+    "verified": false,
+    "featured": 61,
+    "thumb_url": "/seeds/ext-aurelia.webp",
+    "origin": {
+      "post_url": "https://discourse.threejs.org/t/aurelia-a-real-time-landscape-you-can-fly-through/97841",
+      "platform": "three.js forum",
+      "posted_at": "2026-11-27",
+      "handle": "BunnyChen",
+      "author_url": "https://bunnychen.top/",
+      "made_with": "three.js"
+    }
+  },
+  {
+    "id": "aw-unwritten",
+    "name": "Unwritten",
+    "description": "Wander an open world drawn entirely in letters as its last Scribe, writing back the words that open rivers and walls while something deletes it.",
+    "kind": "external",
+    "external_url": "https://tetriss22.github.io/unwritten/",
+    "source_url": "https://github.com/Tetriss22/unwritten",
+    "author_name": "Tetriss22",
+    "tags": [
+      "game"
+    ],
+    "verified": false,
+    "featured": 60,
+    "thumb_url": "/seeds/aw-unwritten.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://aiarcade.games/play/unwritten",
+      "platform": "AI Arcade",
+      "posted_at": "2026-11-26",
+      "handle": "Tetriss22",
+      "author_url": "https://github.com/Tetriss22",
+      "made_with": "three.js, everything drawn as text"
+    }
+  },
+  {
+    "id": "aw-the-hush",
+    "name": "The Hush",
+    "description": "Learn Spanish, Portuguese, German, Chinese or Japanese by talking your way through the town of Alba, where a gray silence is taking people's voices.",
+    "kind": "external",
+    "external_url": "https://gabeisrandom.github.io/the-hush/",
+    "source_url": "https://github.com/GabeisRandom/the-hush",
+    "author_name": "GabeisRandom",
+    "tags": [
+      "game",
+      "keyboard"
+    ],
+    "verified": false,
+    "featured": 59,
+    "thumb_url": "/seeds/aw-the-hush.webp",
+    "native": {},
+    "origin": {
+      "post_url": "https://github.com/GabeisRandom/the-hush",
+      "platform": "github",
+      "posted_at": "2026-11-26",
+      "handle": "GabeisRandom",
+      "author_url": "https://github.com/GabeisRandom",
+      "made_with": "three.js, with original music"
+    }
   }
 ]

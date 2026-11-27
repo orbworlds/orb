@@ -670,6 +670,31 @@ Scouted in October 2026; the ones that played in Orb's frame are in Explore now.
   Clashroids, Zork (text), a playable CD player and more make.fun bounty games. **One Fairway**
   (golf) and **Disc Unleashed** (ultimate frisbee) refuse a frame.
 
+- **Scouted on 27 November 2026** (seven new topics in the three.js forum's Showcase, Show HN,
+  GitHub and three new entries on aiarcade.games). Added: **AURELIA** (Bunny Chen's 32 by 32 km
+  landscape of coastline, meadows, snow peaks and ruins under volumetric clouds, with a guided tour
+  and free flight after "Take control"; no code of its own on GitHub, so it is embedded),
+  **Unwritten** (Tetriss22's ASCII action game: an open world of five lands drawn entirely in
+  letters, where the last Scribe writes the world back; hosted, no license) and **The Hush**
+  (GabeisRandom's language-learning RPG in five languages, from a train ride to the town of Alba;
+  hosted, no license; its clip is its opening on the train, and it says phones aren't supported
+  yet). Held: **Zhujiyin · Buzhou Mountain** (烛九阴·不周山, a xianxia open world, 254 MB: it stayed on
+  its title here), **TrisTik** (Fadi1089's cozy tetromino world-builder: it plays, but opens on a
+  bare grid, for a clip of a grown world) and **MNKISWAN Meadow** (a cozy farming game for two
+  players on two screens, MIT, not tried yet). Left out: Town Highway (a single-file kart racer,
+  plainer than the racers in Explore), Query Truck (SQL lessons behind menus, the food truck a
+  backdrop), Big Air Park (every board sport on plain purple ramps), Track & Field (Indonesian
+  athletics behind menus), Aether Drift (a crystal race over floating isles of generated models),
+  Building Shenzhen (a historical atlas of Shenzhen from 1979 with plain street views), Cat Island
+  (a night diorama of a cat garden to turn), Keep of the Iron Oath (a castle siege), EarthCiv (a
+  directory of maps), the CSS 3D dock (a short scroll along a jetty), 3DAZON (an Amazon product
+  showroom), TreeLab (a tree tool), Wallrus (desktop wallpapers), Just rip it off (a message toy),
+  Beatbound (a one-button rhythm runner) and Palmera Heat (GTA-style) from aiarcade.games, Isekai
+  Boys (2D), Manabrew (Magic: The Gathering), Pocket Garden (a console of 150 small games), two
+  space viewers and more make.fun bounty games. **Daily Divot** (a daily golf hole) and **Pardon
+  Me** (a Thanksgiving turkey game) refuse a frame. A source to mine: ZeshenTian/ai-worlds-tracker,
+  a playable feed of over 1,600 AI-made 3D worlds, synced daily.
+
 ## Embeds we would add if their sites allowed it
 
 These refuse to load in a frame (`X-Frame-Options` or `frame-ancestors`). Asking their authors to
@@ -680,7 +705,7 @@ Labs, Still Night, Tidebreaker, Operation Elsewhere, Heatsink, Junkyard King, Cl
 Michi, Claude of Tanks, GTA Kenny City, Wyrmhole, The Aviator, Engine-X, HarbourLine, SKYWAKE,
 Stovetop, Vizbite, Cake Farm, Akira Toriyama's drawing room, Collection of Beauty, Tour du Pain, Mini Racing,
 Threshold, Hong Kong Birthday Patrol, Tangle, Omnistew, AH NAH TRAH, Clayground, Bellripple, DailyPlay Rally,
-Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, the Romanian Museum of Inventors (wolfitway.com), TEB RUN, Photo Museum, Jensen Return, Kaukana, Earth Marquee, Holmstead, Pool Club Live (on wavedash.com), Fly (fly.teinum.no), One Fairway, Disc Unleashed, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
+Posy, Chongqing, Kiakia Dash, Wrongly Drawn, Compass Post, Rooftop Rally, the Romanian Museum of Inventors (wolfitway.com), TEB RUN, Photo Museum, Jensen Return, Kaukana, Earth Marquee, Holmstead, Pool Club Live (on wavedash.com), Fly (fly.teinum.no), One Fairway, Disc Unleashed, Daily Divot, Pardon Me, and the games on genex.games (Snowball, Midnight Apex) and on claude.ai artifacts (Mini Moto).
 
 Three refuse a frame but are MIT on GitHub, yet are too big for a world (200 MB and 10 MB a file since, `FILE_LIMITS` in
 `src/server/files.ts`) and need a Vite build: **False Earth** (momentchan/false-earth: an astronaut
